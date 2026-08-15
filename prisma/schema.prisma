@@ -1,0 +1,301 @@
+// Domain model per aequitas-implementation-handoff.md Section 5.
+// Prisma enum identifiers can't contain dots; EventType values map the
+// dotted prose form (e.g. "case.created", used in Section 8 and the UI
+// timeline) to SCREAMING_SNAKE identifiers (CASE_CREATED). Application code
+// is the single place that translates between the two.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DisputeCategory {
+  RETAIL
+  TENANCY
+  EMPLOYMENT
+  B2B
+  FREELANCE
+  P2P_MARKETPLACE
+  PARTNERSHIP
+}
+
+enum GlobalRole {
+  COMPLAINANT
+  RESPONDENT
+  CASE_MANAGER
+  ADMIN
+}
+
+enum CaseState {
+  DRAFT
+  OPEN
+  EVIDENCE_INTAKE
+  POSITIONS
+  DRAFTING
+  ISSUED
+  RESOLVED_CONSENT
+  RESOLVED_DECLINED
+  WITHDRAWN
+  CLOSED
+}
+
+enum ConsentState {
+  NOT_GIVEN
+  GIVEN
+  DECLINED
+  REVOKED
+}
+
+enum EvidenceKind {
+  DOCUMENT
+  PHOTO
+  MESSAGE
+  RECEIPT
+  OTHER
+}
+
+enum ScanStatus {
+  PENDING
+  CLEAN
+  REJECTED
+}
+
+enum RecommendationStatus {
+  DRAFT
+  ISSUED
+  SUPERSEDED
+}
+
+enum EventType {
+  CASE_CREATED
+  CASE_SUBMITTED
+  CASE_ASSIGNED
+  COI_DECLARED
+  EVIDENCE_INTAKE_OPENED
+  EVIDENCE_SUBMITTED
+  EVIDENCE_SUPERSEDED
+  EVIDENCE_INTAKE_CLOSED
+  POSITION_SUBMITTED
+  RECOMMENDATION_DRAFT_REQUESTED
+  RECOMMENDATION_DRAFTED
+  RECOMMENDATION_ISSUED
+  RECOMMENDATION_SUPERSEDED
+  CONSENT_GIVEN
+  CONSENT_DECLINED
+  CONSENT_REVOKED
+  CASE_RESOLVED
+  CASE_RESOLVED_DECLINED
+  CASE_REOPENED
+  CASE_WITHDRAWN
+  CASE_CLOSED
+  EXPORT_GENERATED
+  DEADLINE_EXPIRED
+  PARTY_NOTIFIED
+  NOTE_ADDED
+  ACCESS_STAFF_GRANTED
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  displayName String
+  locale      String   @default("fr-CA")
+  globalRole  GlobalRole
+  createdAt   DateTime @default(now())
+
+  credentials WebAuthnCredential[]
+
+  casesAsComplainant    Case[] @relation("CaseComplainant")
+  casesAsRespondent     Case[] @relation("CaseRespondent")
+  casesAsCaseManager    Case[] @relation("CaseManager")
+
+  evidenceSubmitted     EvidenceItem[]
+  positionsSubmitted    PositionStatement[]
+  recommendationsIssued Recommendation[]
+  consentRecords        ConsentRecord[]
+  coiDeclarations       CoiDeclaration[]
+  exportsGenerated      ExportBundle[]
+  notifications         Notification[]
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(uuid())
+  userId       String
+  credentialId String   @unique
+  publicKey    Bytes
+  counter      BigInt
+  transports   String[]
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Case {
+  id                      String    @id @default(uuid())
+  referenceNumber         String    @unique
+  state                   CaseState
+  category                DisputeCategory @default(RETAIL)
+  metadata                Json?
+  simulated               Boolean   @default(false)
+  complainantId           String
+  respondentId            String
+  caseManagerId           String?
+  currentRecommendationId String?
+  createdAt               DateTime  @default(now())
+  closedAt                DateTime?
+
+  complainant    User @relation("CaseComplainant", fields: [complainantId], references: [id])
+  respondent     User @relation("CaseRespondent", fields: [respondentId], references: [id])
+  caseManager    User? @relation("CaseManager", fields: [caseManagerId], references: [id])
+
+  evidenceItems       EvidenceItem[]
+  positionStatements  PositionStatement[]
+  recommendations     Recommendation[]
+  consentRecords      ConsentRecord[]
+  coiDeclarations     CoiDeclaration[]
+  events              Event[]
+  exportBundles       ExportBundle[]
+  notifications       Notification[]
+}
+
+model EvidenceItem {
+  id            String     @id @default(uuid())
+  caseId        String
+  submittedById String
+  kind          EvidenceKind
+  title         String
+  description   String?
+  storageKey    String     @unique
+  sha256        String
+  byteSize      Int
+  mimeType      String
+  scanStatus    ScanStatus @default(PENDING)
+  simulated     Boolean
+  version       Int        @default(1)
+  supersedesId  String?
+  createdAt     DateTime   @default(now())
+
+  case        Case @relation(fields: [caseId], references: [id])
+  submittedBy User @relation(fields: [submittedById], references: [id])
+}
+
+model PositionStatement {
+  id        String   @id @default(uuid())
+  caseId    String
+  partyId   String
+  body      String
+  locale    String
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+
+  case  Case @relation(fields: [caseId], references: [id])
+  party User @relation(fields: [partyId], references: [id])
+}
+
+model Recommendation {
+  id            String               @id @default(uuid())
+  caseId        String
+  version       Int                  @default(1)
+  status        RecommendationStatus
+  explanation   Json
+  modelId       String
+  promptVersion String
+  issuedById    String?
+  issuedAt      DateTime?
+  createdAt     DateTime             @default(now())
+
+  case     Case  @relation(fields: [caseId], references: [id])
+  issuedBy User? @relation(fields: [issuedById], references: [id])
+
+  consentRecords ConsentRecord[]
+
+  @@unique([caseId, version])
+}
+
+model ConsentRecord {
+  id                 String        @id @default(uuid())
+  caseId             String
+  recommendationId   String
+  partyId            String
+  state              ConsentState
+  statementVersionId String
+  locale             String
+  authContext        Json
+  givenAt            DateTime?
+  declinedAt         DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime      @default(now())
+
+  case           Case                     @relation(fields: [caseId], references: [id])
+  recommendation Recommendation           @relation(fields: [recommendationId], references: [id])
+  party          User                     @relation(fields: [partyId], references: [id])
+  statementVersion ConsentStatementVersion @relation(fields: [statementVersionId], references: [id])
+}
+
+model ConsentStatementVersion {
+  id            String   @id @default(uuid())
+  version       Int
+  locale        String
+  body          String
+  effectiveFrom DateTime
+
+  consentRecords ConsentRecord[]
+
+  @@unique([version, locale])
+}
+
+model CoiDeclaration {
+  id            String   @id @default(uuid())
+  caseId        String
+  caseManagerId String
+  hasConflict   Boolean
+  details       String?
+  declaredAt    DateTime @default(now())
+
+  case        Case @relation(fields: [caseId], references: [id])
+  caseManager User @relation(fields: [caseManagerId], references: [id])
+}
+
+model Event {
+  id        String    @id @default(uuid())
+  caseId    String
+  seq       Int
+  type      EventType
+  actorId   String
+  payload   Json
+  prevHash  String
+  hash      String    @unique
+  createdAt DateTime  @default(now())
+
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@unique([caseId, seq])
+}
+
+model ExportBundle {
+  id            String   @id @default(uuid())
+  caseId        String
+  generatedById String
+  storageKey    String   @unique
+  sha256        String
+  generatedAt   DateTime @default(now())
+
+  case        Case @relation(fields: [caseId], references: [id])
+  generatedBy User @relation(fields: [generatedById], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  caseId    String
+  kind      String
+  locale    String
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  case Case @relation(fields: [caseId], references: [id])
+}

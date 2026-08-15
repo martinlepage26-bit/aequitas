@@ -1,0 +1,295 @@
+import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { getSession } from "../../../../lib/session";
+import { prisma } from "../../../../lib/prisma";
+import { getAuthorityView, type AuthorityActionKey, type AuthorityRoleKey, type CaseProgress } from "../../../../domain/authorityView";
+import { filterEventsForRole } from "../../../../domain/eventTimeline";
+import type { ExplanationRecord } from "../../../../domain/explanationRecord";
+import { resolveRoleTerm } from "../../../../i18n/categoryGlossary";
+import EvidenceForm from "./EvidenceForm";
+import PositionForm from "./PositionForm";
+import CloseIntakeButton from "./CloseIntakeButton";
+import SubmitCaseButton from "./SubmitCaseButton";
+import OpenIntakeButton from "./OpenIntakeButton";
+import RequestDraftButton from "./RequestDraftButton";
+import IssueRecommendationForm from "./IssueRecommendationForm";
+import ConsentPanel from "./ConsentPanel";
+import WithdrawButton from "./WithdrawButton";
+import CloseCaseButton from "./CloseCaseButton";
+
+export default async function CaseWorkspacePage({ params }: { params: Promise<{ locale: string; caseId: string }> }) {
+  const { caseId, locale } = await params;
+  const session = await getSession();
+  if (!session) redirect("/auth/sign-in");
+
+  const caseRow = await prisma.case.findUnique({
+    where: { id: caseId },
+    include: {
+      complainant: { select: { id: true, displayName: true } },
+      respondent: { select: { id: true, displayName: true } },
+      caseManager: { select: { id: true, displayName: true } },
+      evidenceItems: { orderBy: { createdAt: "asc" }, include: { submittedBy: { select: { displayName: true } } } },
+      positionStatements: { orderBy: [{ partyId: "asc" }, { version: "asc" }], include: { party: { select: { displayName: true } } } },
+      events: { orderBy: { seq: "asc" } },
+    },
+  });
+  if (!caseRow) notFound();
+
+  const consentRecords = caseRow.currentRecommendationId
+    ? await prisma.consentRecord.findMany({ where: { recommendationId: caseRow.currentRecommendationId } })
+    : [];
+  const consentStateFor = (partyId: string) => consentRecords.find((c) => c.partyId === partyId)?.state ?? "NOT_GIVEN";
+
+  // Section 16 RBAC-404 posture, applied to page access: a non-party,
+  // non-manager viewer sees "not found", never a 403 that would confirm the
+  // case exists. Any CASE_MANAGER (not just the assigned one) can still open
+  // this page — the assigned-manager guard itself is enforced server-side by
+  // each mutation route (close-intake, etc.), same as an unclaimed OPEN case
+  // must stay reachable for a manager to self-claim via open_intake.
+  const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
+  const isManagerOrAdmin = session.globalRole === "CASE_MANAGER" || session.globalRole === "ADMIN";
+  if (!isParty && !isManagerOrAdmin) notFound();
+
+  const progress: CaseProgress = {
+    complainantHasCleanEvidence: caseRow.evidenceItems.some((e) => e.submittedById === caseRow.complainantId && e.scanStatus === "CLEAN"),
+    respondentHasCleanEvidence: caseRow.evidenceItems.some(
+      (e) => e.submittedById === caseRow.respondentId && e.scanStatus === "CLEAN"
+    ),
+    complainantHasCurrentPosition: caseRow.positionStatements.some((p) => p.partyId === caseRow.complainantId),
+    respondentHasCurrentPosition: caseRow.positionStatements.some((p) => p.partyId === caseRow.respondentId),
+    complainantConsentState: consentStateFor(caseRow.complainantId),
+    respondentConsentState: consentStateFor(caseRow.respondentId),
+  };
+
+  const authority = getAuthorityView(caseRow.state, session.globalRole, progress);
+
+  const t = await getTranslations("workspace");
+  const tBanner = await getTranslations("banner");
+
+  const actionLabel = (key: AuthorityActionKey) => t(`action.${key}`);
+  // Handoff 2026-08-15-070312 "Immediate Next Steps" #3: complainant/respondent
+  // resolve through the case's category (e.g. "tenant"/"landlord" for
+  // TENANCY) instead of the literal internal role name; every other role key
+  // (caseManager, admin, bothParties, system) has no domain-specific term and
+  // falls back to the static catalog.
+  const roleLabel = (key: AuthorityRoleKey | "bothParties" | "system") =>
+    key === "complainant" || key === "respondent" ? resolveRoleTerm(caseRow.category, key, locale) : t(`role.${key}` as Parameters<typeof t>[0]);
+
+  const canSubmitCase = authority.actionKeys.includes("submitCase");
+  const canOpenIntake = authority.actionKeys.includes("openIntake");
+  const canSubmitEvidence = authority.actionKeys.includes("submitEvidence");
+  const canSubmitPosition = authority.actionKeys.includes("submitPosition");
+  const canCloseIntake = authority.actionKeys.includes("closeIntake");
+  const canRequestDraft = authority.actionKeys.includes("requestDraft") || authority.actionKeys.includes("requestNewVersion");
+  const canIssueRecommendation = authority.actionKeys.includes("issueRecommendation");
+  const canGiveOrDeclineConsent = authority.actionKeys.includes("giveConsent");
+  const canRevokeConsent = authority.actionKeys.includes("revokeConsent");
+  const canWithdraw = authority.actionKeys.includes("withdraw") && caseRow.state !== "CLOSED";
+  const canCloseCase = authority.actionKeys.includes("closeCase");
+
+  const ownConsentState =
+    session.userId === caseRow.complainantId
+      ? progress.complainantConsentState
+      : session.userId === caseRow.respondentId
+        ? progress.respondentConsentState
+        : "NOT_GIVEN";
+
+  const currentStatement = await prisma.consentStatementVersion.findFirst({
+    where: { locale },
+    orderBy: { effectiveFrom: "desc" },
+  });
+
+  // Section 10: "View draft recommendation: never (consumer/retailer), yes
+  // (case manager)". An ISSUED recommendation is a different story — every
+  // party needs to see it to give informed consent (M4) — so quarantine
+  // only applies while status is DRAFT.
+  const isAssignedManager = session.globalRole === "CASE_MANAGER" && session.userId === caseRow.caseManagerId;
+  let recommendation: { id: string; explanation: ExplanationRecord; status: string } | null = null;
+  if (caseRow.currentRecommendationId) {
+    const row = await prisma.recommendation.findUnique({ where: { id: caseRow.currentRecommendationId } });
+    if (row && (row.status === "ISSUED" || isAssignedManager)) {
+      recommendation = { id: row.id, explanation: row.explanation as unknown as ExplanationRecord, status: row.status };
+    }
+  }
+  const reviewer = recommendation?.explanation.reviewer.user_id
+    ? await prisma.user.findUnique({ where: { id: recommendation.explanation.reviewer.user_id }, select: { displayName: true } })
+    : null;
+
+  const visibleEvents = filterEventsForRole(caseRow.events, session.globalRole);
+  const eventActorIds = [...new Set(visibleEvents.map((e) => e.actorId))];
+  const eventActors = eventActorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: eventActorIds } }, select: { id: true, displayName: true } })
+    : [];
+  const eventActorNameById = new Map(eventActors.map((a) => [a.id, a.displayName]));
+  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
+
+  return (
+    <main style={{ maxWidth: "48rem", margin: "2rem auto", padding: "0 1rem", fontFamily: "system-ui, sans-serif" }}>
+      {caseRow.simulated && (
+        <div role="note" style={{ background: "#FFF3CD", border: "1px solid #E0C36B", padding: "0.5rem 1rem", marginBottom: "1rem" }}>
+          <strong aria-hidden="true">⚠</strong> {tBanner("simulated")}
+        </div>
+      )}
+
+      <h1>{t("caseReference", { reference: caseRow.referenceNumber })}</h1>
+      <p>
+        <strong>{t(`state.${caseRow.state}`)}</strong>
+      </p>
+
+      <section aria-labelledby="authority-heading" style={{ border: "1px solid #ccc", padding: "1rem", marginBottom: "1.5rem" }}>
+        <h2 id="authority-heading" style={{ fontSize: "1rem", marginTop: 0 }}>
+          {t("header.roleLabel", { role: roleLabel(authority.roleKey) })}
+        </h2>
+        {caseRow.state === "CLOSED" ? (
+          <p>{t("header.closedNotice")}</p>
+        ) : (
+          <>
+            <p>
+              {authority.actionKeys.length > 0
+                ? t("header.authorityPrefix", { actions: authority.actionKeys.map(actionLabel).join(", ") })
+                : t("header.authorityNone")}
+            </p>
+            {authority.waitingOn && (
+              <p>
+                {t("header.waitingOnPrefix", {
+                  role: roleLabel(authority.waitingOn.roleKey),
+                  action: actionLabel(authority.waitingOn.actionKey as AuthorityActionKey),
+                })}
+              </p>
+            )}
+          </>
+        )}
+        {canSubmitCase && <SubmitCaseButton caseId={caseId} />}
+        {canOpenIntake && <OpenIntakeButton caseId={caseId} />}
+        {canWithdraw && <WithdrawButton caseId={caseId} />}
+      </section>
+
+      <section aria-labelledby="evidence-heading" style={{ marginBottom: "1.5rem" }}>
+        <h2 id="evidence-heading">{t("evidence.title")}</h2>
+        {caseRow.evidenceItems.length === 0 ? (
+          <p>{t("evidence.empty")}</p>
+        ) : (
+          <ul>
+            {caseRow.evidenceItems
+              .filter((e) => e.scanStatus !== "REJECTED" || e.submittedById === session.userId)
+              .map((e) => (
+                <li key={e.id} id={`evidence-${e.id}`}>
+                  <strong>{e.title}</strong> ({t(`evidence.kind.${e.kind}`)}) — {t("evidence.submittedBy", { name: e.submittedBy.displayName })}
+                  {" — "}
+                  {t(`evidence.scanStatus.${e.scanStatus}`)}
+                  {caseRow.evidenceItems.some((other) => other.supersedesId === e.id) && <> — {t("evidence.supersededNotice")}</>}
+                </li>
+              ))}
+          </ul>
+        )}
+        {canSubmitEvidence && <EvidenceForm caseId={caseId} />}
+      </section>
+
+      <section aria-labelledby="positions-heading" style={{ marginBottom: "1.5rem" }}>
+        <h2 id="positions-heading">{t("positions.title")}</h2>
+        {caseRow.positionStatements.length === 0 ? (
+          <p>{t("positions.empty")}</p>
+        ) : (
+          <ul>
+            {caseRow.positionStatements.map((p) => (
+              <li key={p.id}>
+                <strong>{p.party.displayName}</strong> — {t("positions.version", { version: p.version })}
+                <p>{p.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {canSubmitPosition && <PositionForm caseId={caseId} />}
+      </section>
+
+      {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
+      {canRequestDraft && <RequestDraftButton caseId={caseId} />}
+
+      {recommendation && (
+        <section aria-labelledby="recommendation-heading" style={{ marginBottom: "1.5rem", marginTop: "1.5rem" }}>
+          <h2 id="recommendation-heading">{t("recommendation.title")}</h2>
+          <h3 style={{ fontSize: "1rem" }}>
+            {recommendation.status === "ISSUED" ? t("recommendation.issuedHeading") : t("recommendation.draftHeading")}
+          </h3>
+          <p>
+            <strong>{t("recommendation.summaryLabel")}:</strong> {recommendation.explanation.summary}
+          </p>
+          <p>
+            <strong>{t("recommendation.proposedOutcomeLabel")}:</strong> {recommendation.explanation.proposed_outcome}
+          </p>
+          <p>
+            <strong>{t("recommendation.reasoningLabel")}:</strong> {recommendation.explanation.reasoning}
+          </p>
+          <p>
+            <strong>{t("recommendation.citationsLabel")}:</strong>
+          </p>
+          <ul>
+            {recommendation.explanation.evidence_citations.map((c) => (
+              <li key={c.evidence_item_id}>
+                <a href={`#evidence-${c.evidence_item_id}`}>{c.relevance}</a>
+              </li>
+            ))}
+          </ul>
+          <p>
+            <strong>{t("recommendation.limitsLabel")}:</strong>
+          </p>
+          <ul>
+            {recommendation.explanation.limits.map((limit, i) => (
+              <li key={i}>{limit}</li>
+            ))}
+          </ul>
+          <p>
+            <strong>{t("recommendation.notConsideredLabel")}:</strong>
+          </p>
+          <ul>
+            {recommendation.explanation.not_considered.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+          <p style={{ fontSize: "0.875rem", color: "#555" }}>
+            {t("recommendation.modelLabel", { model: recommendation.explanation.model.id, version: recommendation.explanation.model.prompt_version })}
+          </p>
+          {reviewer && (
+            <p style={{ fontSize: "0.875rem", color: "#555" }}>{t("recommendation.reviewerLabel", { name: reviewer.displayName })}</p>
+          )}
+          {canIssueRecommendation && recommendation.status === "DRAFT" && <IssueRecommendationForm recommendationId={recommendation.id} />}
+        </section>
+      )}
+
+      {(canGiveOrDeclineConsent || canRevokeConsent) && currentStatement && (
+        <ConsentPanel
+          caseId={caseId}
+          statementVersionId={currentStatement.id}
+          statementBody={currentStatement.body}
+          ownConsentState={ownConsentState}
+        />
+      )}
+
+      {canCloseCase && <CloseCaseButton caseId={caseId} />}
+
+      {caseRow.state === "CLOSED" && (
+        <p style={{ marginTop: "1rem" }}>
+          <a href={`/api/cases/${caseId}/export`}>{t("export.link")}</a>
+        </p>
+      )}
+
+      <section aria-labelledby="timeline-heading" style={{ marginTop: "1.5rem" }}>
+        <h2 id="timeline-heading">{t("timeline.title")}</h2>
+        {visibleEvents.length === 0 ? (
+          <p>{t("timeline.empty")}</p>
+        ) : (
+          <ol style={{ paddingLeft: "1.25rem" }}>
+            {visibleEvents.map((e) => (
+              <li key={e.id}>
+                <time dateTime={e.createdAt.toISOString()}>{dateFormatter.format(e.createdAt)}</time>
+                {" — "}
+                {t(`timeline.event.${e.type}`)}
+                {eventActorNameById.get(e.actorId) && <> {t("timeline.by", { name: eventActorNameById.get(e.actorId)! })}</>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: aequitas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aequitas
+      POSTGRES_PASSWORD: aequitas_dev
+      POSTGRES_DB: aequitas
+    ports:
+      - "5433:5432"
+    volumes:
+      - aequitas-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aequitas -d aequitas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible object storage (Section 3: "File storage | S3-compatible
+  # bucket"). Ports offset from MinIO's 9000/9001 defaults, matching the
+  # 5433 pattern above, since this host runs containers for other projects.
+  minio:
+    image: minio/minio:latest
+    container_name: aequitas-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: aequitas
+      MINIO_ROOT_PASSWORD: aequitas_dev_minio
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    volumes:
+      - aequitas-minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Real virus scanning for evidence uploads (Section 3: "Upload scanning |
+  # ClamAV sidecar (dev)"). clamd takes a while to load its signature
+  # database on first start — the healthcheck retry budget reflects that.
+  clamav:
+    image: clamav/clamav:stable
+    container_name: aequitas-clamav
+    restart: unless-stopped
+    ports:
+      - "3310:3310"
+    volumes:
+      - aequitas-clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  aequitas-postgres-data:
+  aequitas-minio-data:
+  aequitas-clamav-data:

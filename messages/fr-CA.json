@@ -1,0 +1,214 @@
+{
+  "app": {
+    "title": "Aequitas — espace de résolution",
+    "description": "Une plateforme de résolution des différends documentée et révisable par des humains. Les résultats proposés sont toujours distingués des décisions, chaque étape importante est attribuable, et aucune partie n'est jamais présentée comme ayant consenti avant de l'avoir fait."
+  },
+  "banner": {
+    "simulated": "Dossier simulé — données d'apprentissage"
+  },
+  "newCase": {
+    "title": "Ouvrir un nouveau dossier",
+    "noStatement": "Aucune déclaration de consentement n'est configurée pour la langue {locale}. Un dossier ne peut être créé tant que ce n'est pas le cas.",
+    "statementHeading": "Déclaration de consentement",
+    "respondentEmailLabel": "Courriel de la partie intimée",
+    "categoryLabel": "De quel type de différend s'agit-il?",
+    "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
+    "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",
+    "submitButton": "Créer le dossier",
+    "submitting": "Création en cours…",
+    "error": "Le dossier n'a pas pu être créé."
+  },
+  "workspace": {
+    "title": "Espace de dossier",
+    "caseReference": "Dossier {reference}",
+    "state": {
+      "DRAFT": "Brouillon",
+      "OPEN": "Ouvert",
+      "EVIDENCE_INTAKE": "Collecte de preuves",
+      "POSITIONS": "Positions",
+      "DRAFTING": "Ébauche de recommandation",
+      "ISSUED": "Recommandation rendue",
+      "RESOLVED_CONSENT": "Résolu — consentement donné",
+      "RESOLVED_DECLINED": "Résolu — refusé",
+      "WITHDRAWN": "Retiré",
+      "CLOSED": "Clos"
+    },
+    "role": {
+      "complainant": "partie plaignante",
+      "respondent": "partie intimée",
+      "caseManager": "gestionnaire de dossier",
+      "admin": "administrateur ou administratrice",
+      "bothParties": "les deux parties",
+      "system": "le système"
+    },
+    "action": {
+      "submitCase": "soumettre ce dossier",
+      "openIntake": "ouvrir la collecte de preuves",
+      "submitEvidence": "soumettre une preuve",
+      "supersedeEvidence": "remplacer un élément soumis",
+      "closeIntake": "clore la collecte de preuves",
+      "submitPosition": "soumettre votre position",
+      "requestDraft": "demander une ébauche de recommandation",
+      "issueRecommendation": "rendre la recommandation",
+      "giveConsent": "consentir",
+      "declineConsent": "refuser",
+      "revokeConsent": "retirer son consentement",
+      "requestNewVersion": "demander une recommandation révisée",
+      "closeCase": "clore le dossier",
+      "withdraw": "retirer le dossier",
+      "completeDraft": "compléter l'ébauche"
+    },
+    "header": {
+      "roleLabel": "Votre rôle : {role}",
+      "authorityPrefix": "Vous pouvez : {actions}",
+      "authorityNone": "Aucune action ne vous est offerte à cette étape.",
+      "waitingOnPrefix": "En attente de : {role} pour {action}",
+      "closedNotice": "Ce dossier est clos; aucune autre action n'est possible."
+    },
+    "draft": {
+      "submitButton": "Soumettre ce dossier",
+      "submitting": "Soumission en cours…",
+      "error": "Le dossier n'a pas pu être soumis."
+    },
+    "open": {
+      "coiLabel": "J'ai un conflit d'intérêts avec ce dossier",
+      "coiDetailsLabel": "Détails",
+      "openButton": "Ouvrir la collecte de preuves",
+      "opening": "Ouverture en cours…",
+      "error": "La collecte de preuves n'a pas pu être ouverte."
+    },
+    "evidence": {
+      "title": "Preuves",
+      "empty": "Aucune preuve n'a encore été soumise.",
+      "submittedBy": "Soumis par {name}",
+      "supersededNotice": "Remplacé",
+      "scanStatus": {
+        "CLEAN": "Vérifié",
+        "PENDING": "Analyse en cours",
+        "REJECTED": "Rejeté par l'analyse"
+      },
+      "kind": {
+        "DOCUMENT": "Document",
+        "PHOTO": "Photo",
+        "MESSAGE": "Message",
+        "RECEIPT": "Reçu",
+        "OTHER": "Autre"
+      },
+      "form": {
+        "kindLabel": "Type de preuve",
+        "titleLabel": "Titre",
+        "descriptionLabel": "Description (facultatif)",
+        "fileLabel": "Fichier",
+        "submit": "Soumettre la preuve",
+        "submitting": "Soumission en cours…",
+        "error": "La preuve n'a pas pu être soumise."
+      }
+    },
+    "positions": {
+      "title": "Positions",
+      "empty": "Aucune position n'a encore été soumise.",
+      "current": "Actuelle",
+      "version": "Version {version}",
+      "form": {
+        "bodyLabel": "Votre position",
+        "submit": "Soumettre la position",
+        "submitting": "Soumission en cours…",
+        "error": "La position n'a pas pu être soumise."
+      }
+    },
+    "intake": {
+      "closeButton": "Clore la collecte de preuves",
+      "overrideLabel": "Motif de dérogation (requis si une partie n'a pas soumis de preuve)",
+      "closing": "Clôture en cours…",
+      "error": "La collecte de preuves n'a pas pu être close."
+    },
+    "draftRequest": {
+      "requestButton": "Demander une ébauche de recommandation",
+      "requesting": "Demande en cours…",
+      "error": "L'ébauche de recommandation n'a pas pu être demandée."
+    },
+    "consent": {
+      "title": "Consentement",
+      "statementHeading": "Déclaration de consentement",
+      "giveButton": "Je consens",
+      "declineButton": "Je refuse",
+      "revokeButton": "Retirer mon consentement",
+      "revoking": "Retrait en cours…",
+      "givenStatus": "Vous avez donné votre consentement à cette recommandation.",
+      "givenAnnouncement": "Votre consentement a été enregistré.",
+      "declinedAnnouncement": "Votre refus a été enregistré.",
+      "revokedAnnouncement": "Votre consentement a été retiré.",
+      "error": "Votre réponse n'a pas pu être enregistrée."
+    },
+    "withdraw": {
+      "withdrawButton": "Retirer ce dossier",
+      "withdrawing": "Retrait en cours…",
+      "confirmPrompt": "Voulez-vous vraiment retirer ce dossier? Cette action est irréversible.",
+      "confirmButton": "Oui, retirer ce dossier",
+      "cancelButton": "Annuler",
+      "error": "Le dossier n'a pas pu être retiré."
+    },
+    "close": {
+      "closeButton": "Clore ce dossier",
+      "closing": "Clôture en cours…",
+      "error": "Le dossier n'a pas pu être clos."
+    },
+    "export": {
+      "link": "Télécharger le dossier scellé (PDF + JSON)"
+    },
+    "recommendation": {
+      "title": "Recommandation",
+      "draftHeading": "Ébauche de recommandation (visible aux gestionnaires de dossier seulement)",
+      "issuedHeading": "Recommandation rendue",
+      "summaryLabel": "Résumé",
+      "proposedOutcomeLabel": "Résultat proposé",
+      "reasoningLabel": "Raisonnement",
+      "citationsLabel": "Preuves citées",
+      "limitsLabel": "Limites",
+      "notConsideredLabel": "Non considéré",
+      "modelLabel": "Rédigé par {model} (invite {version})",
+      "reviewerLabel": "Rendu par {name}",
+      "checklist": {
+        "reviewedEvidence": "J'ai révisé les preuves citées.",
+        "confirmedLimits": "Je confirme que les limites énoncées sont exactes.",
+        "acceptsResponsibility": "J'accepte la responsabilité en tant que réviseur émetteur."
+      },
+      "issueButton": "Rendre la recommandation",
+      "issuing": "Émission en cours…",
+      "error": "La recommandation n'a pas pu être rendue."
+    },
+    "timeline": {
+      "title": "Chronologie",
+      "empty": "Aucun événement pour l'instant.",
+      "by": "par {name}",
+      "event": {
+        "CASE_CREATED": "Dossier créé",
+        "CASE_SUBMITTED": "Dossier soumis",
+        "CASE_ASSIGNED": "Dossier assigné à un gestionnaire de dossier",
+        "COI_DECLARED": "Déclaration de conflit d'intérêts enregistrée",
+        "EVIDENCE_INTAKE_OPENED": "Collecte de preuves ouverte",
+        "EVIDENCE_SUBMITTED": "Preuve soumise",
+        "EVIDENCE_SUPERSEDED": "Preuve remplacée",
+        "EVIDENCE_INTAKE_CLOSED": "Collecte de preuves close",
+        "POSITION_SUBMITTED": "Position soumise",
+        "RECOMMENDATION_DRAFT_REQUESTED": "Ébauche de recommandation demandée",
+        "RECOMMENDATION_DRAFTED": "Ébauche de recommandation complétée",
+        "RECOMMENDATION_ISSUED": "Recommandation rendue",
+        "RECOMMENDATION_SUPERSEDED": "Recommandation remplacée",
+        "CONSENT_GIVEN": "Consentement donné",
+        "CONSENT_DECLINED": "Consentement refusé",
+        "CONSENT_REVOKED": "Consentement retiré",
+        "CASE_RESOLVED": "Dossier résolu — consentement donné",
+        "CASE_RESOLVED_DECLINED": "Dossier résolu — refusé",
+        "CASE_REOPENED": "Dossier rouvert",
+        "CASE_WITHDRAWN": "Dossier retiré",
+        "CASE_CLOSED": "Dossier clos",
+        "EXPORT_GENERATED": "Exportation générée",
+        "DEADLINE_EXPIRED": "Échéance expirée",
+        "PARTY_NOTIFIED": "Partie avisée",
+        "NOTE_ADDED": "Note privée ajoutée",
+        "ACCESS_STAFF_GRANTED": "Accès du personnel accordé"
+      }
+    }
+  }
+}

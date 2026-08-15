@@ -1,0 +1,214 @@
+{
+  "app": {
+    "title": "Aequitas — resolution workspace",
+    "description": "A documented, human-reviewable dispute-resolution platform. Proposed outcomes are always distinguished from decisions, every material step is attributable, and no party is ever represented as having consented before it has done so."
+  },
+  "banner": {
+    "simulated": "Simulated case — training data"
+  },
+  "newCase": {
+    "title": "Start a new case",
+    "noStatement": "No consent statement is configured for locale {locale}. A case cannot be created until one is.",
+    "statementHeading": "Consent statement",
+    "respondentEmailLabel": "Respondent's email",
+    "categoryLabel": "What kind of dispute is this?",
+    "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
+    "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
+    "submitButton": "Create case",
+    "submitting": "Creating…",
+    "error": "The case could not be created."
+  },
+  "workspace": {
+    "title": "Case workspace",
+    "caseReference": "Case {reference}",
+    "state": {
+      "DRAFT": "Draft",
+      "OPEN": "Open",
+      "EVIDENCE_INTAKE": "Evidence intake",
+      "POSITIONS": "Positions",
+      "DRAFTING": "Drafting a recommendation",
+      "ISSUED": "Recommendation issued",
+      "RESOLVED_CONSENT": "Resolved — consent given",
+      "RESOLVED_DECLINED": "Resolved — declined",
+      "WITHDRAWN": "Withdrawn",
+      "CLOSED": "Closed"
+    },
+    "role": {
+      "complainant": "complainant",
+      "respondent": "respondent",
+      "caseManager": "case manager",
+      "admin": "administrator",
+      "bothParties": "both parties",
+      "system": "the system"
+    },
+    "action": {
+      "submitCase": "submit this case",
+      "openIntake": "open evidence intake",
+      "submitEvidence": "submit evidence",
+      "supersedeEvidence": "replace a submitted item",
+      "closeIntake": "close evidence intake",
+      "submitPosition": "submit your position",
+      "requestDraft": "request a draft recommendation",
+      "issueRecommendation": "issue the recommendation",
+      "giveConsent": "give consent",
+      "declineConsent": "decline",
+      "revokeConsent": "revoke consent",
+      "requestNewVersion": "request a revised recommendation",
+      "closeCase": "close the case",
+      "withdraw": "withdraw the case",
+      "completeDraft": "complete the draft"
+    },
+    "header": {
+      "roleLabel": "Your role: {role}",
+      "authorityPrefix": "You can: {actions}",
+      "authorityNone": "No action is available to you at this stage.",
+      "waitingOnPrefix": "Waiting on: {role} to {action}",
+      "closedNotice": "This case is closed; no further action is possible."
+    },
+    "draft": {
+      "submitButton": "Submit this case",
+      "submitting": "Submitting…",
+      "error": "The case could not be submitted."
+    },
+    "open": {
+      "coiLabel": "I have a conflict of interest with this case",
+      "coiDetailsLabel": "Details",
+      "openButton": "Open evidence intake",
+      "opening": "Opening…",
+      "error": "Evidence intake could not be opened."
+    },
+    "evidence": {
+      "title": "Evidence",
+      "empty": "No evidence has been submitted yet.",
+      "submittedBy": "Submitted by {name}",
+      "supersededNotice": "Superseded / replaced",
+      "scanStatus": {
+        "CLEAN": "Clean",
+        "PENDING": "Scanning",
+        "REJECTED": "Rejected by scan"
+      },
+      "kind": {
+        "DOCUMENT": "Document",
+        "PHOTO": "Photo",
+        "MESSAGE": "Message",
+        "RECEIPT": "Receipt",
+        "OTHER": "Other"
+      },
+      "form": {
+        "kindLabel": "Type of evidence",
+        "titleLabel": "Title",
+        "descriptionLabel": "Description (optional)",
+        "fileLabel": "File",
+        "submit": "Submit evidence",
+        "submitting": "Submitting…",
+        "error": "The evidence could not be submitted."
+      }
+    },
+    "positions": {
+      "title": "Positions",
+      "empty": "No position has been submitted yet.",
+      "current": "Current",
+      "version": "Version {version}",
+      "form": {
+        "bodyLabel": "Your position",
+        "submit": "Submit position",
+        "submitting": "Submitting…",
+        "error": "The position could not be submitted."
+      }
+    },
+    "intake": {
+      "closeButton": "Close evidence intake",
+      "overrideLabel": "Override reason (required if a party has not submitted evidence)",
+      "closing": "Closing…",
+      "error": "Evidence intake could not be closed."
+    },
+    "draftRequest": {
+      "requestButton": "Request a draft recommendation",
+      "requesting": "Requesting…",
+      "error": "The draft recommendation could not be requested."
+    },
+    "consent": {
+      "title": "Consent",
+      "statementHeading": "Consent statement",
+      "giveButton": "I consent",
+      "declineButton": "I decline",
+      "revokeButton": "Withdraw my consent",
+      "revoking": "Withdrawing…",
+      "givenStatus": "You have given your consent to this recommendation.",
+      "givenAnnouncement": "Your consent has been recorded.",
+      "declinedAnnouncement": "Your decline has been recorded.",
+      "revokedAnnouncement": "Your consent has been withdrawn.",
+      "error": "Your response could not be recorded."
+    },
+    "withdraw": {
+      "withdrawButton": "Withdraw this case",
+      "withdrawing": "Withdrawing…",
+      "confirmPrompt": "Are you sure you want to withdraw this case? This cannot be undone.",
+      "confirmButton": "Yes, withdraw this case",
+      "cancelButton": "Cancel",
+      "error": "The case could not be withdrawn."
+    },
+    "close": {
+      "closeButton": "Close this case",
+      "closing": "Closing…",
+      "error": "The case could not be closed."
+    },
+    "export": {
+      "link": "Download the sealed case record (PDF + JSON)"
+    },
+    "recommendation": {
+      "title": "Recommendation",
+      "draftHeading": "Draft recommendation (visible to case managers only)",
+      "issuedHeading": "Issued recommendation",
+      "summaryLabel": "Summary",
+      "proposedOutcomeLabel": "Proposed outcome",
+      "reasoningLabel": "Reasoning",
+      "citationsLabel": "Cited evidence",
+      "limitsLabel": "Limits",
+      "notConsideredLabel": "Not considered",
+      "modelLabel": "Drafted by {model} (prompt {version})",
+      "reviewerLabel": "Issued by {name}",
+      "checklist": {
+        "reviewedEvidence": "I have reviewed the cited evidence.",
+        "confirmedLimits": "I confirm the stated limits are accurate.",
+        "acceptsResponsibility": "I accept responsibility as the issuing reviewer."
+      },
+      "issueButton": "Issue recommendation",
+      "issuing": "Issuing…",
+      "error": "The recommendation could not be issued."
+    },
+    "timeline": {
+      "title": "Timeline",
+      "empty": "No events yet.",
+      "by": "by {name}",
+      "event": {
+        "CASE_CREATED": "Case created",
+        "CASE_SUBMITTED": "Case submitted",
+        "CASE_ASSIGNED": "Case assigned to a case manager",
+        "COI_DECLARED": "Conflict-of-interest declaration recorded",
+        "EVIDENCE_INTAKE_OPENED": "Evidence intake opened",
+        "EVIDENCE_SUBMITTED": "Evidence submitted",
+        "EVIDENCE_SUPERSEDED": "Evidence replaced",
+        "EVIDENCE_INTAKE_CLOSED": "Evidence intake closed",
+        "POSITION_SUBMITTED": "Position submitted",
+        "RECOMMENDATION_DRAFT_REQUESTED": "Draft recommendation requested",
+        "RECOMMENDATION_DRAFTED": "Draft recommendation completed",
+        "RECOMMENDATION_ISSUED": "Recommendation issued",
+        "RECOMMENDATION_SUPERSEDED": "Recommendation superseded",
+        "CONSENT_GIVEN": "Consent given",
+        "CONSENT_DECLINED": "Consent declined",
+        "CONSENT_REVOKED": "Consent revoked",
+        "CASE_RESOLVED": "Case resolved — consent given",
+        "CASE_RESOLVED_DECLINED": "Case resolved — declined",
+        "CASE_REOPENED": "Case reopened",
+        "CASE_WITHDRAWN": "Case withdrawn",
+        "CASE_CLOSED": "Case closed",
+        "EXPORT_GENERATED": "Export generated",
+        "DEADLINE_EXPIRED": "Deadline expired",
+        "PARTY_NOTIFIED": "Party notified",
+        "NOTE_ADDED": "Private note added",
+        "ACCESS_STAFF_GRANTED": "Staff access granted"
+      }
+    }
+  }
+}
