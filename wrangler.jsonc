@@ -30,8 +30,9 @@
 			"bucket_name": "aequitas-opennext-cache"
 		},
 		// Evidence + export-bundle storage (Section 11/15) — replaces the
-		// local-dev MinIO S3 endpoint; src/lib/storage.ts uses this binding
-		// natively when it's present, falling back to the S3 SDK otherwise.
+		// local-dev MinIO S3 endpoint. src/lib/storage.ts selects a backend
+		// in this order: STORAGE_LOCAL_DIR, then this R2 binding, then the
+		// S3 SDK.
 		{
 			"binding": "EVIDENCE_BUCKET",
 			"bucket_name": "aequitas-evidence"

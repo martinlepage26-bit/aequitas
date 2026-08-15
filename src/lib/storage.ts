@@ -89,7 +89,8 @@ async function getObject(storageKey: string): Promise<Buffer> {
   const bucket = process.env.STORAGE_BUCKET;
   if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
   const res = await getS3Client().send(new GetObjectCommand({ Bucket: bucket, Key: storageKey }));
-  const bytes = await res.Body!.transformToByteArray();
+  if (!res.Body) throw new Error(`S3 object not found: ${storageKey}`);
+  const bytes = await res.Body.transformToByteArray();
   return Buffer.from(bytes);
 }
 

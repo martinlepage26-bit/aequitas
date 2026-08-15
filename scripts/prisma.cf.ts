@@ -16,4 +16,7 @@ import { PrismaClient } from "../generated/prisma/edge";
  * locally. Singleton pattern intentionally dropped — Workers don't reuse
  * module scope the way Next.js dev-mode hot-reload does.
  */
-export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not configured.");
+
+export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });

@@ -92,12 +92,16 @@ async function safeScan(buffer: Buffer): Promise<{ ok: true; scan: ScanResult } 
   try {
     return { ok: true, scan: await scanBuffer(buffer) };
   } catch (error) {
+    // The real error (e.g. a raw TCP connect failure) can embed the
+    // scanner's internal host/port — never put it in a client-facing
+    // response; log it server-side for diagnostics instead.
+    console.error("Evidence scan failed:", error);
     return {
       ok: false,
       outcome: {
         ok: false,
         step: "guard",
-        reason: `Evidence scanning is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+        reason: "Evidence scanning is unavailable.",
       },
     };
   }

@@ -79,10 +79,15 @@ if [ -d "$WASM_RUNTIME_DIR" ]; then
 fi
 
 restore() {
+  # Staged files/dirs keep their full path under $STAGE (not just the
+  # basename) — several entries share a basename (e.g. more than one
+  # non-postgresql query_compiler_*_bg file, or a future addition under a
+  # differently-named directory), and basename-only staging would silently
+  # collide and misplace a restore.
   for f in "${FILES[@]}"; do
-    base="$(basename "$f")"
-    if [ -e "$STAGE/$base" ] && [ ! -e "$f" ]; then
-      mv "$STAGE/$base" "$f"
+    if [ -e "$STAGE/$f" ] && [ ! -e "$f" ]; then
+      mkdir -p "$(dirname "$f")"
+      mv "$STAGE/$f" "$f"
     fi
   done
   if [ -e "$STAGE/storage.ts.orig" ]; then
@@ -97,7 +102,8 @@ trap restore EXIT
 
 for f in "${FILES[@]}"; do
   if [ -e "$f" ]; then
-    mv "$f" "$STAGE/$(basename "$f")"
+    mkdir -p "$(dirname "$STAGE/$f")"
+    mv "$f" "$STAGE/$f"
   fi
 done
 
