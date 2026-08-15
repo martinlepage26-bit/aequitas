@@ -4,32 +4,16 @@ import { dirname, join } from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 /**
- * Three storage backends, chosen at call time, not at import time:
+ * Two storage backends, chosen at call time, not at import time:
  * - Railway (or any plain long-running Node server): the local filesystem,
  *   under STORAGE_LOCAL_DIR — a Railway volume mounted at that path makes
  *   this durable across deploys/restarts, and it's the one backend that
  *   needs no external object-storage account at all. Checked first since
  *   it's this app's actual deployment target.
  * - Local dev / tests: the S3 SDK against MinIO (STORAGE_ENDPOINT etc.).
- * - Cloudflare Workers (if ever redeployed there): the native R2 binding
- *   (EVIDENCE_BUCKET in wrangler.jsonc) — avoids provisioning a separate
- *   R2 S3-API token when the OpenNext Cloudflare adapter already gives
- *   bindings authenticated access for free. getCloudflareContext() throws
- *   outside a real Workers runtime, so this is a real runtime probe, not a
- *   build-time flag.
  */
 function getLocalDir(): string | null {
   return process.env.STORAGE_LOCAL_DIR || null;
-}
-
-async function getR2Bucket(): Promise<R2Bucket | null> {
-  try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const { env } = getCloudflareContext();
-    return env.EVIDENCE_BUCKET ?? null;
-  } catch {
-    return null;
-  }
 }
 
 let s3Client: S3Client | null = null;
@@ -64,11 +48,6 @@ async function putObject(storageKey: string, buffer: Buffer, mimeType: string): 
     return;
   }
 
-  const r2 = await getR2Bucket();
-  if (r2) {
-    await r2.put(storageKey, buffer, { httpMetadata: { contentType: mimeType } });
-    return;
-  }
   const bucket = process.env.STORAGE_BUCKET;
   if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
   await getS3Client().send(new PutObjectCommand({ Bucket: bucket, Key: storageKey, Body: buffer, ContentType: mimeType }));
@@ -80,12 +59,6 @@ async function getObject(storageKey: string): Promise<Buffer> {
     return readFile(join(/*turbopackIgnore: true*/ localDir, storageKey));
   }
 
-  const r2 = await getR2Bucket();
-  if (r2) {
-    const object = await r2.get(storageKey);
-    if (!object) throw new Error(`R2 object not found: ${storageKey}`);
-    return Buffer.from(await object.arrayBuffer());
-  }
   const bucket = process.env.STORAGE_BUCKET;
   if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
   const res = await getS3Client().send(new GetObjectCommand({ Bucket: bucket, Key: storageKey }));

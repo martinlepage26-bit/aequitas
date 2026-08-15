@@ -37,8 +37,6 @@
     ".next/dev/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "cloudflare-env.d.ts",
-    "scripts/*.cf.ts"
+    "node_modules"
   ]
 }

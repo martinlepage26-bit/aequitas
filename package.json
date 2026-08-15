@@ -15,11 +15,7 @@
     "check:i18n-parity": "node scripts/check-i18n-parity.mjs",
     "check:forbidden-terms": "node scripts/check-forbidden-terms.mjs",
     "test:e2e": "playwright test",
-    "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
@@ -36,13 +32,11 @@
     "next-intl": "^4.13.6",
     "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
-    "pg-cloudflare": "^1.4.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.20.2",
     "@playwright/test": "^1.62.1",
     "@types/archiver": "^8.0.0",
     "@types/node": "^26.2.0",
@@ -56,7 +50,6 @@
     "puppeteer-core": "^25.7.0",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.123.0"
+    "vitest": "^4.1.10"
   }
 }
