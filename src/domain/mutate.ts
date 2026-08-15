@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
-import { scanBuffer } from "../lib/scan";
+import { scanBuffer, type ScanResult } from "../lib/scan";
 import { uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
@@ -76,6 +76,31 @@ export interface RunMutationInput {
   /** Guard name -> the exact context object that guard function expects. */
   guardContexts: Record<string, unknown>;
   write: (tx: Prisma.TransactionClient) => Promise<WriteResult>;
+}
+
+/**
+ * ClamAV is a TCP connection this process reaches directly (src/lib/scan.ts) —
+ * no honest "not configured" fallback exists there the way ANTHROPIC_API_KEY
+ * does for AI drafting, so an unreachable scanner (e.g. no ClamAV sidecar
+ * reachable from wherever this is deployed) would otherwise throw out of
+ * submitEvidence/supersedeEvidence as an unhandled exception (a 500, not a
+ * real MutationOutcome). Wrapping it here keeps Section 11's guarantee
+ * intact — an unscanned item is never silently treated as CLEAN — while
+ * still returning a real, documented failure instead of crashing.
+ */
+async function safeScan(buffer: Buffer): Promise<{ ok: true; scan: ScanResult } | { ok: false; outcome: MutationOutcome<WriteResult> }> {
+  try {
+    return { ok: true, scan: await scanBuffer(buffer) };
+  } catch (error) {
+    return {
+      ok: false,
+      outcome: {
+        ok: false,
+        step: "guard",
+        reason: `Evidence scanning is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    };
+  }
 }
 
 /** Route-handler convenience: turn a failed MutationOutcome into a Response. Returns null on success. */
@@ -313,7 +338,9 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
     buffer: input.buffer,
     mimeType: input.mimeType,
   });
-  const scan = await scanBuffer(input.buffer);
+  const scanAttempt = await safeScan(input.buffer);
+  if (!scanAttempt.ok) return scanAttempt.outcome;
+  const scan = scanAttempt.scan;
 
   return runMutation({
     trigger: "submit_evidence",
@@ -383,7 +410,9 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
     buffer: input.buffer,
     mimeType: input.mimeType,
   });
-  const scan = await scanBuffer(input.buffer);
+  const scanAttempt = await safeScan(input.buffer);
+  if (!scanAttempt.ok) return scanAttempt.outcome;
+  const scan = scanAttempt.scan;
 
   return runMutation({
     trigger: "supersede_evidence",

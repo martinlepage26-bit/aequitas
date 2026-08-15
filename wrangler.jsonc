@@ -1,0 +1,54 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "aequitas",
+	"compatibility_date": "2026-08-15",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			// Self-reference service binding, the service name must match the worker name
+			// see https://opennext.js.org/cloudflare/caching
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "aequitas"
+		}
+	],
+	"r2_buckets": [
+		// Use R2 incremental cache
+		// See https://opennext.js.org/cloudflare/caching
+		{
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			// Create the bucket before deploying
+			// You can change the bucket name if you want
+			// See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
+			"bucket_name": "aequitas-opennext-cache"
+		},
+		// Evidence + export-bundle storage (Section 11/15) — replaces the
+		// local-dev MinIO S3 endpoint; src/lib/storage.ts uses this binding
+		// natively when it's present, falling back to the S3 SDK otherwise.
+		{
+			"binding": "EVIDENCE_BUCKET",
+			"bucket_name": "aequitas-evidence"
+		}
+	],
+	"images": {
+		// Enable image optimization
+		// see https://opennext.js.org/cloudflare/howtos/image
+		"binding": "IMAGES"
+	},
+	"vars": {
+		// Non-secret config (Section 3). Real secrets (DATABASE_URL,
+		// SESSION_SECRET, IP_HASH_SALT) are set via `wrangler secret put`,
+		// never committed here.
+		"APP_DEFAULT_LOCALE": "fr-CA",
+		"APP_LOCALES": "fr-CA,en-CA",
+		"HASH_CHAIN_GENESIS": "0000000000000000000000000000000000000000000000000000000000000000",
+		"STORAGE_SIMULATED_PREFIX": "simulated/"
+	}
+}

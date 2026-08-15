@@ -1,18 +1,97 @@
 import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
-const client = new S3Client({
-  endpoint: process.env.STORAGE_ENDPOINT,
-  region: process.env.STORAGE_REGION,
-  forcePathStyle: true,
-  credentials: {
-    accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",
-    secretAccessKey: process.env.STORAGE_SECRET_KEY ?? "",
-  },
-});
+/**
+ * Three storage backends, chosen at call time, not at import time:
+ * - Railway (or any plain long-running Node server): the local filesystem,
+ *   under STORAGE_LOCAL_DIR — a Railway volume mounted at that path makes
+ *   this durable across deploys/restarts, and it's the one backend that
+ *   needs no external object-storage account at all. Checked first since
+ *   it's this app's actual deployment target.
+ * - Local dev / tests: the S3 SDK against MinIO (STORAGE_ENDPOINT etc.).
+ * - Cloudflare Workers (if ever redeployed there): the native R2 binding
+ *   (EVIDENCE_BUCKET in wrangler.jsonc) — avoids provisioning a separate
+ *   R2 S3-API token when the OpenNext Cloudflare adapter already gives
+ *   bindings authenticated access for free. getCloudflareContext() throws
+ *   outside a real Workers runtime, so this is a real runtime probe, not a
+ *   build-time flag.
+ */
+function getLocalDir(): string | null {
+  return process.env.STORAGE_LOCAL_DIR || null;
+}
+
+async function getR2Bucket(): Promise<R2Bucket | null> {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { env } = getCloudflareContext();
+    return env.EVIDENCE_BUCKET ?? null;
+  } catch {
+    return null;
+  }
+}
+
+let s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    s3Client = new S3Client({
+      endpoint: process.env.STORAGE_ENDPOINT,
+      region: process.env.STORAGE_REGION,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: process.env.STORAGE_ACCESS_KEY ?? "",
+        secretAccessKey: process.env.STORAGE_SECRET_KEY ?? "",
+      },
+    });
+  }
+  return s3Client;
+}
 
 const SIMULATED_PREFIX = process.env.STORAGE_SIMULATED_PREFIX ?? "simulated/";
 const LIVE_PREFIX = "live/";
+
+async function putObject(storageKey: string, buffer: Buffer, mimeType: string): Promise<void> {
+  const localDir = getLocalDir();
+  if (localDir) {
+    // turbopackIgnore: STORAGE_LOCAL_DIR is a runtime-only config value (a
+    // Railway volume mount path), never a build-time constant — there's
+    // nothing here for Turbopack's static file-tracer to usefully resolve,
+    // and without the ignore it traces (and bundles) the whole project.
+    const path = join(/*turbopackIgnore: true*/ localDir, storageKey);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, buffer);
+    return;
+  }
+
+  const r2 = await getR2Bucket();
+  if (r2) {
+    await r2.put(storageKey, buffer, { httpMetadata: { contentType: mimeType } });
+    return;
+  }
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
+  await getS3Client().send(new PutObjectCommand({ Bucket: bucket, Key: storageKey, Body: buffer, ContentType: mimeType }));
+}
+
+async function getObject(storageKey: string): Promise<Buffer> {
+  const localDir = getLocalDir();
+  if (localDir) {
+    return readFile(join(/*turbopackIgnore: true*/ localDir, storageKey));
+  }
+
+  const r2 = await getR2Bucket();
+  if (r2) {
+    const object = await r2.get(storageKey);
+    if (!object) throw new Error(`R2 object not found: ${storageKey}`);
+    return Buffer.from(await object.arrayBuffer());
+  }
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
+  const res = await getS3Client().send(new GetObjectCommand({ Bucket: bucket, Key: storageKey }));
+  const bytes = await res.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}
 
 export interface UploadEvidenceInput {
   caseId: string;
@@ -40,17 +119,7 @@ export async function uploadEvidence(input: UploadEvidenceInput): Promise<Upload
   const storageKey = `${prefix}${input.caseId}/${input.evidenceId}`;
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
 
-  const bucket = process.env.STORAGE_BUCKET;
-  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: storageKey,
-      Body: input.buffer,
-      ContentType: input.mimeType,
-    })
-  );
+  await putObject(storageKey, input.buffer, input.mimeType);
 
   return { storageKey, sha256, byteSize: input.buffer.byteLength };
 }
@@ -69,26 +138,11 @@ export interface UploadBufferInput {
  */
 export async function uploadBuffer(input: UploadBufferInput): Promise<{ sha256: string; byteSize: number }> {
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
-  const bucket = process.env.STORAGE_BUCKET;
-  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: input.storageKey,
-      Body: input.buffer,
-      ContentType: input.mimeType,
-    })
-  );
-
+  await putObject(input.storageKey, input.buffer, input.mimeType);
   return { sha256, byteSize: input.buffer.byteLength };
 }
 
-/** Server-side fetch-and-stream-through — no presigned-URL infra exists yet, so downloads proxy through this app rather than pointing the browser at MinIO directly. */
+/** Server-side fetch-and-stream-through — no presigned-URL infra exists yet, so downloads proxy through this app rather than pointing the browser at storage directly. */
 export async function downloadBuffer(storageKey: string): Promise<Buffer> {
-  const bucket = process.env.STORAGE_BUCKET;
-  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
-  const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: storageKey }));
-  const bytes = await res.Body!.transformToByteArray();
-  return Buffer.from(bytes);
+  return getObject(storageKey);
 }
