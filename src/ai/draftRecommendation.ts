@@ -38,7 +38,16 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
 
   const model = process.env.ANTHROPIC_MODEL;
   if (!model) return { ok: false, reason: "AI drafting is unavailable: ANTHROPIC_MODEL must name a model enabled for this account." };
-  const client = new Anthropic({ apiKey, timeout: 120000, maxRetries: 1 });
+
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic({
+    apiKey,
+    timeout: 120000,
+    maxRetries: 1,
+    // Org-wide (unscoped) API keys require this header naming which
+    // workspace to bill/authorize against; workspace-scoped keys don't.
+    defaultHeaders: workspaceId ? { "anthropic-workspace-id": workspaceId } : undefined,
+  });
 
   let response;
   try {
