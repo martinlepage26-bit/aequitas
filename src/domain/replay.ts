@@ -5,14 +5,9 @@ import type { CaseState, EventType } from "../generated/prisma";
  * "A `verify` job can rebuild any case's current state by replaying its
  * events and must match the projection."
  *
- * create_case, submit_case, open_intake, submit_evidence,
- * supersede_evidence, close_intake, submit_position, request_draft,
- * draft_completed, and issue_recommendation are the mutations built so far
- * (src/domain/mutate.ts) — consent is M4 work per Section 19. Event types
- * without a mutation yet are intentionally
- * no-ops here rather than guessed at, and each milestone that wires a new
- * mutation must add its transition to this reducer or verify:events will
- * silently under-check it.
+ * State changes follow lifecycle events. Consent by one party alone does
+ * not resolve a case: the mutation emits CASE_RESOLVED only after both
+ * parties consent. Notes, notifications and assignment events are no-ops.
  *
  * CASE_ASSIGNED is a side-effect event (records who claimed the case — see
  * DECISIONS.md) and does not itself drive a state transition; the state
@@ -58,8 +53,23 @@ export function replayCaseState(events: Array<{ type: EventType }>): CaseState |
       case "RECOMMENDATION_ISSUED":
         state = "ISSUED";
         break;
+      case "CASE_RESOLVED":
+        state = "RESOLVED_CONSENT";
+        break;
+      case "CASE_RESOLVED_DECLINED":
+        state = "RESOLVED_DECLINED";
+        break;
+      case "CASE_REOPENED":
+        state = "ISSUED";
+        break;
+      case "CASE_WITHDRAWN":
+        state = "WITHDRAWN";
+        break;
+      case "CASE_CLOSED":
+        state = "CLOSED";
+        break;
       default:
-        // Not yet implemented as a mutation — see module comment.
+        // Audit-only events do not change the case projection.
         break;
     }
   }

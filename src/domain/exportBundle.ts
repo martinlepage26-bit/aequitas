@@ -1,6 +1,10 @@
+import fontkit from "@pdf-lib/fontkit";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { knowledgeReportLines } from "./knowledgeReport";
 import { randomUUID } from "node:crypto";
 import { ZipArchive } from "archiver";
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { prisma } from "../lib/prisma";
 import { uploadBuffer } from "../lib/storage";
 import { canonicalJson } from "./events";
@@ -277,8 +281,18 @@ function ensureSpace(cursor: PdfCursor, needed: number): PdfCursor {
   return cursor;
 }
 
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.replace(/\r\n/g, "\n").split(/\s+/);
+export function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  const words = text.replace(/\r\n/g, "\n").split(/\s+/).flatMap(word => {
+    if (font.widthOfTextAtSize(word, size) <= maxWidth) return [word];
+    const pieces: string[] = [];
+    let piece = "";
+    for (const char of Array.from(word)) {
+      if (piece && font.widthOfTextAtSize(piece + char, size) > maxWidth) { pieces.push(piece); piece = ""; }
+      piece += char;
+    }
+    if (piece) pieces.push(piece);
+    return pieces;
+  });
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -323,13 +337,18 @@ function paragraph(cursor: PdfCursor, text: string): PdfCursor {
 
 type ExportRecord = Awaited<ReturnType<typeof buildExportRecord>>["record"];
 
-async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
+export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
   const category = record.case.category;
   const doc = await PDFDocument.create();
   doc.setTitle(`Aequitas — ${record.case.referenceNumber}`);
   doc.setLanguage("fr-CA");
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  doc.registerFontkit(fontkit);
+  const [regularBytes, boldBytes] = await Promise.all([
+    readFile(join(process.cwd(), "assets/fonts/DejaVuSans.ttf")),
+    readFile(join(process.cwd(), "assets/fonts/DejaVuSans-Bold.ttf")),
+  ]);
+  const font = await doc.embedFont(regularBytes, { subset: true });
+  const bold = await doc.embedFont(boldBytes, { subset: true });
 
   let cursor = newPage({ doc, font, bold });
 
@@ -377,6 +396,12 @@ async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
     cursor = paragraph(cursor, `Summary / Résumé: ${r.explanation.summary}`);
     cursor = paragraph(cursor, `Proposed outcome / Résultat proposé: ${r.explanation.proposed_outcome}`);
     cursor = paragraph(cursor, `Reasoning / Raisonnement: ${r.explanation.reasoning}`);
+    for (const citation of r.explanation.evidence_citations) cursor = paragraph(cursor, `${citation.evidence_item_id}: ${citation.relevance}`);
+    for (const limit of r.explanation.limits) cursor = paragraph(cursor, `Limit / Limite: ${limit}`);
+    for (const omitted of r.explanation.not_considered) cursor = paragraph(cursor, `Not considered / Non considéré: ${omitted}`);
+    if (r.explanation.conflict_knowledge) {
+      for (const line of knowledgeReportLines(r.explanation.conflict_knowledge, r.explanation.knowledge_sources ?? [])) cursor = paragraph(cursor, line);
+    }
   }
 
   cursor = subheading(cursor, "Consent history / Historique du consentement");

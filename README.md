@@ -1,6 +1,8 @@
 # Aequitas
 
-A multi-party, human-reviewable dispute-resolution workspace prototype. It distinguishes draft recommendations from decisions, records party consent separately, and treats legal research as sourced review material rather than an entitlement engine.
+A human-reviewable conflict knowledge and dispute-resolution workspace prototype. Its core method comes from `Aequitas Core.txt`: claims, evidence, competing interpretations, context, lived experience and repair. It distinguishes draft recommendations from decisions, records party consent separately, and treats legal research as sourced review material rather than an entitlement engine.
+
+See [the core backend contract](docs/aequitas-core-backend.md) for the data model, validation, API, human correction workflow and operational limits.
 
 ## Legal research connection
 

@@ -1,4 +1,4 @@
-import { fileTypeFromBuffer } from "file-type";
+import { detectEvidenceMime } from "../../../../../lib/evidenceText";
 import { requireSession } from "../../../../../lib/session";
 import { mutationFailureResponse, submitEvidence } from "../../../../../domain/mutate";
 import { EVIDENCE_KINDS } from "../../../../../domain/evidenceKinds";
@@ -35,8 +35,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const sniffed = await fileTypeFromBuffer(buffer);
-  if (!sniffed) {
+  const mimeType = await detectEvidenceMime(buffer);
+  if (!mimeType) {
     return Response.json({ message: "Could not determine the file's type from its contents." }, { status: 400 });
   }
 
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     title,
     description: typeof description === "string" && description.trim().length > 0 ? description : undefined,
     buffer,
-    mimeType: sniffed.mime,
+    mimeType,
   });
   if (!outcome.ok) return mutationFailureResponse(outcome)!;
 

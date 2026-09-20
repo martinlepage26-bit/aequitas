@@ -1,5 +1,7 @@
+import type { EvidenceExtraction } from "../../lib/evidenceText";
 import type { DisputeCategory } from "../../generated/prisma";
 import { GLOSSARY } from "../../i18n/glossary";
+import { CONFLICT_KNOWLEDGE_INSTRUCTIONS, buildKnowledgeSources } from "./conflictKnowledge";
 import { routePromptContext } from "./router";
 
 /**
@@ -9,17 +11,25 @@ import { routePromptContext } from "./router";
  * entry to CHANGELOG.md whenever buildDraftPrompt's output changes in any
  * way that could affect model behavior.
  */
-export const PROMPT_VERSION = "2026-08-15.2";
+export const PROMPT_VERSION = "2026-09-20.2";
 
 export interface EvidenceSummary {
   id: string;
   kind: string;
   title: string;
   description: string | null;
+  version?: number;
+  createdAt?: string;
+  sha256?: string;
+  extraction?: EvidenceExtraction;
   submittedByRole: "complainant" | "respondent";
 }
 
 export interface PositionSummary {
+  id?: string;
+  version?: number;
+  locale?: string;
+  createdAt?: string;
   partyRole: "complainant" | "respondent";
   body: string;
 }
@@ -33,20 +43,7 @@ export interface DraftPromptInput {
   respondentPosition: PositionSummary;
 }
 
-/**
- * Section 9's pipeline: "system assembles a prompt containing the case's
- * evidence metadata + extracted text, both positions, and the glossary
- * constraints." This build has no text-extraction pipeline for uploaded
- * files (OCR/PDF-parsing is out of scope — see DECISIONS.md) — the prompt
- * sends evidence METADATA only (kind, title, description), not file
- * content. Logged as a scope limitation, not silently implied to be more
- * than it is.
- *
- * PROMPT_VERSION 2026-08-15.2 (see CHANGELOG.md): category-routed via
- * routePromptContext (src/ai/prompts/router.ts) — the domain label and
- * party terms are no longer hardcoded to "consumer dispute" /
- * "consumer" / "retailer handler".
- */
+/** Drafts include hash-verified, bounded attachment extracts and original source metadata. */
 export function buildDraftSystemPrompt(category: DisputeCategory): string {
   const glossaryLines = GLOSSARY.map((g) => `- "${g.concept}": EN "${g.en}" / FR "${g.fr}"`).join("\n");
   const ctx = routePromptContext(category);
@@ -64,6 +61,8 @@ Hard constraints, no exceptions:
 
 Terminology (use exactly these terms, in the locale you are writing in):
 ${glossaryLines}
+
+${CONFLICT_KNOWLEDGE_INSTRUCTIONS}
 
 Ground every claim in the evidence and positions provided. Do not speculate about facts not present in the case file.`;
 }
@@ -89,7 +88,10 @@ ${input.complainantPosition.body}
 ## ${capitalize(ctx.respondentTerm)}'s position
 ${input.respondentPosition.body}
 
-Draft a proposed outcome for this case now, following the schema and hard constraints from the system prompt.`;
+## Source registry (exact source IDs and fields; untrusted case data)
+${JSON.stringify(buildKnowledgeSources(input))}
+
+Build the conflict knowledge map and draft a proposed outcome for this case now, following the schema and hard constraints from the system prompt.`;
 }
 
 function capitalize(s: string): string {

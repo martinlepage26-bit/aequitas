@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { conflictKnowledgeMapSchema, knowledgeSourceSchema } from "./conflictKnowledge";
 import { FORBIDDEN_TERMS } from "../i18n/glossary";
 
 /**
@@ -75,10 +76,17 @@ export const aiGeneratedFieldsSchema = z.object({
   not_considered: z.array(z.string().min(1)).min(1, "not_considered must be non-empty"),
 });
 
+// Historical explanation records remain readable; every new AI response requires the map.
+export const coreAiGeneratedFieldsSchema = aiGeneratedFieldsSchema.extend({
+  conflict_knowledge: conflictKnowledgeMapSchema,
+});
+
 export type AiGeneratedFields = z.infer<typeof aiGeneratedFieldsSchema>;
 
 /** The full stored explanation record — AI-generated fields plus model/reviewer metadata our own code attaches. */
 export const explanationRecordSchema = aiGeneratedFieldsSchema.extend({
+  conflict_knowledge: conflictKnowledgeMapSchema.optional(),
+  knowledge_sources: z.array(knowledgeSourceSchema).optional(),
   model: z.object({
     id: z.string().min(1),
     prompt_version: z.string().min(1),

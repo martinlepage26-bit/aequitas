@@ -1,3 +1,5 @@
+import ReviewDraftForm from "./ReviewDraftForm";
+import ConflictKnowledgeView from "./ConflictKnowledgeView";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "../../../../lib/session";
@@ -252,7 +254,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           {reviewer && (
             <p style={{ fontSize: "0.875rem", color: "#555" }}>{t("recommendation.reviewerLabel", { name: reviewer.displayName })}</p>
           )}
-          {canIssueRecommendation && recommendation.status === "DRAFT" && <IssueRecommendationForm recommendationId={recommendation.id} />}
+          {recommendation.explanation.conflict_knowledge && <ConflictKnowledgeView map={recommendation.explanation.conflict_knowledge} sources={recommendation.explanation.knowledge_sources ?? []} />}
+          {canIssueRecommendation && recommendation.status === "DRAFT" && recommendation.explanation.conflict_knowledge && <ReviewDraftForm key={`review-${recommendation.id}`} caseId={caseId} recommendationId={recommendation.id} explanation={recommendation.explanation} />}
+          {canIssueRecommendation && recommendation.status === "DRAFT" && <IssueRecommendationForm key={`issue-${recommendation.id}`} recommendationId={recommendation.id} />}
         </section>
       )}
 

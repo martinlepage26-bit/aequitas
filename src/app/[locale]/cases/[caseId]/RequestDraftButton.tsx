@@ -11,14 +11,17 @@ export default function RequestDraftButton({ caseId }: { caseId: string }) {
 
   async function handleClick() {
     setStatus({ kind: "busy" });
+    try {
     const res = await fetch(`/api/cases/${caseId}/draft-requests`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setStatus({ kind: "error", message: data.message || t("error") });
+      router.refresh();
       return;
     }
     setStatus({ kind: "idle" });
     router.refresh();
+    } catch { setStatus({ kind: "error", message: t("error") }); }
   }
 
   return (

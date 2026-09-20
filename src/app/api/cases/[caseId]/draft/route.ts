@@ -1,3 +1,4 @@
+import { reviewDraft, mutationFailureResponse } from "../../../../../domain/mutate";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -32,4 +33,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     modelId: recommendation.modelId,
     promptVersion: recommendation.promptVersion,
   });
+}
+
+/** Submit a complete correction with the base version, preserving an attributable history. */
+export async function PATCH(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
+  const auth = await requireSession();
+  if ("response" in auth) return auth.response;
+  const { caseId } = await params;
+  const body = await request.json().catch(() => null);
+  if (typeof body?.recommendationId !== "string" || typeof body?.reason !== "string") {
+    return Response.json({ message: "recommendationId, explanation and reason are required." }, { status: 400 });
+  }
+  const result = await reviewDraft({
+    actorId: auth.session.userId, actorRole: auth.session.globalRole, caseId,
+    recommendationId: body.recommendationId, fields: body.explanation, reason: body.reason,
+  });
+  if (!result.ok) return mutationFailureResponse(result)!;
+  return Response.json({ caseId, state: result.data.toState });
 }

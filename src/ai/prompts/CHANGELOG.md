@@ -26,3 +26,12 @@ write in the case locale) and the Section 12 terminology glossary. User
 prompt sends evidence metadata (kind/title/description — no extracted file
 text; no OCR/PDF-parsing pipeline exists in this build) and both parties'
 position statements.
+
+## 2026-09-20.1 — Aequitas Core
+
+Makes Conflict Knowledge Architecture the draft method across all case categories.
+Requires source-linked atomic claims, competing narratives, material/narrative/relational
+context, reported experience, independence assessments, conditional synthesis and
+consent-aware repair paths. Source text is untrusted data. Evidence descriptions are
+explicitly metadata, not extracted file contents. Exact excerpts and graph references
+are validated before storage; provenance snapshots are attached by the server.

@@ -1,3 +1,7 @@
+import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceText";
+import { buildKnowledgeSources } from "../ai/prompts/conflictKnowledge";
+import { validateConflictKnowledgeMap } from "./conflictKnowledge";
+import { type DraftPromptInput } from "../ai/prompts/draftRecommendation";
 import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -5,7 +9,7 @@ import { scanBuffer, type ScanResult } from "../lib/scan";
 import { uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
-import { validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
+import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
 import { deriveGiveConsentState } from "./consent";
 import {
@@ -134,34 +138,41 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     }
   }
 
-  const data = await prisma.$transaction(async (tx) => {
-    const writeResult = await input.write(tx);
+  try {
+    const data = await prisma.$transaction(async (tx) => {
+      const writeResult = await input.write(tx);
 
-    for (const event of writeResult.eventPayloads) {
-      await appendEvent(tx, {
-        caseId: writeResult.caseId,
-        type: event.type,
-        actorId: input.actorId,
-        payload: event.payload,
-      });
-    }
-
-    for (const notification of writeResult.notifications ?? []) {
-      await tx.notification.create({
-        data: {
-          userId: notification.userId,
+      for (const event of writeResult.eventPayloads) {
+        await appendEvent(tx, {
           caseId: writeResult.caseId,
-          kind: notification.kind,
-          locale: notification.locale,
-        },
-      });
-    }
+          type: event.type,
+          actorId: input.actorId,
+          payload: event.payload,
+        });
+      }
 
-    return writeResult;
-  });
+      for (const notification of writeResult.notifications ?? []) {
+        await tx.notification.create({
+          data: {
+            userId: notification.userId,
+            caseId: writeResult.caseId,
+            kind: notification.kind,
+            locale: notification.locale,
+          },
+        });
+      }
 
-  return { ok: true, data };
+      return writeResult;
+    });
+
+    return { ok: true, data };
+  } catch (error) {
+    if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
+    throw error;
+  }
 }
+
+class StaleDraftError extends Error {}
 
 // --- create_case: the first concrete mutation built on the pipeline,
 // used by M1's integration test to prove atomicity end to end. -----------
@@ -330,8 +341,15 @@ export interface SubmitEvidenceInput extends EvidenceFields {
 }
 
 export async function submitEvidence(input: SubmitEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
+    return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
+  }
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+  if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
   const evidenceId = randomUUID();
@@ -397,6 +415,9 @@ export interface SupersedeEvidenceInput extends EvidenceFields {
 }
 
 export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
+    return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
+  }
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
 
@@ -404,6 +425,11 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   if (!priorItem || priorItem.caseId !== input.caseId) {
     return { ok: false, step: "not-found", reason: "Prior evidence item not found in this case." };
   }
+  if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+  if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
+  if (priorItem.submittedById !== input.actorId) return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
   const evidenceId = randomUUID();
@@ -592,7 +618,8 @@ export async function requestDraft(input: RequestDraftInput): Promise<MutationOu
       coiDeclarationOnFile: { declared: coiDeclaration !== null, hasConflict: coiDeclaration?.hasConflict ?? false },
     },
     write: async (tx) => {
-      await tx.case.update({ where: { id: input.caseId }, data: { state: "DRAFTING" } });
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: caseRow.state, caseManagerId: input.actorId }, data: { state: "DRAFTING" } });
+      if (locked.count !== 1) throw new StaleDraftError();
       return {
         caseId: input.caseId,
         toState: "DRAFTING",
@@ -627,33 +654,66 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
   const evidenceItems = await prisma.evidenceItem.findMany({
     where: { caseId: input.caseId, scanStatus: "CLEAN" },
   });
+  const extractions = new Map<string, EvidenceExtraction>();
+  if (process.env.ANTHROPIC_API_KEY) {
+    let remaining = 60000;
+    for (const item of evidenceItems) {
+      if (remaining <= 0 || extractions.size >= 12) {
+        extractions.set(item.id, { status: "bounded", method: "none", text: "", note: "Case extraction budget reached; this source is metadata only." });
+        continue;
+      }
+      try {
+        const extraction = await extractStoredEvidence(item);
+        if (extraction.text.length > remaining) {
+          extraction.text = extraction.text.slice(0, remaining);
+          extraction.status = "bounded";
+          extraction.note = "Case extraction budget reached; only a partial extract is available.";
+        }
+        remaining -= extraction.text.length;
+        extractions.set(item.id, extraction);
+      } catch {
+        return { ok: false, step: "guard", reason: "Evidence could not be retrieved and verified. Check the original file before drafting." };
+      }
+    }
+  }
   const complainantEvidence = evidenceItems
     .filter((e) => e.submittedById === caseRow.complainantId)
-    .map((e) => ({ id: e.id, kind: e.kind, title: e.title, description: e.description, submittedByRole: "complainant" as const }));
+    .map((e) => ({ id: e.id, kind: e.kind, title: e.title, description: e.description, extraction: extractions.get(e.id), version: e.version, sha256: e.sha256, createdAt: e.createdAt.toISOString(), submittedByRole: "complainant" as const }));
   const respondentEvidence = evidenceItems
     .filter((e) => e.submittedById === caseRow.respondentId)
-    .map((e) => ({ id: e.id, kind: e.kind, title: e.title, description: e.description, submittedByRole: "respondent" as const }));
+    .map((e) => ({ id: e.id, kind: e.kind, title: e.title, description: e.description, extraction: extractions.get(e.id), version: e.version, sha256: e.sha256, createdAt: e.createdAt.toISOString(), submittedByRole: "respondent" as const }));
 
   const [complainantPositionRow, respondentPositionRow] = await Promise.all([
     prisma.positionStatement.findFirst({ where: { caseId: input.caseId, partyId: caseRow.complainantId }, orderBy: { version: "desc" } }),
     prisma.positionStatement.findFirst({ where: { caseId: input.caseId, partyId: caseRow.respondentId }, orderBy: { version: "desc" } }),
   ]);
 
+  let promptInput: DraftPromptInput | undefined;
   let draftResult: Awaited<ReturnType<typeof draftRecommendation>>;
   if (!complainantPositionRow || !respondentPositionRow) {
     draftResult = { ok: false, reason: "Both parties must have a current position before a draft can be completed." };
   } else {
-    draftResult = await draftRecommendation({
+    promptInput = {
       locale: caseRow.complainant.locale,
       category: caseRow.category,
       complainantEvidence,
       respondentEvidence,
-      complainantPosition: { partyRole: "complainant", body: complainantPositionRow.body },
-      respondentPosition: { partyRole: "respondent", body: respondentPositionRow.body },
-    });
+      complainantPosition: { partyRole: "complainant", body: complainantPositionRow.body, id: complainantPositionRow.id, version: complainantPositionRow.version, locale: complainantPositionRow.locale, createdAt: complainantPositionRow.createdAt.toISOString() },
+      respondentPosition: { partyRole: "respondent", body: respondentPositionRow.body, id: respondentPositionRow.id, version: respondentPositionRow.version, locale: respondentPositionRow.locale, createdAt: respondentPositionRow.createdAt.toISOString() },
+    };
+    draftResult = await draftRecommendation(promptInput);
   }
 
-  const schemaValidationError = draftResult.ok ? validateExplanationRecord(draftResult.explanation) : draftResult.reason;
+  let schemaValidationError = draftResult.ok ? validateExplanationRecord(draftResult.explanation) : draftResult.reason;
+  if (draftResult.ok && promptInput && !schemaValidationError) {
+    const sources = buildKnowledgeSources(promptInput);
+    schemaValidationError = validateConflictKnowledgeMap(draftResult.explanation.conflict_knowledge, sources);
+    // Registry provenance comes from our database, never from AI output.
+    draftResult.explanation.knowledge_sources = sources;
+    if (draftResult.explanation.evidence_citations.some(c => !evidenceItems.some(e => e.id === c.evidence_item_id))) {
+      schemaValidationError = "Citation does not resolve to clean evidence in this case.";
+    }
+  }
 
   return runMutation({
     trigger: "draft_completed",
@@ -670,6 +730,11 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
         // in practice, kept only so TypeScript can narrow draftResult below.
         throw new Error("draftRecommendation failed after the schema guard passed — this should be unreachable.");
       }
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "DRAFTING", currentRecommendationId: caseRow.currentRecommendationId },
+        data: { state: "DRAFTING" },
+      });
+      if (locked.count !== 1) throw new StaleDraftError();
       // Section 6 row 14 (request_new_version): a redraft after a decline or
       // revocation is a NEW version, not a second version-1 row — the prior
       // recommendation was already marked SUPERSEDED by requestNewVersion(),
@@ -686,6 +751,9 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
           promptVersion: draftResult.explanation.model.prompt_version,
         },
       });
+      if (caseRow.currentRecommendationId) {
+        await tx.recommendation.updateMany({ where: { id: caseRow.currentRecommendationId, status: "DRAFT" }, data: { status: "SUPERSEDED" } });
+      }
       await tx.case.update({ where: { id: input.caseId }, data: { currentRecommendationId: recommendation.id } });
       return {
         caseId: input.caseId,
@@ -720,11 +788,17 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
   if (!recommendation) return { ok: false, step: "not-found", reason: "Draft recommendation not found." };
 
   const explanation = recommendation.explanation as unknown as ExplanationRecord;
-  const schemaValidationError = validateExplanationRecord(explanation);
+  let schemaValidationError = validateExplanationRecord(explanation);
+  if (!schemaValidationError && (explanation.conflict_knowledge || recommendation.promptVersion >= "2026-09-20.1")) {
+    schemaValidationError = validateConflictKnowledgeMap(explanation.conflict_knowledge, explanation.knowledge_sources ?? []);
+  }
 
   const caseEvidenceItems = await prisma.evidenceItem.findMany({ where: { caseId: input.caseId, scanStatus: "CLEAN" }, select: { id: true } });
   const caseEvidenceItemIds = new Set(caseEvidenceItems.map((e) => e.id));
-  const citedEvidenceItemIds = explanation.evidence_citations.map((c) => c.evidence_item_id);
+  const citedEvidenceItemIds = [
+    ...(explanation.evidence_citations ?? []).map((c) => c.evidence_item_id),
+    ...(explanation.knowledge_sources ?? []).filter(s => s.kind === "evidence_metadata" || s.kind === "evidence_content").map(s => s.record_id),
+  ];
 
   return runMutation({
     trigger: "issue_recommendation",
@@ -738,6 +812,11 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
       reviewerIsIssuingManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
     },
     write: async (tx) => {
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "DRAFTING", currentRecommendationId: recommendation.id, caseManagerId: input.actorId },
+        data: { state: "ISSUED" },
+      });
+      if (locked.count !== 1) throw new StaleDraftError();
       const issuedAt = new Date();
       const updatedExplanation: ExplanationRecord = {
         ...explanation,
@@ -1094,6 +1173,62 @@ export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<
           { type: "CASE_CLOSED", payload: {} },
         ],
       };
+    },
+  });
+}
+
+/** A human correction creates a new draft version and keeps the original record intact. */
+export async function reviewDraft(input: {
+  actorId: string; actorRole: GlobalRole; caseId: string;
+  recommendationId: string; fields: unknown; reason: string;
+}): Promise<MutationOutcome<WriteResult>> {
+  const row = await prisma.case.findUnique({ where: { id: input.caseId } });
+  if (!row || row.caseManagerId !== input.actorId || input.actorRole !== "CASE_MANAGER") {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+  const prior = await prisma.recommendation.findUnique({ where: { id: input.recommendationId } });
+  if (!prior || prior.caseId !== row.id || row.currentRecommendationId !== prior.id || prior.status !== "DRAFT") {
+    return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing it." };
+  }
+  const parsed = coreAiGeneratedFieldsSchema.safeParse(input.fields);
+  if (!parsed.success || !input.reason.trim() || input.reason.length > 8000) {
+    return { ok: false, step: "guard", reason: "A complete valid explanation, conflict map and review reason are required." };
+  }
+  const original = prior.explanation as unknown as ExplanationRecord;
+  const sources = original.knowledge_sources ?? [];
+  const schemaValidationError = validateConflictKnowledgeMap(parsed.data.conflict_knowledge, sources);
+  const clean = await prisma.evidenceItem.findMany({ where: { caseId: row.id, scanStatus: "CLEAN" }, select: { id: true } });
+  if (parsed.data.evidence_citations.some(c => !clean.some(e => e.id === c.evidence_item_id))) {
+    return { ok: false, step: "guard", reason: "Citation does not resolve to clean case evidence." };
+  }
+  return runMutation({
+    trigger: "review_draft", actorId: input.actorId, actorRole: input.actorRole, fromState: row.state,
+    guardContexts: {
+      caseAssignedToManager: { actorId: input.actorId, caseManagerId: row.caseManagerId },
+      explanationRecordValid: { schemaValidationError },
+    },
+    write: async tx => {
+      const locked = await tx.case.updateMany({
+        where: { id: row.id, state: "DRAFTING", currentRecommendationId: prior.id, caseManagerId: input.actorId },
+        data: { state: "DRAFTING" },
+      });
+      if (locked.count !== 1) throw new StaleDraftError();
+      const explanation: ExplanationRecord = {
+        ...parsed.data, knowledge_sources: sources, model: original.model,
+        reviewer: { user_id: null, issued_at: null },
+      };
+      const latest = await tx.recommendation.findFirst({ where: { caseId: row.id }, orderBy: { version: "desc" } });
+      const revised = await tx.recommendation.create({ data: {
+        caseId: row.id, version: (latest?.version ?? 0) + 1, status: "DRAFT",
+        explanation: explanation as unknown as Prisma.InputJsonValue,
+        modelId: prior.modelId, promptVersion: prior.promptVersion,
+      } });
+      await tx.recommendation.update({ where: { id: prior.id }, data: { status: "SUPERSEDED" } });
+      await tx.case.update({ where: { id: row.id }, data: { currentRecommendationId: revised.id } });
+      return { caseId: row.id, toState: "DRAFTING", eventPayloads: [
+        { type: "RECOMMENDATION_DRAFTED", payload: { recommendationId: revised.id, version: revised.version, supersedesId: prior.id, origin: "human_review" } },
+        { type: "NOTE_ADDED", payload: { kind: "conflict_knowledge_review", recommendationId: revised.id, priorRecommendationId: prior.id, reason: input.reason } },
+      ] };
     },
   });
 }

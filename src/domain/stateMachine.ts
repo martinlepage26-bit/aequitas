@@ -17,6 +17,7 @@ export const TRIGGERS = [
   "submit_position",
   "request_draft",
   "draft_completed",
+  "review_draft",
   "issue_recommendation",
   "give_consent",
   "decline_consent",
@@ -140,7 +141,7 @@ export const TRANSITIONS: TransitionDef[] = [
   },
   {
     trigger: "request_draft",
-    from: ["POSITIONS"],
+    from: ["POSITIONS", "DRAFTING"],
     to: "DRAFTING",
     actorRoles: ["CASE_MANAGER"],
     guards: ["caseAssignedToManager", "bothPartiesHaveCurrentPositions", "coiDeclarationOnFile"],
@@ -153,6 +154,14 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: SYSTEM,
     guards: ["explanationRecordValidatesAgainstSchema"],
     events: ["RECOMMENDATION_DRAFTED"],
+  },
+  {
+    trigger: "review_draft",
+    from: ["DRAFTING"],
+    to: "DRAFTING",
+    actorRoles: ["CASE_MANAGER"],
+    guards: ["caseAssignedToManager", "explanationRecordValid"],
+    events: ["RECOMMENDATION_DRAFTED", "NOTE_ADDED"],
   },
   {
     trigger: "issue_recommendation",

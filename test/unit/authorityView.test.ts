@@ -37,7 +37,7 @@ const EXPECTED: Partial<Record<CaseState, Record<GlobalRole, Omit<AuthorityView,
   DRAFTING: {
     COMPLAINANT: { actionKeys: ["withdraw"], waitingOn: { roleKey: "caseManager", actionKey: "issueRecommendation" } },
     RESPONDENT: { actionKeys: [], waitingOn: { roleKey: "caseManager", actionKey: "issueRecommendation" } },
-    CASE_MANAGER: { actionKeys: ["issueRecommendation"], waitingOn: null },
+    CASE_MANAGER: { actionKeys: ["requestDraft", "issueRecommendation"], waitingOn: null },
     ADMIN: { actionKeys: [], waitingOn: { roleKey: "caseManager", actionKey: "issueRecommendation" } },
   },
   ISSUED: {

@@ -1,6 +1,8 @@
+import { buildKnowledgeSources } from "./prompts/conflictKnowledge";
+import { validateConflictKnowledgeMap } from "../domain/conflictKnowledge";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { aiGeneratedFieldsSchema, type ExplanationRecord } from "../domain/explanationRecord";
+import { coreAiGeneratedFieldsSchema, type ExplanationRecord } from "../domain/explanationRecord";
 import { buildDraftSystemPrompt, buildDraftUserPrompt, PROMPT_VERSION, type DraftPromptInput } from "./prompts/draftRecommendation";
 
 /**
@@ -21,7 +23,7 @@ export type DraftResult =
   | { ok: true; explanation: ExplanationRecord }
   | { ok: false, reason: string };
 
-const DEFAULT_MODEL = "claude-opus-5";
+
 
 export async function draftRecommendation(input: DraftPromptInput): Promise<DraftResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -34,23 +36,24 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
     return { ok: false, reason: "AI recommendation drafting is unavailable: ANTHROPIC_API_KEY has not been configured for this environment." };
   }
 
-  const model = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
-  const client = new Anthropic({ apiKey });
+  const model = process.env.ANTHROPIC_MODEL;
+  if (!model) return { ok: false, reason: "AI drafting is unavailable: ANTHROPIC_MODEL must name a model enabled for this account." };
+  const client = new Anthropic({ apiKey, timeout: 120000, maxRetries: 1 });
 
   let response;
   try {
     response = await client.messages.parse({
       model,
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: buildDraftSystemPrompt(input.category),
       messages: [{ role: "user", content: buildDraftUserPrompt(input) }],
-      output_config: { format: zodOutputFormat(aiGeneratedFieldsSchema) },
+      output_config: { format: zodOutputFormat(coreAiGeneratedFieldsSchema) },
     });
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
-      return { ok: false, reason: `AI service error (${error.status ?? "unknown"}): ${error.message}` };
+      return { ok: false, reason: `AI service error (${error.status ?? "unknown"}). Check the configured model and account access, then retry.` };
     }
-    throw error;
+    return { ok: false, reason: "The AI response could not be validated. The case remains available for retry and human review." };
   }
 
   if (response.stop_reason === "refusal") {
@@ -61,14 +64,21 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
     };
   }
 
+  if (response.stop_reason === "max_tokens") return { ok: false, reason: "The AI response was truncated. No draft was saved; retry with a smaller case record." };
+
   if (!response.parsed_output) {
     return { ok: false, reason: "The AI's response did not match the required schema." };
   }
+
+  const knowledgeSources = buildKnowledgeSources(input);
+  const mapError = validateConflictKnowledgeMap(response.parsed_output.conflict_knowledge, knowledgeSources);
+  if (mapError) return { ok: false, reason: `Conflict map validation failed: ${mapError}` };
 
   return {
     ok: true,
     explanation: {
       ...response.parsed_output,
+      knowledge_sources: knowledgeSources,
       model: { id: response.model, prompt_version: PROMPT_VERSION },
       reviewer: { user_id: null, issued_at: null },
     },

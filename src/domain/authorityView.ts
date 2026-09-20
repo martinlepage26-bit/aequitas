@@ -198,6 +198,7 @@ export function getAuthorityView(state: CaseState, role: GlobalRole, progress: C
     }
 
     case "DRAFTING":
+      if (has("requestDraft")) actionKeys.push("requestDraft");
       // draft_completed is SYSTEM-only (no human authority); issue_recommendation
       // is the human-facing next step once the system finishes drafting.
       if (has("issueRecommendation")) actionKeys.push("issueRecommendation");
