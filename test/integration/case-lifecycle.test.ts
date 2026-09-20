@@ -27,7 +27,7 @@ beforeAll(async () => {
     prisma.user.create({ data: { email: `manager-${randomUUID()}@example.com`, displayName: "Manager", globalRole: "CASE_MANAGER" } }),
     prisma.user.create({ data: { email: `manager2-${randomUUID()}@example.com`, displayName: "Other Manager", globalRole: "CASE_MANAGER" } }),
     prisma.consentStatementVersion.create({
-      data: { version: Date.now() % 1_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
+      data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
     }),
   ]);
   complainantId = consumer.id;

@@ -34,7 +34,7 @@ beforeAll(async () => {
     prisma.user.create({ data: { email: `cc-respondent-${randomUUID()}@example.com`, displayName: "CC Respondent", globalRole: "RESPONDENT" } }),
     prisma.user.create({ data: { email: `cc-manager-${randomUUID()}@example.com`, displayName: "CC Manager", globalRole: "CASE_MANAGER" } }),
     prisma.consentStatementVersion.create({
-      data: { version: Date.now() % 1_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
+      data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
     }),
   ]);
   complainantId = complainant.id;

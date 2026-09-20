@@ -16,7 +16,7 @@ beforeAll(async () => {
     data: { email: `retailer-${randomUUID()}@example.com`, displayName: "Test Retailer", globalRole: "RESPONDENT" },
   });
   const statementVersion = await prisma.consentStatementVersion.create({
-    data: { version: Date.now() % 1_000_000, locale: "fr-CA", body: "Test consent statement.", effectiveFrom: new Date() },
+    data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Test consent statement.", effectiveFrom: new Date() },
   });
   complainantId = consumer.id;
   respondentId = retailer.id;

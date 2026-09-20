@@ -54,7 +54,7 @@ for (const { code: locale, messages: m } of LOCALES) {
         data: { email: `e2e-manager-${randomUUID()}@example.com`, displayName: `E2E Manager ${locale}`, globalRole: "CASE_MANAGER", locale },
       });
       await prisma.consentStatementVersion.create({
-        data: { version: Date.now() % 1_000_000, locale, body: `E2E test consent statement (${locale}).`, effectiveFrom: new Date() },
+        data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale, body: `E2E test consent statement (${locale}).`, effectiveFrom: new Date() },
       });
 
       const consumerCtx = await contextFor(browser, consumer.id, "COMPLAINANT");

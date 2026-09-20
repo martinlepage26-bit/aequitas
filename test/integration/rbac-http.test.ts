@@ -92,7 +92,7 @@ beforeAll(async () => {
     prisma.user.create({ data: { email: `rbac-manager2-${randomUUID()}@example.com`, displayName: "RBAC Other Manager", globalRole: "CASE_MANAGER" } }),
     prisma.user.create({ data: { email: `rbac-outsider-${randomUUID()}@example.com`, displayName: "RBAC Outsider", globalRole: "COMPLAINANT" } }),
     prisma.consentStatementVersion.create({
-      data: { version: Date.now() % 1_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
+      data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Test.", effectiveFrom: new Date() },
     }),
   ]);
   complainantId = consumer.id;

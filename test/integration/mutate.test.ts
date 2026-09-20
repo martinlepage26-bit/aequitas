@@ -16,10 +16,10 @@ beforeAll(async () => {
     data: { email: `retailer-${randomUUID()}@example.com`, displayName: "Test Retailer", globalRole: "RESPONDENT" },
   });
   const statementVersion = await prisma.consentStatementVersion.create({
-    // version has no test-scoped uniqueness lever (it's a real business
-    // field, @@unique([version, locale])) — use the low bits of Date.now()
-    // so repeated local test runs don't collide on a fixed constant.
-    data: { version: Date.now() % 1_000_000, locale: "fr-CA", body: "Test consent statement.", effectiveFrom: new Date() },
+    // version has no test-scoped uniqueness lever (it is a real business
+    // field, @@unique([version, locale])); use a UUID-derived integer so
+    // parallel or repeated local runs do not collide.
+    data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Test consent statement.", effectiveFrom: new Date() },
   });
   complainantId = consumer.id;
   respondentId = retailer.id;
