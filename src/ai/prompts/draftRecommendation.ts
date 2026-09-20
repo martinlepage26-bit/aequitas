@@ -3,6 +3,8 @@ import type { DisputeCategory } from "../../generated/prisma";
 import { GLOSSARY } from "../../i18n/glossary";
 import { CONFLICT_KNOWLEDGE_INSTRUCTIONS, buildKnowledgeSources } from "./conflictKnowledge";
 import { routePromptContext } from "./router";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { coreAiGeneratedFieldsSchema } from "../../domain/explanationRecord";
 
 /**
  * Prompt is versioned (Section 9: "The prompt itself is versioned
@@ -11,7 +13,20 @@ import { routePromptContext } from "./router";
  * entry to CHANGELOG.md whenever buildDraftPrompt's output changes in any
  * way that could affect model behavior.
  */
-export const PROMPT_VERSION = "2026-09-20.2";
+export const PROMPT_VERSION = "2026-09-20.5";
+
+/**
+ * coreAiGeneratedFieldsSchema's full JSON Schema, spelled out in the prompt
+ * itself rather than enforced server-side via output_config: the schema's
+ * nested enums/arrays (conflict_knowledge in particular) compile into a
+ * grammar too large for Claude's structured-output constrained decoding
+ * ("The compiled grammar is too large" 400). draftRecommendation.ts still
+ * runs zodOutputFormat(coreAiGeneratedFieldsSchema).parse() against the raw
+ * response text, so validation rigor (including superRefine checks) is
+ * unchanged — only the enforcement point moved from the API to this prompt
+ * plus that same client-side parse.
+ */
+const OUTPUT_JSON_SCHEMA = JSON.stringify(zodOutputFormat(coreAiGeneratedFieldsSchema).schema);
 
 export interface EvidenceSummary {
   id: string;
@@ -64,7 +79,11 @@ ${glossaryLines}
 
 ${CONFLICT_KNOWLEDGE_INSTRUCTIONS}
 
-Ground every claim in the evidence and positions provided. Do not speculate about facts not present in the case file.`;
+Ground every claim in the evidence and positions provided. Do not speculate about facts not present in the case file.
+
+## Output format
+Respond with exactly one JSON object and nothing else: no markdown code fences, no prose before or after it. The object must conform exactly to this JSON Schema (field names, required fields, enum values, and nesting are all exact — do not add, omit, or rename fields):
+${OUTPUT_JSON_SCHEMA}`;
 }
 
 export function buildDraftUserPrompt(input: DraftPromptInput): string {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "../../src/lib/prisma";
 import {
   closeIntake,
@@ -199,11 +199,21 @@ describe("requestDraft — role, assignment, and precondition enforcement", () =
   });
 });
 
-describe("completeDraft — real failure path (no ANTHROPIC_API_KEY in this environment)", () => {
+describe("completeDraft — real failure path (ANTHROPIC_API_KEY unset)", () => {
   it("rejects at the guard step and writes no Recommendation row when the AI is unavailable", async () => {
     const caseId = await freshDraftingCase();
 
-    const result = await completeDraft({ caseId });
+    // This dev environment may carry a real ANTHROPIC_API_KEY (for
+    // scripts/smoke-core-ai.ts); stub it away here so this test still
+    // exercises the guard step instead of making a live, multi-minute API
+    // call that blows past vitest's per-test timeout.
+    vi.stubEnv("ANTHROPIC_API_KEY", "");
+    let result;
+    try {
+      result = await completeDraft({ caseId });
+    } finally {
+      vi.unstubAllEnvs();
+    }
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.step).toBe("guard");

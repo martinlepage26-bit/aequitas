@@ -8,16 +8,32 @@ import { buildDraftSystemPrompt, buildDraftUserPrompt, PROMPT_VERSION, type Draf
 /**
  * Section 9: "Use the Anthropic SDK's structured output / tool-use mode so
  * the response is schema-conformant by construction. Pin ANTHROPIC_MODEL;
- * record it per draft." `client.messages.parse()` + `zodOutputFormat()` is
- * the current SDK's structured-output path — the response is constrained
- * to the schema server-side, then parsed and validated client-side against
- * the exact same Zod schema `explanationRecordSchema` re-validates against
- * in mutate.ts's completeDraft. Two passes of the same schema is
- * deliberate, not redundant: this call proves the *shape* Claude returned;
- * completeDraft's guard is what makes the shape-plus-semantics check the
- * actual gate the state machine enforces (citations resolve to case
- * evidence is a DB check no Zod schema alone can make).
+ * record it per draft." `output_config: { format: zodOutputFormat(...) }`
+ * was the original structured-output path (schema enforced server-side via
+ * constrained decoding), but coreAiGeneratedFieldsSchema's nested
+ * enums/arrays (conflict_knowledge especially) compile into a grammar too
+ * large for that feature (400 "The compiled grammar is too large").
+ *
+ * Instead: the exact JSON Schema is spelled out in the system prompt
+ * (prompts/draftRecommendation.ts's OUTPUT_JSON_SCHEMA), the model responds
+ * in plain text, and `outputFormat.parse()` below runs the identical
+ * zodObject.safeParse() a real output_config call would have run. Schema
+ * conformance is no longer *guaranteed* by the API, but it is still fully
+ * *validated* before anything is treated as a valid draft — and
+ * `explanationRecordSchema` re-validates again in mutate.ts's completeDraft.
+ * Two passes of the same schema is deliberate, not redundant: this call
+ * proves the *shape* Claude returned; completeDraft's guard is what makes
+ * the shape-plus-semantics check the actual gate the state machine enforces
+ * (citations resolve to case evidence is a DB check no Zod schema alone can
+ * make).
  */
+
+const outputFormat = zodOutputFormat(coreAiGeneratedFieldsSchema);
+
+function stripCodeFence(text: string): string {
+  const fenced = text.trim().match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
+  return fenced ? fenced[1] : text;
+}
 
 export type DraftResult =
   | { ok: true; explanation: ExplanationRecord }
@@ -42,8 +58,11 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
   const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
   const client = new Anthropic({
     apiKey,
-    timeout: 120000,
     maxRetries: 1,
+    // No explicit timeout: let the SDK size it from max_tokens (its
+    // calculateNonstreamingTimeout gives 16000 max_tokens ~10 minutes). A
+    // fixed 120s here previously aborted real generations of the full
+    // conflict-knowledge-map response before they could finish.
     // Org-wide (unscoped) API keys require this header naming which
     // workspace to bill/authorize against; workspace-scoped keys don't.
     defaultHeaders: workspaceId ? { "anthropic-workspace-id": workspaceId } : undefined,
@@ -51,12 +70,11 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
 
   let response;
   try {
-    response = await client.messages.parse({
+    response = await client.messages.create({
       model,
       max_tokens: 16000,
       system: buildDraftSystemPrompt(input.category),
       messages: [{ role: "user", content: buildDraftUserPrompt(input) }],
-      output_config: { format: zodOutputFormat(coreAiGeneratedFieldsSchema) },
     });
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
@@ -75,18 +93,29 @@ export async function draftRecommendation(input: DraftPromptInput): Promise<Draf
 
   if (response.stop_reason === "max_tokens") return { ok: false, reason: "The AI response was truncated. No draft was saved; retry with a smaller case record." };
 
-  if (!response.parsed_output) {
-    return { ok: false, reason: "The AI's response did not match the required schema." };
+  const text = response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+  if (!text) return { ok: false, reason: "The AI's response did not include any text content." };
+
+  let parsedOutput;
+  try {
+    parsedOutput = outputFormat.parse(stripCodeFence(text));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, reason: `The AI's response did not match the required schema: ${detail}` };
   }
 
   const knowledgeSources = buildKnowledgeSources(input);
-  const mapError = validateConflictKnowledgeMap(response.parsed_output.conflict_knowledge, knowledgeSources);
+  const mapError = validateConflictKnowledgeMap(parsedOutput.conflict_knowledge, knowledgeSources);
   if (mapError) return { ok: false, reason: `Conflict map validation failed: ${mapError}` };
 
   return {
     ok: true,
     explanation: {
-      ...response.parsed_output,
+      ...parsedOutput,
       knowledge_sources: knowledgeSources,
       model: { id: response.model, prompt_version: PROMPT_VERSION },
       reviewer: { user_id: null, issued_at: null },
