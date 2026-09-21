@@ -16,6 +16,7 @@ const STATUS_LABEL = {
 export default function LegriproCompliance({ caseId = DEFAULT_CASE_ID, caseCategory = 'Consumer goods' }) {
   const [legal, setLegal] = useState({ status: 'loading', results: [] });
   const [caseState, setCaseState] = useState(null);
+  const [caseError, setCaseError] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -24,8 +25,13 @@ export default function LegriproCompliance({ caseId = DEFAULT_CASE_ID, caseCateg
       .then(({ response, body }) => active && setLegal(response.ok ? { status: 'ready', ...body } : { status: 'unavailable', ...body }))
       .catch(() => active && setLegal({ status: 'unavailable', message: 'The legal research service could not be reached.' }));
     fetch(CASE_URL)
-      .then((response) => response.json())
-      .then((body) => active && setCaseState(body));
+      .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
+      .then(({ ok, body }) => {
+        if (!active) return;
+        if (ok) setCaseState(body);
+        else setCaseError(body.message || 'The case record could not be loaded.');
+      })
+      .catch(() => active && setCaseError('The case record could not be reached.'));
     return () => { active = false; };
   }, []);
 
@@ -33,8 +39,8 @@ export default function LegriproCompliance({ caseId = DEFAULT_CASE_ID, caseCateg
     <section className="panel">
       <div className="panel-header"><h2 className="panel-title">Case record</h2><p className="panel-subtitle">{caseId} · {caseCategory}</p></div>
       <div className="panel-content">
-        <div className="case-status"><span className="status-dot" aria-hidden="true" /> {caseState ? (STATUS_LABEL[caseState.status] || caseState.status) : 'Loading case status…'}</div>
-        {caseState && <div className="stat-card"><h3>Claim value</h3><div className="value">${caseState.claimValue.toFixed(2)}</div><p>Consumer: {caseState.consumerStance}</p><p>Retailer: {caseState.retailerStance}</p></div>}
+        <div className="case-status"><span className="status-dot" aria-hidden="true" /> {caseError ? caseError : caseState ? (STATUS_LABEL[caseState.status] || caseState.status) : 'Loading case status…'}</div>
+        {caseState && typeof caseState.claimValue === 'number' && <div className="stat-card"><h3>Claim value</h3><div className="value">${caseState.claimValue.toFixed(2)}</div><p>Consumer: {caseState.consumerStance}</p><p>Retailer: {caseState.retailerStance}</p></div>}
         <section className="legal-context" aria-live="polite"><h3>Legal research context</h3><p className="source-label">Retrieved through LegiPro API · research support only</p>
           {legal.status === 'loading' && <p>Checking the configured research source…</p>}
           {legal.status === 'unavailable' && <p className="notice">{legal.message || 'No LegiPro API connection is configured. Legal conclusions remain unavailable.'}</p>}
