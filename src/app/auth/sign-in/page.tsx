@@ -2,6 +2,12 @@
 
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { useState } from "react";
+import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import styles from "./sign-in.module.css";
+
+const display = Fraunces({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-display" });
+const body = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
 type Mode = "sign-in" | "register";
 type Status = { kind: "idle" | "busy" | "error" | "success"; message?: string };
@@ -12,8 +18,8 @@ type Status = { kind: "idle" | "busy" | "error" | "success"; message?: string };
 // labels stay the neutral, internal role names.
 const ROLES = [
   { value: "COMPLAINANT", label: "Complainant" },
+  { value: "CASE_MANAGER", label: "Case manager" },
   { value: "RESPONDENT", label: "Respondent" },
-  { value: "CASE_MANAGER", label: "Neutral case manager" },
 ];
 
 export default function SignInPage() {
@@ -56,61 +62,93 @@ export default function SignInPage() {
     }
   }
 
-  return (
-    <main style={{ maxWidth: "28rem", margin: "4rem auto", padding: "0 1rem", fontFamily: "system-ui, sans-serif" }}>
-      <h1>Aequitas — {mode === "sign-in" ? "Sign in" : "Register"}</h1>
-      <div role="group" aria-label="Choose sign-in or register" style={{ marginBottom: "1.5rem" }}>
-        <button type="button" onClick={() => setMode("sign-in")} aria-pressed={mode === "sign-in"} style={{ marginRight: "0.5rem" }}>
-          Sign in
-        </button>
-        <button type="button" onClick={() => setMode("register")} aria-pressed={mode === "register"}>
-          Register
-        </button>
-      </div>
+  const statusClass = status.kind === "error" ? styles.statusError : status.kind === "success" ? styles.statusSuccess : "";
 
-      <form onSubmit={mode === "sign-in" ? handleSignIn : handleRegister}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="email">Email</label>
-          <br />
-          <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: "100%" }} />
+  return (
+    <main className={`${styles.page} ${display.variable} ${body.variable} ${mono.variable}`} style={{ fontFamily: "var(--font-body)" }}>
+      <div className={styles.frame}>
+        <div className={styles.mark}>
+          <span className={styles.wordmark}>Aequitas</span>
+          <span className={styles.tagline}>a record both sides can read</span>
         </div>
 
-        {mode === "register" && (
-          <>
-            <div style={{ marginBottom: "1rem" }}>
-              <label htmlFor="displayName">Display name</label>
-              <br />
-              <input
-                id="displayName"
-                type="text"
-                required
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                style={{ width: "100%" }}
-              />
-            </div>
-            <div style={{ marginBottom: "1rem" }}>
-              <label htmlFor="globalRole">Role</label>
-              <br />
-              <select id="globalRole" value={globalRole} onChange={(e) => setGlobalRole(e.target.value)} style={{ width: "100%" }}>
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
+        <div className={styles.card}>
+          <div className={styles.tabs} role="group" aria-label="Choose sign-in or register">
+            <button type="button" className={`${styles.tab} ${mode === "sign-in" ? styles.tabActive : ""}`} onClick={() => setMode("sign-in")} aria-pressed={mode === "sign-in"}>
+              Sign in
+            </button>
+            <button type="button" className={`${styles.tab} ${mode === "register" ? styles.tabActive : ""}`} onClick={() => setMode("register")} aria-pressed={mode === "register"}>
+              Register
+            </button>
+          </div>
 
-        <button type="submit" disabled={status.kind === "busy"}>
-          {mode === "sign-in" ? "Sign in with a passkey" : "Register a passkey"}
-        </button>
-      </form>
+          {mode === "register" && (
+            <div className={styles.beamField}>
+              <span className={styles.beamLabel} id="role-label">
+                Your role in this dispute
+              </span>
+              <div className={styles.beam} data-role={globalRole}>
+                <div className={styles.beamTrack}>
+                  <div className={styles.beamBar} aria-hidden="true" />
+                  <div className={styles.fulcrum} aria-hidden="true" />
+                </div>
+                <div className={styles.beamNodes} role="radiogroup" aria-labelledby="role-label">
+                  {ROLES.map((r) => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={globalRole === r.value}
+                      onClick={() => setGlobalRole(r.value)}
+                      className={`${styles.beamNode} ${
+                        r.value === "COMPLAINANT" ? styles.beamNodeLeft : r.value === "RESPONDENT" ? styles.beamNodeRight : styles.beamNodeCenter
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-      <p role="status" aria-live="polite" style={{ marginTop: "1rem", color: status.kind === "error" ? "#8A2A2A" : undefined }}>
-        {status.message}
-      </p>
+          <form onSubmit={mode === "sign-in" ? handleSignIn : handleRegister}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="email">
+                Email
+              </label>
+              <input id="email" className={styles.input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+
+            {mode === "register" && (
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="displayName">
+                  Display name
+                </label>
+                <input id="displayName" className={styles.input} type="text" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+              </div>
+            )}
+
+            <button type="submit" className={styles.submit} disabled={status.kind === "busy"}>
+              {mode === "sign-in" ? "Continue with a passkey" : "Create a passkey"}
+            </button>
+          </form>
+
+          <p className={styles.passkeyNote}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="8" r="5" />
+              <path d="M11.5 11.5 21 21M17 17l2-2M14 14l2-2" />
+            </svg>
+            No password to remember. Your device confirms it&apos;s you.
+          </p>
+
+          {status.message && (
+            <p role="status" aria-live="polite" className={`${styles.status} ${statusClass}`}>
+              {status.message}
+            </p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
