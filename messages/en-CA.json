@@ -376,5 +376,13 @@
     "experiences": "Experience",
     "repair": "Repair paths",
     "sources": "Sources"
+  },
+  "caseList": {
+    "title": "Your cases",
+    "empty": "No cases yet.",
+    "startNew": "Start a new case",
+    "unclaimed": "Unclaimed",
+    "otherParty": "With {name}",
+    "viewLink": "View"
   }
 }

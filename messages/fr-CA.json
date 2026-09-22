@@ -376,5 +376,13 @@
     "experiences": "Vécu",
     "repair": "Pistes de réparation",
     "sources": "Sources"
+  },
+  "caseList": {
+    "title": "Vos dossiers",
+    "empty": "Aucun dossier pour l'instant.",
+    "startNew": "Ouvrir un nouveau dossier",
+    "unclaimed": "Non attribué",
+    "otherParty": "Avec {name}",
+    "viewLink": "Voir"
   }
 }
