@@ -4,6 +4,34 @@ Section 9: "The prompt itself is versioned (`prompt_version`); prompts live
 in `src/ai/prompts/` with a changelog. Prompt changes require the same
 review as code."
 
+## 2026-09-22.2
+
+Two more prompt-clarity gaps surfaced by live smoke testing 2026-09-22.1
+(unrelated to that version's actual change — these are pre-existing
+triangulation/relationship rules the model had just never been told
+explicitly): relationships.from_id must differ from to_id (no
+self-referential edges), and each triangulation source_group's source_ids
+must be disjoint across groups (a source can't count toward more than one
+independent pathway). Both were already enforced by
+validateConflictKnowledgeMap; this only adds the missing instruction
+sentences. No schema or validation change.
+
+## 2026-09-22.1
+
+Wires real legal-research grounding into the drafting pipeline via LegiPro
+(src/lib/legipro.ts), fetched once per draft before prompt-building —
+never live inside buildKnowledgeSources, which must stay a pure function
+of its input since completeDraft calls it a second time to compute the
+authoritative, persisted source snapshot (see the comment on
+DraftPromptInput.legalResearch). Adds instruction item 8: legal_research
+sources must be quoted exactly like any other source, used only to ground
+context/repair-path reasoning (never a liability finding), and the model
+must say plainly when none were available rather than write a statute,
+section, or citation from its own training data. New knowledgeSourceSchema
+kind "legal_research". Empty when LEGIPRO_API_URL/LEGIPRO_API_TOKEN are
+unset — an honest gap, not a regression; existing drafting behavior is
+otherwise unchanged.
+
 ## 2026-09-20.5
 
 Adds one clarifying sentence to instruction item 6: synthesis.supported_claim_ids

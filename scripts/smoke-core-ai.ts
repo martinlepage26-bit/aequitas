@@ -12,6 +12,7 @@ async function main() {
     locale: "en-CA", category: "EMPLOYMENT", complainantEvidence: [], respondentEvidence: [],
     complainantPosition: { id: "synthetic-position-a", partyRole: "complainant", body: "I felt excluded when the team changed the meeting time. I think the scheduling policy changed, but I have not seen a written policy.", locale: "en-CA", version: 1 },
     respondentPosition: { id: "synthetic-position-b", partyRole: "respondent", body: "The written scheduling policy did not change. I believe the meeting moved because of room availability. We have not yet located the booking records.", locale: "en-CA", version: 1 },
+    legalResearch: [],
   });
   if (!result.ok) { console.error(result.reason); process.exitCode = 1; return; }
   const error = validateExplanationRecord(result.explanation);

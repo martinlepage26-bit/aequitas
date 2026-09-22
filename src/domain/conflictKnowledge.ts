@@ -74,7 +74,7 @@ export const conflictKnowledgeMapSchema = z.object({
 export type ConflictKnowledgeMap = z.infer<typeof conflictKnowledgeMapSchema>;
 export const knowledgeSourceSchema = z.object({
   id: text,
-  kind: z.enum(["evidence_metadata", "evidence_content", "position"]),
+  kind: z.enum(["evidence_metadata", "evidence_content", "position", "legal_research"]),
   record_id: text,
   version: z.number().int().positive().nullable(),
   locale: text.nullable(),

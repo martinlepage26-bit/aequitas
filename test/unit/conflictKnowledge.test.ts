@@ -10,11 +10,26 @@ const input: DraftPromptInput = {
   locale: "fr-CA", category: "EMPLOYMENT", complainantEvidence: [], respondentEvidence: [],
   complainantPosition: { id: "p1", partyRole: "complainant", body: sources[0].fields.body!, version: 1, locale: "fr-CA" },
   respondentPosition: { id: "p2", partyRole: "respondent", body: sources[1].fields.body!, version: 2, locale: "en-CA" },
+  legalResearch: [],
 };
 describe("Aequitas Core knowledge integrity", () => {
   it("accepts uncertainty and preserves original bilingual quotations", () => {
     expect(validateConflictKnowledgeMap(validMap(), sources)).toBeNull();
     expect(buildKnowledgeSources(input)).toEqual(sources);
+  });
+  it("maps legal-research results into cite-able, non-fabricated sources", () => {
+    const withLegal: DraftPromptInput = {
+      ...input,
+      legalResearch: [
+        { id: "cqlr-p40-1-s37", title: "Consumer Protection Act", citation: "CQLR c P-40.1, s. 37", body: "Goods must be fit for the purposes for which goods of that kind are ordinarily used." },
+        { id: "cqlr-p40-1-s38", title: "Consumer Protection Act", body: "Goods must be durable in normal use for a reasonable length of time." },
+      ],
+    };
+    expect(buildKnowledgeSources(withLegal)).toEqual([
+      { id: "legal:0", kind: "legal_research", record_id: "cqlr-p40-1-s37", version: null, locale: null, submitted_by_role: "legipro", created_at: null, sha256: null, fields: { title: "Consumer Protection Act (CQLR c P-40.1, s. 37)", body: "Goods must be fit for the purposes for which goods of that kind are ordinarily used." } },
+      { id: "legal:1", kind: "legal_research", record_id: "cqlr-p40-1-s38", version: null, locale: null, submitted_by_role: "legipro", created_at: null, sha256: null, fields: { title: "Consumer Protection Act", body: "Goods must be durable in normal use for a reasonable length of time." } },
+      ...sources,
+    ]);
   });
   it.each([
     ["invented source", (m: ReturnType<typeof validMap>) => { m.claims[0].citations[0].source_id = "outside-case"; }],

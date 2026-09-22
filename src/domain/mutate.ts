@@ -2,6 +2,8 @@ import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceT
 import { buildKnowledgeSources } from "../ai/prompts/conflictKnowledge";
 import { validateConflictKnowledgeMap } from "./conflictKnowledge";
 import { type DraftPromptInput } from "../ai/prompts/draftRecommendation";
+import { routePromptContext } from "../ai/prompts/router";
+import { fetchLegalResearch } from "../lib/legipro";
 import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -693,6 +695,10 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
   if (!complainantPositionRow || !respondentPositionRow) {
     draftResult = { ok: false, reason: "Both parties must have a current position before a draft can be completed." };
   } else {
+    // Fetched exactly once, here — see the comment on DraftPromptInput.legalResearch
+    // for why this must never happen inside buildKnowledgeSources itself.
+    const domainLabel = routePromptContext(caseRow.category).domainLabel;
+    const legalResearch = await fetchLegalResearch(`Québec, Canada law applicable to a ${domainLabel}: rights, obligations, and remedies`);
     promptInput = {
       locale: caseRow.complainant.locale,
       category: caseRow.category,
@@ -700,6 +706,7 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
       respondentEvidence,
       complainantPosition: { partyRole: "complainant", body: complainantPositionRow.body, id: complainantPositionRow.id, version: complainantPositionRow.version, locale: complainantPositionRow.locale, createdAt: complainantPositionRow.createdAt.toISOString() },
       respondentPosition: { partyRole: "respondent", body: respondentPositionRow.body, id: respondentPositionRow.id, version: respondentPositionRow.version, locale: respondentPositionRow.locale, createdAt: respondentPositionRow.createdAt.toISOString() },
+      legalResearch,
     };
     draftResult = await draftRecommendation(promptInput);
   }

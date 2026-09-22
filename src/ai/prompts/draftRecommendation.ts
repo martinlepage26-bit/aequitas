@@ -1,5 +1,6 @@
 import type { EvidenceExtraction } from "../../lib/evidenceText";
 import type { DisputeCategory } from "../../generated/prisma";
+import type { LegalResearchResult } from "../../lib/legipro";
 import { GLOSSARY } from "../../i18n/glossary";
 import { CONFLICT_KNOWLEDGE_INSTRUCTIONS, buildKnowledgeSources } from "./conflictKnowledge";
 import { routePromptContext } from "./router";
@@ -13,7 +14,7 @@ import { coreAiGeneratedFieldsSchema } from "../../domain/explanationRecord";
  * entry to CHANGELOG.md whenever buildDraftPrompt's output changes in any
  * way that could affect model behavior.
  */
-export const PROMPT_VERSION = "2026-09-20.5";
+export const PROMPT_VERSION = "2026-09-22.2";
 
 /**
  * coreAiGeneratedFieldsSchema's full JSON Schema, spelled out in the prompt
@@ -56,6 +57,16 @@ export interface DraftPromptInput {
   respondentEvidence: EvidenceSummary[];
   complainantPosition: PositionSummary;
   respondentPosition: PositionSummary;
+  // Fetched once, before this input is built (see mutate.ts's completeDraft)
+  // — never re-fetched live inside buildKnowledgeSources, which must stay a
+  // pure function of its input: it runs twice per draft (once to build this
+  // prompt, once in completeDraft to compute the authoritative, persisted
+  // source snapshot), and a live external call there could return different
+  // results between those two calls, corrupting the citation provenance
+  // completeDraft depends on. Empty when LegiPro isn't configured or the
+  // search failed — an honest "no legal research available", never a
+  // fabricated one.
+  legalResearch: LegalResearchResult[];
 }
 
 /** Drafts include hash-verified, bounded attachment extracts and original source metadata. */

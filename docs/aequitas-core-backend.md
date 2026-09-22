@@ -21,9 +21,37 @@ Every new AI draft includes a versioned Conflict Knowledge Map:
 - Conditional synthesis with supported/contested claim references and revision
   conditions; repair options with prerequisites, accountability and consent.
 
-The method is `aequitas-core-v1`; the drafting prompt is `2026-09-20.1`.
+The method is `aequitas-core-v1`; the drafting prompt is `2026-09-22.1` (see
+`src/ai/prompts/CHANGELOG.md` for the full version history).
 It applies across all existing dispute categories. Human review and party consent
 remain separate from AI assessments.
+
+## Legal research (LegiPro)
+
+`src/lib/legipro.ts` queries an external legal-search API once per draft,
+before prompt-building — `POST /v0/search/routed` against
+`LEGIPRO_API_URL`, scoped by `LEGIPRO_API_TOKEN`. The query is built from
+the case's category (`src/ai/prompts/router.ts`'s domain label) plus the
+app's established Québec, Canada jurisdiction scope; it is never a
+per-case-specific statute guessed by this code or by the model.
+
+Results become `knowledge_source` entries of `kind: "legal_research"`, cited
+under the exact same excerpt-matching rule as every other source (see
+`validateConflictKnowledgeMap`) — the model can quote what LegiPro actually
+returned, never a remembered statute name or section number. When
+`LEGIPRO_API_URL`/`LEGIPRO_API_TOKEN` are unset, or the search fails or times
+out, this is an empty list, not a fabricated one; the drafting prompt
+explicitly instructs the model to say plainly that no legal research was
+available rather than invent a citation. This is the same honest-degradation
+pattern already used for `ANTHROPIC_API_KEY` and the database connection —
+see DECISIONS.md.
+
+**This is legal research support for a human reviewer, not adjudication.**
+Nothing in this pipeline determines liability, issues a binding ruling, or
+constitutes legal advice — the hard constraint against the word "decision"
+and the mandatory human-review-before-issuance gate (Section 9) are
+unchanged and apply to legal_research-informed drafts exactly as to any
+other draft.
 
 ## Persistence, provenance and validation
 
