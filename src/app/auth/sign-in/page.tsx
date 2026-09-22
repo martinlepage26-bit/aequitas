@@ -2,6 +2,7 @@
 
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import styles from "./sign-in.module.css";
 
@@ -22,7 +23,17 @@ const ROLES = [
   { value: "RESPONDENT", label: "Respondent" },
 ];
 
+// Only COMPLAINANT has somewhere to land post-auth today (/cases/new — see
+// src/app/[locale]/cases/new/page.tsx, which 404s for any other role). There
+// is no case list/dashboard route yet for CASE_MANAGER or RESPONDENT; they
+// arrive at a specific case via a shared /cases/[caseId] link instead. Once
+// that view is added, extend this to route those roles too.
+function landingPathFor(globalRole: string): string | null {
+  return globalRole === "COMPLAINANT" ? "/cases/new" : null;
+}
+
 export default function SignInPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -36,6 +47,18 @@ export default function SignInPage() {
     return data;
   }
 
+  function afterAuth(user: { displayName: string; globalRole: string }, verb: "Registered" | "Signed in") {
+    const landingPath = landingPathFor(user.globalRole);
+    if (landingPath) {
+      router.push(landingPath);
+      return;
+    }
+    setStatus({
+      kind: "success",
+      message: `${verb} as ${user.displayName} (${user.globalRole}). There's no general workspace yet for this role — use the link to your specific case.`,
+    });
+  }
+
   async function handleRegister(event: React.FormEvent) {
     event.preventDefault();
     setStatus({ kind: "busy" });
@@ -43,7 +66,7 @@ export default function SignInPage() {
       const optionsJSON = await postJson("/api/auth/webauthn/register", { step: "options", email, displayName, globalRole });
       const response = await startRegistration({ optionsJSON });
       const user = await postJson("/api/auth/webauthn/register", { step: "verify", response });
-      setStatus({ kind: "success", message: `Registered as ${user.displayName} (${user.globalRole}).` });
+      afterAuth(user, "Registered");
     } catch (error) {
       setStatus({ kind: "error", message: (error as Error).message });
     }
@@ -56,7 +79,7 @@ export default function SignInPage() {
       const optionsJSON = await postJson("/api/auth/webauthn/authenticate", { step: "options", email });
       const response = await startAuthentication({ optionsJSON });
       const user = await postJson("/api/auth/webauthn/authenticate", { step: "verify", response });
-      setStatus({ kind: "success", message: `Signed in as ${user.displayName} (${user.globalRole}).` });
+      afterAuth(user, "Signed in");
     } catch (error) {
       setStatus({ kind: "error", message: (error as Error).message });
     }
