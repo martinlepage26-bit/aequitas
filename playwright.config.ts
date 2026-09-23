@@ -14,7 +14,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "list",
-  timeout: 30_000,
+  // A genuinely cold CI checkout has no warm .next/dev cache, so the FIRST
+  // test pays for next dev's on-demand per-route compilation across every
+  // route it's the first to hit (case-lifecycle.spec.ts, fr-CA, run first)
+  // — confirmed live in CI: that run alone exceeded a 30s timeout while the
+  // second (en-CA, routes already compiled) finished in 23.2s. Not a real
+  // bug; a local sandbox with prior `next dev`/`next build` runs never
+  // reproduces this because its .next/dev cache is already warm.
+  timeout: 60_000,
   use: {
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
