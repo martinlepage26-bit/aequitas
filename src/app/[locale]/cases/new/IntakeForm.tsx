@@ -19,6 +19,7 @@ export default function IntakeForm({
   const locale = params.locale as string;
 
   const [respondentEmail, setRespondentEmail] = useState("");
+  const [respondentDisplayName, setRespondentDisplayName] = useState("");
   const [category, setCategory] = useState(categoryOptions[0]?.value ?? "RETAIL");
   const [simulated, setSimulated] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -31,7 +32,13 @@ export default function IntakeForm({
     const res = await fetch("/api/cases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ respondentEmail, category, requestedStatementVersionId: statementVersionId, simulated }),
+      body: JSON.stringify({
+        respondentEmail,
+        respondentDisplayName,
+        category,
+        requestedStatementVersionId: statementVersionId,
+        simulated,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -66,6 +73,20 @@ export default function IntakeForm({
           onChange={(e) => setRespondentEmail(e.target.value)}
           style={{ width: "100%" }}
         />
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <label htmlFor="respondent-name">{t("respondentNameLabel")}</label>
+        <br />
+        <input
+          id="respondent-name"
+          type="text"
+          required
+          value={respondentDisplayName}
+          onChange={(e) => setRespondentDisplayName(e.target.value)}
+          style={{ width: "100%" }}
+        />
+        <p style={{ fontSize: "0.85rem", color: "#555" }}>{t("respondentNameHint")}</p>
       </div>
 
       <div style={{ marginBottom: "1rem" }}>

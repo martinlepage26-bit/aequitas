@@ -29,10 +29,35 @@ export async function POST(request: Request) {
     return Response.json({ message: `category must be one of: ${DISPUTE_CATEGORIES.join(", ")}` }, { status: 400 });
   }
 
-  const respondent = await prisma.user.findUnique({ where: { email: body.respondentEmail } });
-  if (!respondent || respondent.globalRole !== "RESPONDENT") {
-    return Response.json({ message: "No respondent exists with that email." }, { status: 400 });
+  // A respondent doesn't need an existing account: a complainant can name
+  // anyone by email. If nobody with that email is registered yet, a
+  // placeholder RESPONDENT account is created here so the case has
+  // somewhere to point; when that person later self-registers with the
+  // same email, the real registration flow (webauthn/register's
+  // `existing ?? create`) attaches their passkey to this same row instead
+  // of erroring or duplicating it. An email that already belongs to a
+  // DIFFERENT role is rejected outright — a complainant naming someone
+  // else's account as a respondent must never silently repurpose it.
+  // No real email is sent (EMAIL_FROM/an email provider was never wired up
+  // in this build) — the complainant is responsible for telling the
+  // respondent, out of band, to sign in with this exact email.
+  const existingRespondent = await prisma.user.findUnique({ where: { email: body.respondentEmail } });
+  if (existingRespondent && existingRespondent.globalRole !== "RESPONDENT") {
+    return Response.json(
+      { message: "That email is already registered under a different role and cannot be used as a respondent." },
+      { status: 400 }
+    );
   }
+  if (!existingRespondent && (typeof body.respondentDisplayName !== "string" || body.respondentDisplayName.trim().length === 0)) {
+    return Response.json({ message: "respondentDisplayName is required to invite a new respondent." }, { status: 400 });
+  }
+  const respondent =
+    existingRespondent ??
+    (await prisma.user.upsert({
+      where: { email: body.respondentEmail },
+      update: {},
+      create: { email: body.respondentEmail, displayName: body.respondentDisplayName, globalRole: "RESPONDENT" },
+    }));
 
   const complainant = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
   const currentStatement = await prisma.consentStatementVersion.findFirst({

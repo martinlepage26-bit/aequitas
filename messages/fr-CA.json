@@ -11,6 +11,8 @@
     "noStatement": "Aucune déclaration de consentement n'est configurée pour la langue {locale}. Un dossier ne peut être créé tant que ce n'est pas le cas.",
     "statementHeading": "Déclaration de consentement",
     "respondentEmailLabel": "Courriel de la partie intimée",
+    "respondentNameLabel": "Nom de la partie intimée",
+    "respondentNameHint": "Si cette personne n'a pas encore de compte Aequitas, un compte sera créé pour elle — dites-lui de se connecter avec ce courriel exact.",
     "categoryLabel": "De quel type de différend s'agit-il?",
     "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
     "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",

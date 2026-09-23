@@ -11,6 +11,8 @@
     "noStatement": "No consent statement is configured for locale {locale}. A case cannot be created until one is.",
     "statementHeading": "Consent statement",
     "respondentEmailLabel": "Respondent's email",
+    "respondentNameLabel": "Respondent's name",
+    "respondentNameHint": "If they don't have an Aequitas account yet, one will be created for them — tell them to sign in with this exact email.",
     "categoryLabel": "What kind of dispute is this?",
     "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
     "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
