@@ -30,6 +30,16 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # test/integration/evidence-extraction.test.ts needs real pdftotext
+      # (poppler-utils) and tesseract binaries — src/lib/evidenceText.ts
+      # returns status "unavailable" without them, which is exactly what
+      # this step's absence caused every prior CI run to hit, unnoticed
+      # behind the earlier minio/typecheck failures. Same package list
+      # Railway's RAILPACK_DEPLOY_APT_PACKAGES already installs for
+      # production (one already-verified source of truth, not a guess).
+      - name: Install poppler-utils and tesseract for evidence extraction
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra
+
       # Postgres, MinIO, and ClamAV via the same docker-compose.yml local
       # dev already uses — one source of truth for infra, rather than a
       # second, drifting definition in GitHub Actions' own `services:`
