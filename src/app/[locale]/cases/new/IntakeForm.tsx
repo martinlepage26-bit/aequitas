@@ -81,7 +81,6 @@ export default function IntakeForm({
         <input
           id="respondent-name"
           type="text"
-          required
           value={respondentDisplayName}
           onChange={(e) => setRespondentDisplayName(e.target.value)}
           style={{ width: "100%" }}
