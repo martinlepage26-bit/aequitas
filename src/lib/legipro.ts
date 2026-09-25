@@ -1,8 +1,7 @@
 /**
  * Legal-research lookup for the real Aequitas Core drafting pipeline.
- * Distinct from src/app/api/legal-context/route.js, which is a separate,
- * untouched dependency of the M0 demo (src/components/LegriproCompliance.js)
- * — that route stays exactly as-is per DECISIONS.md's M0 note.
+ * (The M0 demo's separate, unauthenticated /api/legal-context route was
+ * removed with the rest of that demo; see DECISIONS.md, demo readiness.)
  *
  * Best-effort only: any failure (unconfigured, timeout, non-2xx, malformed
  * body) returns an empty array rather than throwing. A missing legal source

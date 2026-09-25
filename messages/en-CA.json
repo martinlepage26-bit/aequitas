@@ -401,5 +401,13 @@
       "RESPONDENT": "respondent",
       "CASE_MANAGER": "neutral case manager"
     }
+  },
+  "landing": {
+    "title": "Aequitas",
+    "tagline": "A record both sides can read.",
+    "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
+    "signIn": "Sign in with a passkey",
+    "myCases": "My cases",
+    "otherLocale": "Français"
   }
 }

@@ -44,8 +44,8 @@ export type DraftResult =
 export async function draftRecommendation(input: DraftPromptInput): Promise<DraftResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    // Matches the legacy src/lib/ai.js pattern (M0-era code, same honest
-    // "not configured" shape) rather than crashing — no live key exists in
+    // Same honest "not configured" shape the retired M0 demo used, rather
+    // than crashing — no live key exists in
     // this build environment; see DECISIONS.md M3. Anthropic({apiKey}) with
     // an empty/undefined key throws synchronously at construction, so this
     // check must happen before the client is ever built.

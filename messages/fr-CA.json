@@ -401,5 +401,13 @@
       "RESPONDENT": "partie défenderesse",
       "CASE_MANAGER": "gestionnaire de dossier neutre"
     }
+  },
+  "landing": {
+    "title": "Aequitas",
+    "tagline": "Un dossier que les deux parties peuvent lire.",
+    "lead": "Aequitas accompagne la résolution de différends : chaque partie dépose ses pièces et sa position, un gestionnaire de dossier neutre fait réviser un résultat proposé, et rien n'est conclu sans le consentement explicite de chaque partie.",
+    "signIn": "Se connecter avec une clé d'accès",
+    "myCases": "Mes dossiers",
+    "otherLocale": "English"
   }
 }
