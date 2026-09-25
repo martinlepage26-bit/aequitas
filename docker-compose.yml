@@ -1,3 +1,5 @@
+# Host ports are bound to loopback only (127.0.0.1): these services carry
+# repo-committed dev credentials and must never be reachable from the LAN.
 services:
   postgres:
     image: postgres:16
@@ -8,7 +10,7 @@ services:
       POSTGRES_PASSWORD: aequitas_dev
       POSTGRES_DB: aequitas
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - aequitas-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -33,8 +35,8 @@ services:
       MINIO_ROOT_USER: aequitas
       MINIO_ROOT_PASSWORD: aequitas_dev_minio
     ports:
-      - "9010:9000"
-      - "9011:9001"
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
     volumes:
       - aequitas-minio-data:/data
     healthcheck:
@@ -51,7 +53,7 @@ services:
     container_name: aequitas-clamav
     restart: unless-stopped
     ports:
-      - "3310:3310"
+      - "127.0.0.1:3310:3310"
     volumes:
       - aequitas-clamav-data:/var/lib/clamav
     healthcheck:
