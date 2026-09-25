@@ -4,6 +4,11 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // CT920 shares one user.slice task limit (4096) across every agent and
+  // service; a default build (one worker per core, each with its own thread
+  // pool) hit "OS can't spawn worker thread" there. NEXT_BUILD_CPUS caps the
+  // build workers where needed; unset (CI, laptops) keeps Next's default.
+  ...(process.env.NEXT_BUILD_CPUS ? { experimental: { cpus: Number(process.env.NEXT_BUILD_CPUS) } } : {}),
   // H6/H7: the root is the default-locale landing, not the retired M0 demo.
   // /fr and /en follow the short-locale URL convention used elsewhere.
   async redirects() {

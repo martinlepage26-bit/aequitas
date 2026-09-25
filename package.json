@@ -16,7 +16,8 @@
     "check:forbidden-terms": "node scripts/check-forbidden-terms.mjs",
     "test:e2e": "playwright test",
     "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e",
-    "smoke:core-ai": "tsx scripts/smoke-core-ai.ts"
+    "smoke:core-ai": "tsx scripts/smoke-core-ai.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
