@@ -55,6 +55,12 @@ jobs:
           done
 
       - run: npx prisma migrate deploy
+      # The test suites (test/setup.ts, playwright.config.ts) run against a
+      # separate aequitas_test database, never the one DATABASE_URL names.
+      - name: Create and migrate the test database
+        run: |
+          docker exec aequitas-postgres createdb -U aequitas aequitas_test
+          DATABASE_URL=postgresql://aequitas:aequitas_dev@localhost:5433/aequitas_test npx prisma migrate deploy
       - run: npx prisma generate
       - run: npm run lint
       - run: npm run typecheck

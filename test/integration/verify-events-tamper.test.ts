@@ -66,16 +66,20 @@ describe("verify:events — tamper detection (Section 18 Integrity)", () => {
     // psql). Simulating "what if that protection were defeated" requires
     // disabling the trigger for this one corruption, same as an attacker
     // with elevated privileges or a tampered restore would need to.
-    await prisma.$executeRawUnsafe(`ALTER TABLE "Event" DISABLE TRIGGER events_append_only`);
-    try {
-      const rows = await prisma.$executeRawUnsafe(
+    // The disable, the corruption and the re-enable run in ONE transaction:
+    // ALTER TABLE takes an ACCESS EXCLUSIVE lock held until commit, so no
+    // other connection can ever observe (or write through) the disabled
+    // trigger. Disabling it outside a transaction left the whole Event
+    // table unprotected for every connection while this test ran.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`ALTER TABLE "Event" DISABLE TRIGGER events_append_only`);
+      const rows = await tx.$executeRawUnsafe(
         `UPDATE "Event" SET payload = '{"tampered":true}'::jsonb WHERE "caseId" = $1 AND seq = 1`,
         caseId
       );
       expect(rows).toBe(1);
-    } finally {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "Event" ENABLE TRIGGER events_append_only`);
-    }
+      await tx.$executeRawUnsafe(`ALTER TABLE "Event" ENABLE TRIGGER events_append_only`);
+    });
 
     // Protection is back on: further tampering is blocked again.
     await expect(

@@ -27,7 +27,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.event.deleteMany({}).catch(() => undefined); // blocked by the append-only trigger; best-effort cleanup only
   await prisma.$disconnect();
 });
 

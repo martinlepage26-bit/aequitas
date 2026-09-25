@@ -1,4 +1,11 @@
+import "./src/lib/loadEnv";
 import { defineConfig, devices } from "@playwright/test";
+import { applyTestDatabase } from "./test/testDatabaseUrl";
+
+// Same rule as the vitest suite (test/setup.ts): E2E specs and the `next dev`
+// they start write to the separate aequitas_test database, never dev.
+// Workers and the webServer inherit this process's environment.
+applyTestDatabase();
 
 /**
  * M2's "Done when" criterion (Section 19): "M2 E2E segment passes in both
