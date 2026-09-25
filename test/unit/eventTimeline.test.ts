@@ -34,8 +34,8 @@ const ALL_TYPES: EventType[] = [
 const events = ALL_TYPES.map((type, i) => ({ type, seq: i + 1 }));
 
 describe("filterEventsForRole — Section 313 timeline visibility", () => {
-  it("CASE_MANAGER sees every event type, unfiltered", () => {
-    const result = filterEventsForRole(events, "CASE_MANAGER");
+  it("the assigned CASE_MANAGER sees every event type, unfiltered", () => {
+    const result = filterEventsForRole(events, "CASE_MANAGER", true);
     expect(result).toHaveLength(ALL_TYPES.length);
     expect(result.map((e) => e.type)).toEqual(ALL_TYPES);
   });
@@ -43,27 +43,27 @@ describe("filterEventsForRole — Section 313 timeline visibility", () => {
   const partyRoles: GlobalRole[] = ["COMPLAINANT", "RESPONDENT", "ADMIN"];
   for (const role of partyRoles) {
     it(`${role} never sees RECOMMENDATION_DRAFTED or NOTE_ADDED`, () => {
-      const result = filterEventsForRole(events, role);
+      const result = filterEventsForRole(events, role, false);
       expect(result.map((e) => e.type)).not.toContain("RECOMMENDATION_DRAFTED");
       expect(result.map((e) => e.type)).not.toContain("NOTE_ADDED");
     });
 
     it(`${role} sees every other event type unfiltered`, () => {
-      const result = filterEventsForRole(events, role);
+      const result = filterEventsForRole(events, role, false);
       const expected = ALL_TYPES.filter((t) => t !== "RECOMMENDATION_DRAFTED" && t !== "NOTE_ADDED");
       expect(result.map((e) => e.type)).toEqual(expected);
     });
   }
 
   it("consumer and retailer handler see identical filtering (Section 10: both listed as 'filtered', not differentiated)", () => {
-    const consumerView = filterEventsForRole(events, "COMPLAINANT").map((e) => e.type);
-    const retailerView = filterEventsForRole(events, "RESPONDENT").map((e) => e.type);
+    const consumerView = filterEventsForRole(events, "COMPLAINANT", false).map((e) => e.type);
+    const retailerView = filterEventsForRole(events, "RESPONDENT", false).map((e) => e.type);
     expect(consumerView).toEqual(retailerView);
   });
 
   it("is a pure function: does not mutate the input array", () => {
     const before = [...events];
-    filterEventsForRole(events, "COMPLAINANT");
+    filterEventsForRole(events, "COMPLAINANT", false);
     expect(events).toEqual(before);
   });
 });

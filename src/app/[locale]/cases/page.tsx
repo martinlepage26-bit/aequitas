@@ -6,8 +6,8 @@ import { prisma } from "../../../lib/prisma";
 /**
  * The list/landing page for every role — see auth/sign-in/page.tsx's
  * landingPathFor. A CASE_MANAGER sees cases already assigned to them plus
- * unclaimed cases (caseManagerId: null): any case manager may open an
- * unclaimed case (Section 16 posture, also applied in
+ * unclaimed OPEN cases (caseManagerId: null): any case manager may open an
+ * unclaimed OPEN case (Section 16 posture, also applied in
  * cases/[caseId]/page.tsx), and the first state-changing action they take
  * there claims it (see mutate.ts's openIntake). This page only surfaces
  * that; it doesn't need its own "claim" action.
@@ -29,7 +29,9 @@ export default async function CaseListPage({ params }: { params: Promise<{ local
       : session.globalRole === "RESPONDENT"
         ? await prisma.case.findMany({ where: { respondentId: session.userId }, include, orderBy: { createdAt: "desc" } })
         : await prisma.case.findMany({
-            where: { OR: [{ caseManagerId: session.userId }, { caseManagerId: null }] },
+            // H2: unclaimed cases are listed only while OPEN, the one state
+            // in which another manager may open them (src/domain/caseAccess.ts).
+            where: { OR: [{ caseManagerId: session.userId }, { caseManagerId: null, state: "OPEN" }] },
             include,
             orderBy: { createdAt: "desc" },
           });

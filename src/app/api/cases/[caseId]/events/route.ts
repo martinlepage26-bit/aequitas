@@ -1,6 +1,7 @@
 import { prisma } from "../../../../../lib/prisma";
 import { requireSession } from "../../../../../lib/session";
 import { filterEventsForRole } from "../../../../../domain/eventTimeline";
+import { caseReadAccess } from "../../../../../domain/caseAccess";
 
 // Section 16: "GET /api/cases/[id]/events — timeline (role-filtered)".
 export async function GET(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -15,9 +16,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   // Same RBAC-404 posture as the case workspace page (DECISIONS.md, Section
   // 16): a non-party, non-manager caller gets "not found", not 403 — this
   // never confirms the case exists to someone who isn't entitled to see it.
-  const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
-  const isManagerOrAdmin = session.globalRole === "CASE_MANAGER" || session.globalRole === "ADMIN";
-  if (!isParty && !isManagerOrAdmin) return Response.json({ message: "Case not found." }, { status: 404 });
+  const access = caseReadAccess(caseRow, session);
+  if (!access) return Response.json({ message: "Case not found." }, { status: 404 });
 
   const events = await prisma.event.findMany({
     where: { caseId },
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   const actors = await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, displayName: true } });
   const actorNameById = new Map(actors.map((a) => [a.id, a.displayName]));
 
-  const visible = filterEventsForRole(events, session.globalRole);
+  const visible = filterEventsForRole(events, session.globalRole, access === "assigned-manager");
 
   return Response.json(
     visible.map((e) => ({

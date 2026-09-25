@@ -6,6 +6,7 @@ import { getSession } from "../../../../lib/session";
 import { prisma } from "../../../../lib/prisma";
 import { getAuthorityView, type AuthorityActionKey, type AuthorityRoleKey, type CaseProgress } from "../../../../domain/authorityView";
 import { filterEventsForRole } from "../../../../domain/eventTimeline";
+import { caseReadAccess } from "../../../../domain/caseAccess";
 import type { ExplanationRecord } from "../../../../domain/explanationRecord";
 import { resolveRoleTerm } from "../../../../i18n/categoryGlossary";
 import EvidenceForm from "./EvidenceForm";
@@ -42,15 +43,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     : [];
   const consentStateFor = (partyId: string) => consentRecords.find((c) => c.partyId === partyId)?.state ?? "NOT_GIVEN";
 
-  // Section 16 RBAC-404 posture, applied to page access: a non-party,
-  // non-manager viewer sees "not found", never a 403 that would confirm the
-  // case exists. Any CASE_MANAGER (not just the assigned one) can still open
-  // this page — the assigned-manager guard itself is enforced server-side by
-  // each mutation route (close-intake, etc.), same as an unclaimed OPEN case
-  // must stay reachable for a manager to self-claim via open_intake.
-  const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
-  const isManagerOrAdmin = session.globalRole === "CASE_MANAGER" || session.globalRole === "ADMIN";
-  if (!isParty && !isManagerOrAdmin) notFound();
+  // Section 16 RBAC-404 posture, applied to page access: a viewer with no
+  // read access sees "not found", never a 403 that would confirm the case
+  // exists. H2: a case manager other than the assigned one reaches this page
+  // only while the case is OPEN and unclaimed, to self-claim via open_intake
+  // (see src/domain/caseAccess.ts).
+  const access = caseReadAccess(caseRow, session);
+  if (!access) notFound();
 
   const progress: CaseProgress = {
     complainantHasCleanEvidence: caseRow.evidenceItems.some((e) => e.submittedById === caseRow.complainantId && e.scanStatus === "CLEAN"),
@@ -117,7 +116,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     ? await prisma.user.findUnique({ where: { id: recommendation.explanation.reviewer.user_id }, select: { displayName: true } })
     : null;
 
-  const visibleEvents = filterEventsForRole(caseRow.events, session.globalRole);
+  const visibleEvents = filterEventsForRole(caseRow.events, session.globalRole, access === "assigned-manager");
   const eventActorIds = [...new Set(visibleEvents.map((e) => e.actorId))];
   const eventActors = eventActorIds.length
     ? await prisma.user.findMany({ where: { id: { in: eventActorIds } }, select: { id: true, displayName: true } })

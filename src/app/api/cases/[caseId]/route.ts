@@ -1,5 +1,6 @@
 import { requireSession } from "../../../../lib/session";
 import { prisma } from "../../../../lib/prisma";
+import { caseReadAccess } from "../../../../domain/caseAccess";
 
 // Section 16: "GET /api/cases/[id] — workspace projection (role-filtered)".
 // Replaces an M0-era SQLite prototype route that answered this exact path
@@ -21,9 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   });
   if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
 
-  const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
-  const isManagerOrAdmin = session.globalRole === "CASE_MANAGER" || session.globalRole === "ADMIN";
-  if (!isParty && !isManagerOrAdmin) return Response.json({ message: "Case not found." }, { status: 404 });
+  if (!caseReadAccess(caseRow, session)) return Response.json({ message: "Case not found." }, { status: 404 });
 
   return Response.json({
     id: caseRow.id,

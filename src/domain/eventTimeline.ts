@@ -12,6 +12,10 @@ import type { EventType, GlobalRole } from "../generated/prisma";
  * produce a public NOTE_ADDED event to test the alternative reading
  * against. Logged as a judgment call in DECISIONS.md.
  *
+ * Only the ASSIGNED case manager gets the full view (H2): another case
+ * manager who can see an unclaimed OPEN case to claim it gets the party-level
+ * view, like everyone else.
+ *
  * ADMIN gets the filtered (party-level) view: Section 10 defines no ADMIN
  * row for this capability, and getAuthorityView already treats ADMIN as
  * having no case-specific authority pending a real staff-access model —
@@ -19,7 +23,7 @@ import type { EventType, GlobalRole } from "../generated/prisma";
  */
 const CASE_MANAGER_ONLY_EVENT_TYPES: EventType[] = ["RECOMMENDATION_DRAFTED", "NOTE_ADDED"];
 
-export function filterEventsForRole<T extends { type: EventType }>(events: T[], viewerRole: GlobalRole): T[] {
-  if (viewerRole === "CASE_MANAGER") return events;
+export function filterEventsForRole<T extends { type: EventType }>(events: T[], viewerRole: GlobalRole, isAssignedManager: boolean): T[] {
+  if (viewerRole === "CASE_MANAGER" && isAssignedManager) return events;
   return events.filter((e) => !CASE_MANAGER_ONLY_EVENT_TYPES.includes(e.type));
 }
