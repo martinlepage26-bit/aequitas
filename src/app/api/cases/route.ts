@@ -32,15 +32,14 @@ export async function POST(request: Request) {
   // A respondent doesn't need an existing account: a complainant can name
   // anyone by email. If nobody with that email is registered yet, a
   // placeholder RESPONDENT account is created here so the case has
-  // somewhere to point; when that person later self-registers with the
-  // same email, the real registration flow (webauthn/register's
-  // `existing ?? create`) attaches their passkey to this same row instead
-  // of erroring or duplicating it. An email that already belongs to a
-  // DIFFERENT role is rejected outright — a complainant naming someone
-  // else's account as a respondent must never silently repurpose it.
-  // No real email is sent (EMAIL_FROM/an email provider was never wired up
-  // in this build) — the complainant is responsible for telling the
-  // respondent, out of band, to sign in with this exact email.
+  // somewhere to point. That placeholder is claimed ONLY through a
+  // single-use invite (POST /api/auth/invite, then /[locale]/invite/[token]);
+  // registering a passkey with the same email is refused (C1, see
+  // webauthn/register). An email that already belongs to a DIFFERENT role
+  // is rejected outright — a complainant naming someone else's account as a
+  // respondent must never silently repurpose it. No real email is sent
+  // (no email provider is wired up in this build): the invitation link is
+  // delivered out of band.
   const existingRespondent = await prisma.user.findUnique({ where: { email: body.respondentEmail } });
   if (existingRespondent && existingRespondent.globalRole !== "RESPONDENT") {
     return Response.json(

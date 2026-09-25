@@ -16,10 +16,10 @@ type Status = { kind: "idle" | "busy" | "error" | "success"; message?: string };
 // Global-role registration/sign-in is not scoped to any one case, so it has
 // no dispute category to resolve a domain-specific term from (that only
 // happens inside a case workspace — see src/i18n/categoryGlossary.ts). These
-// labels stay the neutral, internal role names.
+// labels stay the neutral, internal role names. Case managers are not
+// self-registered (H1): they are provisioned by invitation.
 const ROLES = [
   { value: "COMPLAINANT", label: "Complainant" },
-  { value: "CASE_MANAGER", label: "Case manager" },
   { value: "RESPONDENT", label: "Respondent" },
 ];
 

@@ -1,21 +1,43 @@
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
 import { cookies } from "next/headers";
 import { prisma } from "../../../../../lib/prisma";
-import { createSessionCookie } from "../../../../../lib/session";
+import { createSessionCookie, getSession } from "../../../../../lib/session";
 import { signPayload, verifyPayload } from "../../../../../lib/signedCookie";
 import { CHALLENGE_COOKIE, CHALLENGE_TTL_SECONDS, ORIGIN, RP_ID, RP_NAME } from "../../../../../lib/webauthn";
 
-// M1 self-registration allows a self-declared role among these three.
-// ADMIN provisioning is deliberately excluded from self-service — see
-// DECISIONS.md and Appendix B ("real access-control policy... must be
-// locked down before real data").
-const SELF_REGISTERABLE_ROLES = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER"] as const;
+// Self-registration creates NEW accounts only, as a complainant or a
+// respondent. CASE_MANAGER (the only role that can issue) and ADMIN are
+// provisioned through the admin-only invite path (src/app/api/auth/invite)
+// or the demo seed — see DECISIONS.md (H1).
+const SELF_REGISTERABLE_ROLES = ["COMPLAINANT", "RESPONDENT"] as const;
+type SelfRegisterableRole = (typeof SELF_REGISTERABLE_ROLES)[number];
 
 interface ChallengeCookiePayload {
   challenge: string;
   email: string;
   displayName: string;
-  globalRole: (typeof SELF_REGISTERABLE_ROLES)[number];
+  globalRole: SelfRegisterableRole;
+  purpose?: string;
+}
+
+const EXISTING_ACCOUNT_MESSAGE =
+  "An account with this email already exists. Sign in with its passkey, or use the invitation link you were given to claim it.";
+
+/**
+ * C1: an email is not proof of identity. A passkey may be attached to an
+ * EXISTING account only by a caller already signed in as that same account
+ * (adding a second device). Everyone else gets 403 — including for
+ * placeholder accounts with no passkey yet, which are claimed only through
+ * a single-use invite (src/app/api/auth/invite/claim).
+ */
+async function existingAccountGate(email: string): Promise<{ existing: { id: string; globalRole: string } | null } | { response: Response }> {
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true, globalRole: true } });
+  if (!existing) return { existing: null };
+  const session = await getSession();
+  if (!session || session.userId !== existing.id) {
+    return { response: Response.json({ message: EXISTING_ACCOUNT_MESSAGE }, { status: 403 }) };
+  }
+  return { existing };
 }
 
 export async function POST(request: Request) {
@@ -32,23 +54,30 @@ export async function POST(request: Request) {
     if (typeof displayName !== "string" || displayName.trim().length === 0) {
       return Response.json({ message: "displayName is required." }, { status: 400 });
     }
-    if (!SELF_REGISTERABLE_ROLES.includes(globalRole)) {
+
+    const gate = await existingAccountGate(email);
+    if ("response" in gate) return gate.response;
+    // A new account's role comes from the request and must be
+    // self-registerable; a signed-in user adding a device keeps their role.
+    if (!gate.existing && !SELF_REGISTERABLE_ROLES.includes(globalRole)) {
       return Response.json({ message: `globalRole must be one of ${SELF_REGISTERABLE_ROLES.join(", ")}.` }, { status: 400 });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email }, include: { credentials: true } });
+    const credentials = gate.existing
+      ? await prisma.webAuthnCredential.findMany({ where: { userId: gate.existing.id }, select: { credentialId: true, transports: true } })
+      : [];
 
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: RP_ID,
       userName: email,
       userDisplayName: displayName,
-      excludeCredentials: existingUser?.credentials.map((c) => ({ id: c.credentialId, transports: c.transports as never })) ?? [],
+      excludeCredentials: credentials.map((c) => ({ id: c.credentialId, transports: c.transports as never })),
       authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
     });
 
     const token = signPayload<ChallengeCookiePayload>(
-      { challenge: options.challenge, email, displayName, globalRole },
+      { challenge: options.challenge, email, displayName, globalRole, purpose: "register" },
       CHALLENGE_TTL_SECONDS
     );
     const store = await cookies();
@@ -67,8 +96,16 @@ export async function POST(request: Request) {
     const store = await cookies();
     const token = store.get(CHALLENGE_COOKIE)?.value;
     const challengePayload = token ? verifyPayload<ChallengeCookiePayload>(token) : null;
-    if (!challengePayload) {
+    if (!challengePayload || typeof challengePayload.email !== "string" || challengePayload.purpose === "invite-claim") {
       return Response.json({ message: "Registration ceremony expired or was not started. Try again." }, { status: 400 });
+    }
+
+    // Re-checked here, not only at the options step: the challenge cookie
+    // proves who STARTED a ceremony, not who owns the email now.
+    const gate = await existingAccountGate(challengePayload.email);
+    if ("response" in gate) return gate.response;
+    if (!gate.existing && !SELF_REGISTERABLE_ROLES.includes(challengePayload.globalRole)) {
+      return Response.json({ message: `globalRole must be one of ${SELF_REGISTERABLE_ROLES.join(", ")}.` }, { status: 400 });
     }
 
     let verification;
@@ -88,31 +125,41 @@ export async function POST(request: Request) {
     }
 
     const { credential } = verification.registrationInfo;
+    const existingId = gate.existing?.id ?? null;
 
-    const user = await prisma.$transaction(async (tx) => {
-      const existing = await tx.user.findUnique({ where: { email: challengePayload.email } });
-      const record =
-        existing ??
-        (await tx.user.create({
+    let user;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const record = existingId
+          ? await tx.user.findUniqueOrThrow({ where: { id: existingId } })
+          : await tx.user.create({
+              data: {
+                email: challengePayload.email,
+                displayName: challengePayload.displayName,
+                globalRole: challengePayload.globalRole,
+              },
+            });
+
+        await tx.webAuthnCredential.create({
           data: {
-            email: challengePayload.email,
-            displayName: challengePayload.displayName,
-            globalRole: challengePayload.globalRole,
+            userId: record.id,
+            credentialId: credential.id,
+            publicKey: Buffer.from(credential.publicKey),
+            counter: BigInt(credential.counter),
+            transports: credential.transports ?? [],
           },
-        }));
+        });
 
-      await tx.webAuthnCredential.create({
-        data: {
-          userId: record.id,
-          credentialId: credential.id,
-          publicKey: Buffer.from(credential.publicKey),
-          counter: BigInt(credential.counter),
-          transports: credential.transports ?? [],
-        },
+        return record;
       });
-
-      return record;
-    });
+    } catch (error) {
+      // The email was taken between the gate and the insert (unique
+      // violation): same answer as the gate, never an attach.
+      if ((error as { code?: string }).code === "P2002") {
+        return Response.json({ message: EXISTING_ACCOUNT_MESSAGE }, { status: 403 });
+      }
+      throw error;
+    }
 
     store.delete(CHALLENGE_COOKIE);
     await createSessionCookie({ userId: user.id, globalRole: user.globalRole, authMethod: "passkey" });

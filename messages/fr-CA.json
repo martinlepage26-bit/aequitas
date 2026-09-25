@@ -12,7 +12,7 @@
     "statementHeading": "Déclaration de consentement",
     "respondentEmailLabel": "Courriel de la partie intimée",
     "respondentNameLabel": "Nom de la partie intimée",
-    "respondentNameHint": "Si cette personne n'a pas encore de compte Aequitas, un compte sera créé pour elle — dites-lui de se connecter avec ce courriel exact.",
+    "respondentNameHint": "Si cette personne n'a pas encore de compte Aequitas, un compte sera préparé pour elle. Elle y accédera au moyen d'un lien d'invitation remis par l'équipe Aequitas; aucun courriel n'est envoyé automatiquement.",
     "categoryLabel": "De quel type de différend s'agit-il?",
     "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
     "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",
@@ -386,5 +386,20 @@
     "unclaimed": "Non attribué",
     "otherParty": "Avec {name}",
     "viewLink": "Voir"
+  },
+  "invite": {
+    "title": "Activer votre compte Aequitas",
+    "greeting": "Bonjour {name}. Vous avez été invité à Aequitas avec le rôle : {role}.",
+    "explain": "Créez une clé d'accès sur cet appareil pour activer votre compte. Aucun mot de passe : votre appareil confirme votre identité. Ce lien ne fonctionne qu'une seule fois.",
+    "submit": "Créer ma clé d'accès",
+    "busy": "Création de la clé d'accès…",
+    "invalid": "Ce lien d'invitation est invalide ou expiré. Demandez un nouveau lien à l'équipe Aequitas.",
+    "alreadyClaimed": "Ce compte a déjà été activé. Connectez-vous avec votre clé d'accès.",
+    "signInLink": "Aller à la connexion",
+    "role": {
+      "COMPLAINANT": "partie demanderesse",
+      "RESPONDENT": "partie défenderesse",
+      "CASE_MANAGER": "gestionnaire de dossier neutre"
+    }
   }
 }

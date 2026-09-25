@@ -12,7 +12,7 @@
     "statementHeading": "Consent statement",
     "respondentEmailLabel": "Respondent's email",
     "respondentNameLabel": "Respondent's name",
-    "respondentNameHint": "If they don't have an Aequitas account yet, one will be created for them — tell them to sign in with this exact email.",
+    "respondentNameHint": "If they don't have an Aequitas account yet, one will be prepared for them. They join through an invitation link from the Aequitas team; no email is sent automatically.",
     "categoryLabel": "What kind of dispute is this?",
     "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
     "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
@@ -386,5 +386,20 @@
     "unclaimed": "Unclaimed",
     "otherParty": "With {name}",
     "viewLink": "View"
+  },
+  "invite": {
+    "title": "Activate your Aequitas account",
+    "greeting": "Hello {name}. You have been invited to Aequitas as: {role}.",
+    "explain": "Create a passkey on this device to activate your account. No password: your device confirms it's you. This link works only once.",
+    "submit": "Create my passkey",
+    "busy": "Creating the passkey…",
+    "invalid": "This invitation link is invalid or has expired. Ask the Aequitas team for a new link.",
+    "alreadyClaimed": "This account has already been activated. Sign in with your passkey.",
+    "signInLink": "Go to sign-in",
+    "role": {
+      "COMPLAINANT": "complainant",
+      "RESPONDENT": "respondent",
+      "CASE_MANAGER": "neutral case manager"
+    }
   }
 }
