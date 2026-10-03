@@ -1,6 +1,6 @@
 import "../src/lib/loadEnv";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { test, expect, type Browser, type BrowserContext } from "@playwright/test";
 import { prisma } from "../src/lib/prisma";
 import { signPayload } from "../src/lib/signedCookie";
@@ -11,6 +11,10 @@ import en from "../messages/en-CA.json";
 import type { GlobalRole } from "../src/generated/prisma";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+// The shared review directory exists on the demo workspace. GitHub Actions
+// does not have it, so screenshots fall back under test-results/.
+const screenshotDir = existsSync("/srv/workspaces/shared") ? "/srv/workspaces/shared" : "test-results/screenshots";
+mkdirSync(screenshotDir, { recursive: true });
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 async function contextFor(browser: Browser, userId: string, globalRole: GlobalRole, baseURL: string): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
@@ -109,7 +113,7 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
         await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: scheme });
         await expect(page.getByRole("note")).toHaveCSS("color", "rgb(74, 59, 19)");
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-        await page.screenshot({ path: `/srv/workspaces/shared/aequitas-submissions-${locale}-${name}.png`, fullPage: true });
+        await page.screenshot({ path: `${screenshotDir}/aequitas-submissions-${locale}-${name}.png`, fullPage: true });
         const violations = await page.evaluate(async () => {
           const axe = (window as unknown as { axe: { run: (options: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
           const result = await axe.run({ runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });

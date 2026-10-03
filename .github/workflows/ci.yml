@@ -25,6 +25,10 @@ jobs:
       STORAGE_SIMULATED_PREFIX: simulated/
       CLAMAV_HOST: localhost
       CLAMAV_PORT: 3310
+      # Playwright starts next dev on port 3000. The app default origin is
+      # the demo port 3417, so passkey verify rejects CI ceremonies unless
+      # this matches the browser origin. RP ID stays localhost.
+      WEBAUTHN_ORIGIN: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
