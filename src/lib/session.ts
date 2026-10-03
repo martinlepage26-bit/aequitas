@@ -6,14 +6,23 @@ export const SESSION_COOKIE = "aequitas_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export interface SessionPayload {
+  purpose: "session";
   userId: string;
   globalRole: GlobalRole;
   /** Section 7's authContext needs the real authentication method, not an assumed one. */
   authMethod: "passkey" | "dev-bypass";
 }
 
-export async function createSessionCookie(payload: SessionPayload) {
-  const token = signPayload(payload, SESSION_TTL_SECONDS);
+export function verifySessionToken(token: string): SessionPayload | null {
+  const payload = verifyPayload<Partial<SessionPayload>>(token);
+  if (!payload || payload.purpose !== "session" || typeof payload.userId !== "string" || !payload.userId.trim()) return null;
+  if (!["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN"].includes(payload.globalRole ?? "")) return null;
+  if (payload.authMethod !== "passkey" && payload.authMethod !== "dev-bypass") return null;
+  return payload as SessionPayload;
+}
+
+export async function createSessionCookie(payload: Omit<SessionPayload, "purpose">) {
+  const token = signPayload({ ...payload, purpose: "session" }, SESSION_TTL_SECONDS);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -28,7 +37,7 @@ export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifyPayload<SessionPayload>(token);
+  return verifySessionToken(token);
 }
 
 /**
@@ -39,7 +48,8 @@ export async function getSession(): Promise<SessionPayload | null> {
  */
 export async function getSessionToken(): Promise<string | null> {
   const store = await cookies();
-  return store.get(SESSION_COOKIE)?.value ?? null;
+  const token = store.get(SESSION_COOKIE)?.value;
+  return token && verifySessionToken(token) ? token : null;
 }
 
 export async function clearSessionCookie() {

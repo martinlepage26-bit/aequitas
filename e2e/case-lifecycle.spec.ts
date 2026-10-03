@@ -24,14 +24,14 @@ const LOCALES = [
 ] as const;
 
 function cookieFor(userId: string, globalRole: string): string {
-  const token = signPayload({ userId, globalRole }, 60 * 60);
+  const token = signPayload({ purpose: "session", userId, globalRole , authMethod: "dev-bypass" }, 60 * 60);
   return `${SESSION_COOKIE}=${token}`;
 }
 
 async function contextFor(browser: import("@playwright/test").Browser, userId: string, globalRole: string): Promise<BrowserContext> {
   const context = await browser.newContext();
   await context.addCookies([
-    { name: SESSION_COOKIE, value: cookieFor(userId, globalRole).split("=").slice(1).join("="), url: "http://localhost:3000" },
+    { name: SESSION_COOKIE, value: cookieFor(userId, globalRole).split("=").slice(1).join("="), url: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3000}` },
   ]);
   return context;
 }

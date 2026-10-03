@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 /**
  * Two storage backends, chosen at call time, not at import time:
@@ -14,6 +14,10 @@ import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3
  */
 function getLocalDir(): string | null {
   return process.env.STORAGE_LOCAL_DIR || null;
+}
+
+function validateStorageKey(storageKey: string) {
+  if (!storageKey || storageKey.startsWith("/") || storageKey.includes("\\") || storageKey.split("/").some(segment => segment === "." || segment === "..")) throw new Error("Invalid storage key");
 }
 
 let s3Client: S3Client | null = null;
@@ -36,6 +40,7 @@ const SIMULATED_PREFIX = process.env.STORAGE_SIMULATED_PREFIX ?? "simulated/";
 const LIVE_PREFIX = "live/";
 
 async function putObject(storageKey: string, buffer: Buffer, mimeType: string): Promise<void> {
+  validateStorageKey(storageKey);
   const localDir = getLocalDir();
   if (localDir) {
     // turbopackIgnore: STORAGE_LOCAL_DIR is a runtime-only config value (a
@@ -54,6 +59,7 @@ async function putObject(storageKey: string, buffer: Buffer, mimeType: string): 
 }
 
 async function getObject(storageKey: string): Promise<Buffer> {
+  validateStorageKey(storageKey);
   const localDir = getLocalDir();
   if (localDir) {
     return readFile(join(/*turbopackIgnore: true*/ localDir, storageKey));
@@ -93,7 +99,8 @@ export async function uploadEvidence(input: UploadEvidenceInput): Promise<Upload
   const storageKey = `${prefix}${input.caseId}/${input.evidenceId}`;
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
 
-  await putObject(storageKey, input.buffer, input.mimeType);
+  try { await putObject(storageKey, input.buffer, input.mimeType); }
+  catch (error) { await rollbackBuffer(storageKey); throw error; }
 
   return { storageKey, sha256, byteSize: input.buffer.byteLength };
 }
@@ -112,11 +119,30 @@ export interface UploadBufferInput {
  */
 export async function uploadBuffer(input: UploadBufferInput): Promise<{ sha256: string; byteSize: number }> {
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
-  await putObject(input.storageKey, input.buffer, input.mimeType);
+  try { await putObject(input.storageKey, input.buffer, input.mimeType); }
+  catch (error) { await rollbackBuffer(input.storageKey); throw error; }
   return { sha256, byteSize: input.buffer.byteLength };
 }
 
 /** Server-side fetch-and-stream-through — no presigned-URL infra exists yet, so downloads proxy through this app rather than pointing the browser at storage directly. */
 export async function downloadBuffer(storageKey: string): Promise<Buffer> {
   return getObject(storageKey);
+}
+
+export async function deleteBuffer(storageKey: string): Promise<void> {
+  validateStorageKey(storageKey);
+  const localDir = getLocalDir();
+  if (localDir) {
+    await rm(join(/*turbopackIgnore: true*/ localDir, storageKey), { force: true });
+    return;
+  }
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET is not configured.");
+  await getS3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: storageKey }));
+}
+
+/** Cleanup must not hide the original domain/storage failure if storage is unavailable. */
+export async function rollbackBuffer(storageKey: string): Promise<void> {
+  try { await deleteBuffer(storageKey); }
+  catch { console.error("Uncommitted storage object cleanup failed; reconciliation required.", { storageKey }); }
 }

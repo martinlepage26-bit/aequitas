@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "../../../../lib/prisma";
-import { verifyInviteToken } from "../../../../lib/invite";
+import { resolveInvitation } from "../../../../lib/invitations";
+import styles from "../../../auth/sign-in/sign-in.module.css";
 import ClaimInviteForm from "./ClaimInviteForm";
 
 /**
@@ -11,16 +12,17 @@ import ClaimInviteForm from "./ClaimInviteForm";
  */
 export default async function InvitePage({ params }: { params: Promise<{ locale: string; token: string }> }) {
   const { locale, token: rawToken } = await params;
-  const token = decodeURIComponent(rawToken);
+  const token = rawToken; // Next has already decoded the route parameter.
   const t = await getTranslations("invite");
 
-  const userId = verifyInviteToken(token);
+  const invitation = await resolveInvitation(token);
+  const userId = invitation?.userId;
   const user = userId
     ? await prisma.user.findUnique({ where: { id: userId }, include: { _count: { select: { credentials: true } } } })
     : null;
 
   return (
-    <main style={{ maxWidth: "32rem", margin: "3rem auto", padding: "0 1rem", fontFamily: "system-ui, sans-serif" }}>
+    <main className={styles.page}><div className={styles.frame}><div className={styles.card}>
       <h1>{t("title")}</h1>
       {!user ? (
         <p role="alert">{t("invalid")}</p>
@@ -28,7 +30,7 @@ export default async function InvitePage({ params }: { params: Promise<{ locale:
         <>
           <p>{t("alreadyClaimed")}</p>
           <p>
-            <Link href="/auth/sign-in">{t("signInLink")}</Link>
+            <Link href={`/${locale}/auth/sign-in`}>{t("signInLink")}</Link>
           </p>
         </>
       ) : (
@@ -38,6 +40,7 @@ export default async function InvitePage({ params }: { params: Promise<{ locale:
           <ClaimInviteForm token={token} locale={locale} />
         </>
       )}
-    </main>
+      <p><Link href={`/${locale}`}>{t("home")}</Link></p>
+    </div></div></main>
   );
 }

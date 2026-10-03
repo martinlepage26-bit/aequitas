@@ -11,8 +11,8 @@ import type { CaseState, GlobalRole } from "../generated/prisma";
  *                        and unclaimed, so they can reach the claim action
  *                        (open_intake self-claim, DECISIONS.md M2)
  *  - "admin":            unchanged party-level view; emitting
- *                        ACCESS_STAFF_GRANTED for it is still open (see
- *                        DECISIONS.md)
+ *                        ACCESS_STAFF_GRANTED is recorded by authorized
+ *                        read handlers (staffAccess.ts)
  * Anyone else gets null, which callers turn into a 404 (Section 16).
  */
 export type CaseReadAccess = "party" | "assigned-manager" | "claimable" | "admin";

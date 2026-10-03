@@ -82,6 +82,7 @@ enum EventType {
   POSITION_SUBMITTED
   CHRONOLOGY_ENTRY_SUBMITTED
   RECOMMENDATION_DRAFT_REQUESTED
+  RECOMMENDATION_DRAFT_FAILED
   RECOMMENDATION_DRAFTED
   RECOMMENDATION_ISSUED
   RECOMMENDATION_SUPERSEDED
@@ -109,6 +110,7 @@ model User {
   createdAt   DateTime @default(now())
 
   credentials WebAuthnCredential[]
+  invitations Invitation[]
 
   casesAsComplainant    Case[] @relation("CaseComplainant")
   casesAsRespondent     Case[] @relation("CaseRespondent")
@@ -135,6 +137,22 @@ model WebAuthnCredential {
   user         User     @relation(fields: [userId], references: [id])
 }
 
+model Invitation {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique
+  issuedById  String?
+  locale      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  claimedAt   DateTime?
+  emailedAt   DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
 model Case {
   id                      String    @id @default(uuid())
   referenceNumber         String    @unique
@@ -146,6 +164,8 @@ model Case {
   respondentId            String
   caseManagerId           String?
   currentRecommendationId String?
+  draftRequestId          String?
+  draftRequestedAt        DateTime?
   createdAt               DateTime  @default(now())
   closedAt                DateTime?
 

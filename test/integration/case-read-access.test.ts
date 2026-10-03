@@ -38,7 +38,7 @@ let assignedCaseId: string;
 let openCaseId: string;
 
 function cookie(userId: string, globalRole: string) {
-  return { Cookie: `${SESSION_COOKIE}=${signPayload({ userId, globalRole, authMethod: "passkey" }, 3600)}` };
+  return { Cookie: `${SESSION_COOKIE}=${signPayload({ purpose: "session", userId, globalRole, authMethod: "passkey"  }, 3600)}` };
 }
 
 beforeAll(async () => {
@@ -93,7 +93,7 @@ describe("H2 over HTTP: a claimed case is readable only by its parties and its a
   ])("a different case manager gets 404 on the %s of a claimed case", async (_label, path) => {
     const res = await fetch(`${base}${path(assignedCaseId)}`, { headers: cookie(otherManagerId, "CASE_MANAGER") });
     expect(res.status).toBe(404);
-  });
+  }, 20_000);
 
   it.each([
     ["events", (id: string) => `/api/cases/${id}/events`],

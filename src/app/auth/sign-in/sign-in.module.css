@@ -22,6 +22,7 @@
     radial-gradient(1200px 600px at 50% -10%, rgba(140, 106, 52, 0.07), transparent 60%),
     var(--paper);
   color: var(--ink);
+  font-family: var(--font-body);
 }
 
 .frame {
@@ -39,6 +40,7 @@
 }
 
 .wordmark {
+  text-decoration: none;
   font-family: var(--font-display);
   font-size: 2.25rem;
   font-weight: 600;
@@ -278,6 +280,8 @@
   font-size: 0.85rem;
   border-left: 2px solid var(--rule);
 }
+
+.cancel { display: block; margin: .75rem auto 0; padding: .5rem 1rem; background: transparent; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; color: var(--ink); }
 
 .statusError {
   border-left-color: var(--danger);

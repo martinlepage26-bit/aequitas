@@ -252,7 +252,8 @@
         "DEADLINE_EXPIRED": "Échéance expirée",
         "PARTY_NOTIFIED": "Partie avisée",
         "NOTE_ADDED": "Note privée ajoutée",
-        "ACCESS_STAFF_GRANTED": "Accès du personnel accordé"
+        "ACCESS_STAFF_GRANTED": "Accès du personnel accordé",
+        "RECOMMENDATION_DRAFT_FAILED": "La génération a échoué; vous pouvez réessayer"
       }
     }
   },
@@ -443,7 +444,10 @@
       "COMPLAINANT": "partie demanderesse",
       "RESPONDENT": "partie défenderesse",
       "CASE_MANAGER": "gestionnaire de dossier neutre"
-    }
+    },
+    "home": "Retour à l’accueil",
+    "cancel": "Annuler",
+    "failed": "Activation impossible ou annulée. Réessayez ou demandez une nouvelle invitation."
   },
   "landing": {
     "title": "Aequitas",
@@ -490,5 +494,67 @@
       "note": "Les parties soumettent leurs éléments dans leur dossier, pas sur cette page publique. Le dossier explique pourquoi une action n'est pas disponible."
     },
     "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie."
+  },
+  "auth": {
+    "tagline": "un dossier lisible par les deux parties",
+    "otherLanguage": "English",
+    "chooseMode": "Choisir la connexion ou l’inscription",
+    "signIn": "Se connecter",
+    "register": "S’inscrire",
+    "role": "Votre rôle dans ce différend",
+    "complainant": "Partie plaignante",
+    "respondent": "Partie répondante",
+    "email": "Courriel",
+    "displayName": "Nom affiché",
+    "continue": "Continuer avec une clé d’accès",
+    "create": "Créer une clé d’accès",
+    "waiting": "En attente de votre appareil…",
+    "cancel": "Annuler",
+    "cancelled": "La connexion a été annulée ou a expiré. Vous pouvez réessayer.",
+    "failed": "Connexion impossible. Vérifiez votre courriel et utilisez une clé d’accès associée à ce compte, ou contactez votre administrateur.",
+    "passkeyNote": "Aucun mot de passe à retenir. Votre appareil confirme votre identité.",
+    "account": "Navigation du compte",
+    "cases": "Dossiers",
+    "invites": "Invitations",
+    "signOut": "Se déconnecter"
+  },
+  "adminInvites": {
+    "title": "Gérer les invitations",
+    "explain": "Invitez une personne à activer son compte avec une clé d’accès. Une nouvelle invitation révoque ses anciens liens inutilisés.",
+    "email": "Courriel",
+    "displayName": "Nom affiché",
+    "role": "Rôle",
+    "language": "Langue",
+    "sendEmail": "Envoyer l’invitation par courriel",
+    "emailUnavailable": "Le courriel n’est pas encore configuré. Vous pouvez transmettre le lien directement.",
+    "issue": "Créer l’invitation",
+    "failed": "La demande a échoué. Vérifiez le compte et réessayez.",
+    "revoked": "Invitation révoquée.",
+    "claimLink": "Lien d’invitation (affiché une seule fois)",
+    "recent": "Invitations récentes",
+    "status": "État",
+    "actions": "Actions",
+    "revoke": "Révoquer",
+    "emailAccepted": "courriel accepté",
+    "retryMail": "Réessayer les notifications de dossier en attente",
+    "mailPending": "Certaines notifications restent en attente. Vérifiez la configuration du courriel avant de réessayer.",
+    "mailAccepted": "Les notifications en attente ont été acceptées par le service de courriel.",
+    "roles": {
+      "COMPLAINANT": "Partie plaignante",
+      "RESPONDENT": "Partie répondante",
+      "CASE_MANAGER": "Gestionnaire de dossier"
+    },
+    "states": {
+      "active": "Active",
+      "revoked": "Révoquée",
+      "claimed": "Utilisée",
+      "expired": "Expirée"
+    },
+    "delivery": {
+      "manual": "Invitation créée. Transmettez le lien à la personne concernée.",
+      "accepted": "Invitation créée et acceptée par Resend pour livraison.",
+      "failed": "Invitation créée, mais l’envoi a échoué. Transmettez ce lien directement ou créez une nouvelle invitation.",
+      "not_configured": "Invitation créée. Le courriel n’est pas configuré; transmettez ce lien directement."
+    }
   }
 }

@@ -1,12 +1,13 @@
+import "../src/lib/loadEnv";
+import { issueStoredInvite } from "../src/lib/invitations";
 // Issues a single-use invitation link for an account with no passkey yet
 // (creating it if needed): the CLI twin of POST /api/auth/invite, for an
 // operator on the server. Load the target environment first, e.g.
 //   set -a; . ~/.config/aequitas-demo/env; set +a
 //   npx tsx scripts/issue-invite.ts <email> <COMPLAINANT|RESPONDENT|CASE_MANAGER> "<Display name>" [fr-CA|en-CA]
 // Prints the claim path; prefix it with the app origin (http://localhost:3417).
-import "../src/lib/loadEnv";
 import { prisma } from "../src/lib/prisma";
-import { invitePath, issueInviteToken } from "../src/lib/invite";
+import { invitePath } from "../src/lib/invite";
 
 const ROLES = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER"] as const;
 
@@ -22,7 +23,7 @@ async function main() {
   const user =
     existing ??
     (await prisma.user.create({ data: { email, displayName: displayName || email.split("@")[0], globalRole: role as (typeof ROLES)[number], locale } }));
-  const { token, expiresAt } = issueInviteToken(user.id);
+  const { token, expiresAt } = await issueStoredInvite(user.id, user.locale);
   console.log(invitePath(locale, token));
   console.error(`# ${user.email} (${user.globalRole}), expires ${expiresAt.toISOString()}`);
 }

@@ -1,3 +1,4 @@
+import { caseReadAccess } from "./caseAccess";
 import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceText";
 import { chronologyInputSchema } from "./chronology";
 import { buildKnowledgeSources } from "../ai/prompts/conflictKnowledge";
@@ -9,7 +10,8 @@ import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { scanBuffer, type ScanResult } from "../lib/scan";
-import { uploadEvidence } from "../lib/storage";
+import { deliverPendingNotifications } from "../lib/mail";
+import { rollbackBuffer, uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
@@ -70,6 +72,7 @@ export interface NotificationSpec {
 
 export interface WriteResult {
   caseId: string;
+  draftRequestId?: string;
   toState: CaseState;
   eventPayloads: Array<{ type: EventType; payload: unknown }>;
   notifications?: NotificationSpec[];
@@ -127,11 +130,16 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
   if (!isActorRoleAllowed(def, input.actorRole)) {
     return { ok: false, step: "authorize-role", reason: `Role not permitted to perform ${input.trigger}.` };
   }
+  for (const guardName of def.guards.filter(name => CASE_ACCESS_GUARDS.has(name))) {
+    const result = GUARD_REGISTRY[guardName](input.guardContexts[guardName]);
+    if (!result.ok) return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+
   if (!isFromStateAllowed(def, input.fromState)) {
     return { ok: false, step: "authorize-state", reason: `Cannot ${input.trigger} from state ${input.fromState}.` };
   }
 
-  for (const guardName of def.guards) {
+  for (const guardName of def.guards.filter(name => !CASE_ACCESS_GUARDS.has(name))) {
     const guardFn = GUARD_REGISTRY[guardName];
     if (!guardFn) throw new Error(`Guard "${guardName}" referenced by ${input.trigger} has no registered implementation.`);
     const result = guardFn(input.guardContexts[guardName]);
@@ -168,6 +176,10 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
       return writeResult;
     });
 
+    if (data.notifications?.length) {
+      try { await deliverPendingNotifications(data.caseId); }
+      catch { console.error("Notification dispatch unavailable; retained for retry."); }
+    }
     return { ok: true, data };
   } catch (error) {
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
@@ -247,6 +259,7 @@ export async function submitCase(input: SubmitCaseInput): Promise<MutationOutcom
     include: { respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   return runMutation({
     trigger: "submit_case",
@@ -286,6 +299,7 @@ export interface OpenIntakeInput {
 export async function openIntake(input: OpenIntakeInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   return runMutation({
     trigger: "open_intake",
@@ -323,13 +337,18 @@ export async function openIntake(input: OpenIntakeInput): Promise<MutationOutcom
 
 // --- submit_evidence / supersede_evidence: self-loop on EVIDENCE_INTAKE --
 //
-// Storage (S3) and the ClamAV scan happen before runMutation is called, not
-// inside write()'s transaction — a Postgres transaction can't span an S3
-// call, and clamd's INSTREAM protocol isn't transactional either. This
-// means a DB failure after a successful upload can leave an orphaned S3
-// object with no EvidenceItem row. Accepted for M2's scope; a reconciliation
-// job (list bucket keys, delete anything with no matching storageKey) is
-// the real fix and isn't built yet — see DECISIONS.md.
+// Scan before uploading; failed domain writes delete the newly created object.
+
+async function withStoredEvidence(storageKey: string, write: () => Promise<MutationOutcome<WriteResult>>) {
+  let committed = false;
+  try {
+    const result = await write();
+    committed = result.ok;
+    return result;
+  } finally {
+    if (!committed) await rollbackBuffer(storageKey);
+  }
+}
 
 interface EvidenceFields {
   kind: EvidenceKind;
@@ -351,11 +370,16 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
   }
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
   if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
     return { ok: false, step: "not-found", reason: "Case not found." };
   }
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
+
+  const scanAttempt = await safeScan(input.buffer);
+  if (!scanAttempt.ok) return scanAttempt.outcome;
+  const scan = scanAttempt.scan;
 
   const evidenceId = randomUUID();
   const upload = await uploadEvidence({
@@ -365,11 +389,8 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
     buffer: input.buffer,
     mimeType: input.mimeType,
   });
-  const scanAttempt = await safeScan(input.buffer);
-  if (!scanAttempt.ok) return scanAttempt.outcome;
-  const scan = scanAttempt.scan;
 
-  return runMutation({
+  return withStoredEvidence(upload.storageKey, () => runMutation({
     trigger: "submit_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
@@ -379,6 +400,8 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
       evidenceVisibilityRequiresCleanScan: {},
     },
     write: async (tx) => {
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
           id: evidenceId,
@@ -409,7 +432,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
           : [{ userId: input.actorId, kind: "evidence_rejected", locale: actor?.locale ?? "fr-CA" }],
       };
     },
-  });
+  }));
 }
 
 export interface SupersedeEvidenceInput extends EvidenceFields {
@@ -425,6 +448,7 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   }
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   const priorItem = await prisma.evidenceItem.findUnique({ where: { id: input.priorEvidenceItemId } });
   if (!priorItem || priorItem.caseId !== input.caseId) {
@@ -437,6 +461,10 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   if (priorItem.submittedById !== input.actorId) return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
+  const scanAttempt = await safeScan(input.buffer);
+  if (!scanAttempt.ok) return scanAttempt.outcome;
+  const scan = scanAttempt.scan;
+
   const evidenceId = randomUUID();
   const upload = await uploadEvidence({
     caseId: input.caseId,
@@ -445,11 +473,8 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
     buffer: input.buffer,
     mimeType: input.mimeType,
   });
-  const scanAttempt = await safeScan(input.buffer);
-  if (!scanAttempt.ok) return scanAttempt.outcome;
-  const scan = scanAttempt.scan;
 
-  return runMutation({
+  return withStoredEvidence(upload.storageKey, () => runMutation({
     trigger: "supersede_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
@@ -459,6 +484,8 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
       supersedesOwnItem: { actorId: input.actorId, priorItemSubmittedById: priorItem.submittedById },
     },
     write: async (tx) => {
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
           id: evidenceId,
@@ -488,7 +515,7 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
           : [{ userId: input.actorId, kind: "evidence_rejected", locale: actor?.locale ?? "fr-CA" }],
       };
     },
-  });
+  }));
 }
 
 export interface SubmitChronologyInput {
@@ -543,6 +570,7 @@ export interface CloseIntakeInput {
 export async function closeIntake(input: CloseIntakeInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   // "Has evidence" only counts CLEAN items — Section 11: nothing PENDING or
   // REJECTED is ever visible to the other party or usable by the AI, so a
@@ -593,6 +621,7 @@ export interface SubmitPositionInput {
 export async function submitPosition(input: SubmitPositionInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   const priorMax = await prisma.positionStatement.aggregate({
     where: { caseId: input.caseId, partyId: input.actorId },
@@ -639,6 +668,7 @@ export interface RequestDraftInput {
 export async function requestDraft(input: RequestDraftInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   const [complainantPosition, respondentPosition, coiDeclaration] = await Promise.all([
     prisma.positionStatement.findFirst({ where: { caseId: input.caseId, partyId: caseRow.complainantId } }),
@@ -649,6 +679,7 @@ export async function requestDraft(input: RequestDraftInput): Promise<MutationOu
     prisma.coiDeclaration.findFirst({ where: { caseId: input.caseId, caseManagerId: input.actorId }, orderBy: { declaredAt: "desc" } }),
   ]);
 
+  const draftRequestId = randomUUID();
   return runMutation({
     trigger: "request_draft",
     actorId: input.actorId,
@@ -663,12 +694,13 @@ export async function requestDraft(input: RequestDraftInput): Promise<MutationOu
       coiDeclarationOnFile: { declared: coiDeclaration !== null, hasConflict: coiDeclaration?.hasConflict ?? false },
     },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: caseRow.state, caseManagerId: input.actorId }, data: { state: "DRAFTING" } });
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: caseRow.state, caseManagerId: input.actorId, draftRequestId: caseRow.draftRequestId, OR: [{ draftRequestId: null }, { draftRequestedAt: { lt: new Date(Date.now() - 15 * 60_000) } }] }, data: { state: "DRAFTING", draftRequestId, draftRequestedAt: new Date() } });
       if (locked.count !== 1) throw new StaleDraftError();
       return {
         caseId: input.caseId,
         toState: "DRAFTING",
-        eventPayloads: [{ type: "RECOMMENDATION_DRAFT_REQUESTED", payload: {} }],
+        draftRequestId,
+        eventPayloads: [{ type: "RECOMMENDATION_DRAFT_REQUESTED", payload: { draftRequestId } }],
       };
     },
   });
@@ -687,9 +719,28 @@ const SYSTEM_ACTOR_ID = "system";
 
 export interface CompleteDraftInput {
   caseId: string;
+  draftRequestId?: string;
 }
 
 export async function completeDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
+  const row = await prisma.case.findUnique({ where: { id: input.caseId } });
+  if (!row) return { ok: false, step: "not-found", reason: "Case not found." };
+  const draftRequestId = input.draftRequestId ?? row.draftRequestId ?? undefined;
+  if (input.draftRequestId && input.draftRequestId !== row.draftRequestId) return { ok: false, step: "guard", reason: "Draft request changed." };
+  let outcome: MutationOutcome<WriteResult>;
+  try { outcome = await buildDraft({ ...input, draftRequestId }); }
+  catch { outcome = { ok: false, step: "guard", reason: "Draft generation is unavailable. Please try again." }; }
+  if (!outcome.ok && row.state === "DRAFTING") {
+    try { await prisma.$transaction(async tx => {
+      const toState = row.currentRecommendationId ? "DRAFTING" : "POSITIONS";
+      const recovered = await tx.case.updateMany({ where: { id: row.id, state: "DRAFTING", draftRequestId: draftRequestId ?? null, currentRecommendationId: row.currentRecommendationId }, data: { state: toState, draftRequestId: null, draftRequestedAt: null } });
+      if (recovered.count === 1) await appendEvent(tx, { caseId: row.id, type: "RECOMMENDATION_DRAFT_FAILED", actorId: SYSTEM_ACTOR_ID, payload: { draftRequestId: draftRequestId ?? null, toState, reason: "draft_unavailable" } });
+    }); } catch { console.error("Draft recovery could not be persisted; retained for retry.", { caseId: row.id }); }
+  }
+  return outcome;
+}
+
+async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({
     where: { id: input.caseId },
     include: { complainant: { select: { locale: true } } },
@@ -790,8 +841,8 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
         throw new Error("draftRecommendation failed after the schema guard passed — this should be unreachable.");
       }
       const locked = await tx.case.updateMany({
-        where: { id: input.caseId, state: "DRAFTING", currentRecommendationId: caseRow.currentRecommendationId },
-        data: { state: "DRAFTING" },
+        where: { id: input.caseId, state: "DRAFTING", currentRecommendationId: caseRow.currentRecommendationId, draftRequestId: input.draftRequestId ?? null },
+        data: { state: "DRAFTING", draftRequestId: null, draftRequestedAt: null },
       });
       if (locked.count !== 1) throw new StaleDraftError();
       // Section 6 row 14 (request_new_version): a redraft after a decline or
@@ -839,6 +890,7 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
     include: { complainant: { select: { locale: true } }, respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   if (!caseRow.currentRecommendationId) {
     return { ok: false, step: "not-found", reason: "No draft recommendation exists for this case." };
@@ -933,6 +985,7 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
     include: { complainant: { select: { locale: true } }, respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseRow.currentRecommendationId) {
     return { ok: false, step: "not-found", reason: "No issued recommendation exists for this case." };
   }
@@ -1008,6 +1061,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
     include: { complainant: { select: { locale: true } }, respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseRow.currentRecommendationId) {
     return { ok: false, step: "not-found", reason: "No issued recommendation exists for this case." };
   }
@@ -1077,6 +1131,7 @@ export async function revokeConsent(input: RevokeConsentInput): Promise<Mutation
     include: { complainant: { select: { locale: true } }, respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseRow.currentRecommendationId) {
     return { ok: false, step: "not-found", reason: "No issued recommendation exists for this case." };
   }
@@ -1126,6 +1181,7 @@ export interface RequestNewVersionInput {
 export async function requestNewVersion(input: RequestNewVersionInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseRow.currentRecommendationId) {
     return { ok: false, step: "not-found", reason: "No recommendation exists to supersede." };
   }
@@ -1136,6 +1192,7 @@ export async function requestNewVersion(input: RequestNewVersionInput): Promise<
   const currentMaxVersion = maxVersion._max.version ?? 0;
   const requestedVersion = currentMaxVersion + 1;
 
+  const draftRequestId = randomUUID();
   return runMutation({
     trigger: "request_new_version",
     actorId: input.actorId,
@@ -1147,15 +1204,18 @@ export async function requestNewVersion(input: RequestNewVersionInput): Promise<
       priorRecommendationSuperseded: { priorRecommendationStatus: priorRecommendation.status },
     },
     write: async (tx) => {
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: caseRow.state, currentRecommendationId: priorRecommendation.id, caseManagerId: input.actorId }, data: { draftRequestId, draftRequestedAt: new Date() } });
+      if (locked.count !== 1) throw new StaleDraftError();
       await tx.recommendation.update({ where: { id: priorRecommendation.id }, data: { status: "SUPERSEDED" } });
       await tx.case.update({ where: { id: input.caseId }, data: { state: "DRAFTING", currentRecommendationId: null } });
       return {
         caseId: input.caseId,
         toState: "DRAFTING",
+        draftRequestId,
         eventPayloads: [
           {
             type: "RECOMMENDATION_DRAFT_REQUESTED",
-            payload: { supersedesRecommendationId: priorRecommendation.id, newVersion: requestedVersion },
+            payload: { draftRequestId, supersedesRecommendationId: priorRecommendation.id, newVersion: requestedVersion },
           },
         ],
       };
@@ -1177,6 +1237,7 @@ export async function withdrawCase(input: WithdrawCaseInput): Promise<MutationOu
     include: { respondent: { select: { locale: true } } },
   });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   return runMutation({
     trigger: "withdraw",
@@ -1211,6 +1272,7 @@ export interface CloseCaseInput {
 export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<WriteResult>> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   return runMutation({
     trigger: "close_case",

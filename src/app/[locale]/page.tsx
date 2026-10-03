@@ -38,7 +38,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
             <h1 id="landing-title" className={styles.headline}>{t("tagline")}</h1>
             <p className={styles.intro}>{t("intro")}</p>
             <div className={styles.actions}>
-              <Link className={styles.primaryAction} href="/auth/sign-in">
+              <Link className={styles.primaryAction} href={`/${locale}/auth/sign-in`}>
                 {t("signIn")}<span aria-hidden="true">→</span>
               </Link>
               <Link className={styles.secondaryAction} href={`/${locale}/cases`}>

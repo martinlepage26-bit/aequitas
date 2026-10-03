@@ -3,13 +3,14 @@ import { cookies } from "next/headers";
 import { prisma } from "../../../../../lib/prisma";
 import { createSessionCookie } from "../../../../../lib/session";
 import { signPayload, verifyPayload } from "../../../../../lib/signedCookie";
-import { verifyInviteToken } from "../../../../../lib/invite";
+import { resolveInvitation } from "../../../../../lib/invitations";
 import { CHALLENGE_COOKIE, CHALLENGE_TTL_SECONDS, ORIGIN, RP_ID, RP_NAME } from "../../../../../lib/webauthn";
 
 interface ClaimChallengePayload {
   purpose: "invite-claim";
   challenge: string;
   userId: string;
+  invitationId: string;
 }
 
 const INVALID = () => Response.json({ message: "This invitation link is invalid or has expired." }, { status: 400 });
@@ -29,8 +30,10 @@ export async function POST(request: Request) {
     return Response.json({ message: "step is required." }, { status: 400 });
   }
 
-  const userId = verifyInviteToken(body.token);
-  if (!userId) return INVALID();
+  const invitation = await resolveInvitation(body.token);
+  if (!invitation) return INVALID();
+  const userId = invitation.userId;
+  if (invitation.claimedAt) return ALREADY_CLAIMED();
 
   if (body.step === "options") {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { _count: { select: { credentials: true } } } });
@@ -38,6 +41,7 @@ export async function POST(request: Request) {
     if (user._count.credentials > 0) return ALREADY_CLAIMED();
 
     const options = await generateRegistrationOptions({
+      timeout: 60_000,
       rpName: RP_NAME,
       rpID: RP_ID,
       userName: user.email,
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
     const store = await cookies();
     store.set(
       CHALLENGE_COOKIE,
-      signPayload<ClaimChallengePayload>({ purpose: "invite-claim", challenge: options.challenge, userId }, CHALLENGE_TTL_SECONDS),
+      signPayload<ClaimChallengePayload>({ purpose: "invite-claim", challenge: options.challenge, userId, invitationId: invitation.id }, CHALLENGE_TTL_SECONDS),
       { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: CHALLENGE_TTL_SECONDS }
     );
     return Response.json(options);
@@ -58,7 +62,7 @@ export async function POST(request: Request) {
     const store = await cookies();
     const cookie = store.get(CHALLENGE_COOKIE)?.value;
     const challenge = cookie ? verifyPayload<ClaimChallengePayload>(cookie) : null;
-    if (!challenge || challenge.purpose !== "invite-claim" || challenge.userId !== userId) {
+    if (!challenge || challenge.purpose !== "invite-claim" || challenge.userId !== userId || challenge.invitationId !== invitation.id) {
       return Response.json({ message: "Registration ceremony expired or was not started. Try again." }, { status: 400 });
     }
 
@@ -85,6 +89,8 @@ export async function POST(request: Request) {
         // and only the first one finds zero credentials.
         const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
         if (locked.length === 0) throw new AlreadyClaimed();
+        const liveInvite = await tx.invitation.findUnique({ where: { id: invitation.id } });
+        if (!liveInvite || liveInvite.revokedAt || liveInvite.claimedAt || liveInvite.expiresAt <= new Date()) throw new AlreadyClaimed();
         const count = await tx.webAuthnCredential.count({ where: { userId } });
         if (count > 0) throw new AlreadyClaimed();
         await tx.webAuthnCredential.create({
@@ -96,6 +102,7 @@ export async function POST(request: Request) {
             transports: credential.transports ?? [],
           },
         });
+        await tx.invitation.update({ where: { id: invitation.id }, data: { claimedAt: new Date() } });
         return tx.user.findUniqueOrThrow({ where: { id: userId } });
       });
     } catch (error) {

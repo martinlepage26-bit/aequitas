@@ -3,6 +3,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { routing } from "../../i18n/routing";
+import AccountNav from "../../components/AccountNav";
 
 /**
  * Nested layout, deliberately without <html>/<body> — those stay owned by
@@ -27,5 +28,5 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   const messages = await getMessages();
 
-  return <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>;
+  return <NextIntlClientProvider messages={messages}><AccountNav locale={locale} />{children}</NextIntlClientProvider>;
 }

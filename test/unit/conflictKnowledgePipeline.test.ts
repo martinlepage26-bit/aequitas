@@ -32,6 +32,7 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "rec2", version: 2 });
   mocks.lock.mockResolvedValue({ count: 1 });
   mocks.transaction.mockImplementation(async fn => fn({
+    $queryRaw: vi.fn().mockResolvedValue([]),
     case: { update: vi.fn(), updateMany: mocks.lock },
     recommendation: { count: vi.fn().mockResolvedValue(1), findFirst: vi.fn().mockResolvedValue({ version: 1 }), create: mocks.create, update: mocks.update, updateMany: vi.fn() },
     event: { findFirst: vi.fn().mockResolvedValue(null), create: mocks.eventCreate },
@@ -51,7 +52,8 @@ describe("conflict map persistence and review", () => {
     const bad = explanation(); bad.conflict_knowledge.claims[0].citations[0].excerpt = "Invented";
     mocks.draft.mockResolvedValue({ ok: true, explanation: bad });
     expect((await completeDraft({ caseId: "case1" })).ok).toBe(false);
-    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.eventCreate.mock.calls[0][0].data.type).toBe("RECOMMENDATION_DRAFT_FAILED");
   });
   it("does not silently accept a legacy-shaped AI response", async () => {
     mocks.draft.mockResolvedValue({ ok: true, explanation: { ...explanation(), conflict_knowledge: undefined } });

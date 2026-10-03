@@ -26,8 +26,11 @@ export function signPayload<T>(payload: T, ttlSeconds: number): string {
 }
 
 export function verifyPayload<T>(token: string): T | null {
-  const [data, signature] = token.split(".");
-  if (!data || !signature) return null;
+  if (typeof token !== "string" || token.length > 8192) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [data, signature] = parts;
+  if (!data || !/^[A-Za-z0-9_-]+$/.test(data) || !/^[A-Za-z0-9_-]{43}$/.test(signature)) return null;
 
   const expected = sign(data);
   const a = Buffer.from(signature);
@@ -41,6 +44,7 @@ export function verifyPayload<T>(token: string): T | null {
     return null;
   }
 
-  if (Date.now() > body.exp) return null;
+  if (!body || typeof body !== "object" || typeof body.exp !== "number" || !Number.isFinite(body.exp) || Date.now() >= body.exp) return null;
+  if (!("payload" in body)) return null;
   return body.payload;
 }

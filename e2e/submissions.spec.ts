@@ -14,15 +14,15 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 async function contextFor(browser: Browser, userId: string, globalRole: GlobalRole, baseURL: string): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
-  await context.addCookies([{ name: SESSION_COOKIE, value: signPayload({ userId, globalRole, authMethod: "dev-bypass" }, 3600), url: baseURL }]);
+  await context.addCookies([{ name: SESSION_COOKIE, value: signPayload({ purpose: "session", userId, globalRole, authMethod: "dev-bypass"  }, 3600), url: baseURL }]);
   return context;
 }
 for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
   test(`public submission guidance and accessible themes (${locale})`, async ({ page }) => {
     await page.goto(`/${locale}`);
     await expect(page.getByRole("heading", { name: m.landing.submissions.title, exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: m.landing.signIn, exact: false })).toHaveAttribute("href", "/auth/sign-in");
-    await page.addScriptTag({ content: axeSource });
+    await expect(page.getByRole("link", { name: m.landing.signIn, exact: false })).toHaveAttribute("href", `/${locale}/auth/sign-in`);
+    await page.evaluate(axeSource);
     for (const [width, scheme] of [[1440, "light"], [390, "light"], [320, "light"], [1440, "dark"]] as const) {
       await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: scheme });
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
@@ -104,7 +104,7 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
       expect((await partyContext.request.post(apiPath, { data: { ...body, occurredOn: "2026-02-31" } })).status()).toBe(400);
       const publicContext = await browser.newContext({ baseURL });
       expect((await publicContext.request.get(apiPath)).status()).toBe(401); await publicContext.close();
-      await page.addScriptTag({ content: axeSource });
+      await page.evaluate(axeSource);
       for (const [name, width, scheme] of [["desktop", 1440, "light"], ["mobile", 390, "light"], ["small-mobile", 320, "light"], ["dark", 1440, "dark"]] as const) {
         await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: scheme });
         await expect(page.getByRole("note")).toHaveCSS("color", "rgb(74, 59, 19)");

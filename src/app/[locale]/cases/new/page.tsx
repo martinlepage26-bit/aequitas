@@ -1,3 +1,4 @@
+import { signInPath } from "../../../../lib/authPaths";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "../../../../lib/session";
@@ -5,9 +6,10 @@ import { prisma } from "../../../../lib/prisma";
 import { DISPUTE_CATEGORIES, resolveRoleTerm } from "../../../../i18n/categoryGlossary";
 import IntakeForm from "./IntakeForm";
 
-export default async function NewCasePage() {
+export default async function NewCasePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   const session = await getSession();
-  if (!session) redirect("/auth/sign-in");
+  if (!session) redirect(signInPath(locale, `/${locale}/cases/new`));
   if (session.globalRole !== "COMPLAINANT") notFound();
 
   const complainant = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });

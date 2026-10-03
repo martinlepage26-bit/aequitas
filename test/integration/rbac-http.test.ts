@@ -73,7 +73,7 @@ afterAll(async () => {
 });
 
 function cookieFor(userId: string, globalRole: string): string {
-  const token = signPayload({ userId, globalRole }, 60 * 60);
+  const token = signPayload({ purpose: "session", userId, globalRole , authMethod: "dev-bypass" }, 60 * 60);
   return `${SESSION_COOKIE}=${token}`;
 }
 

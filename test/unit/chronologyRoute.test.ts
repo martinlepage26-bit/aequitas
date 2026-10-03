@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ session: vi.fn(), caseFind: vi.fn(), entries: vi.fn(), submit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), caseFind: vi.fn(), entries: vi.fn(), submit: vi.fn(), staffAccess: vi.fn() }));
+vi.mock("../../src/domain/staffAccess", () => ({ recordStaffAccess: mocks.staffAccess }));
 vi.mock("../../src/lib/session", () => ({ requireSession: mocks.session }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: { case: { findUnique: mocks.caseFind }, chronologyEntry: { findMany: mocks.entries } } }));
 vi.mock("../../src/domain/mutate", () => ({ submitChronology: mocks.submit, mutationFailureResponse: (result: { step: string }) => Response.json({}, { status: result.step === "not-found" ? 404 : result.step === "authorize-role" ? 403 : 409 }) }));
@@ -33,6 +34,7 @@ describe("chronology HTTP contract", () => {
   it("retains the existing administrator case-read policy", async () => {
     mocks.session.mockResolvedValue({ session: { userId: "admin", globalRole: "ADMIN" } });
     expect((await GET(new Request("http://localhost/"), params)).status).toBe(200);
+    expect(mocks.staffAccess).toHaveBeenCalledWith("case1", { userId: "admin", globalRole: "ADMIN" }, "chronology");
   });
   it("rejects invalid dates and forged client author fields", async () => {
     expect((await POST(request({ ...input, occurredOn: "2026-02-31" }), params)).status).toBe(400);

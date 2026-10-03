@@ -6,6 +6,8 @@ import { applyTestDatabase } from "./test/testDatabaseUrl";
 // they start write to the separate aequitas_test database, never dev.
 // Workers and the webServer inherit this process's environment.
 applyTestDatabase();
+process.env.RESEND_API_KEY = "";
+const testPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
 
 /**
  * M2's "Done when" criterion (Section 19): "M2 E2E segment passes in both
@@ -30,12 +32,12 @@ export default defineConfig({
   // reproduces this because its .next/dev cache is already warm.
   timeout: 60_000,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${testPort}`,
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
+    command: `node node_modules/next/dist/bin/next dev --port ${testPort}`,
+    url: `http://localhost:${testPort}`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

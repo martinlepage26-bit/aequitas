@@ -19,7 +19,7 @@ let server: DevServer;
 let base: string;
 
 function sessionCookie(userId: string, globalRole: string): string {
-  return `${SESSION_COOKIE}=${signPayload({ userId, globalRole, authMethod: "passkey" }, 60 * 60)}`;
+  return `${SESSION_COOKIE}=${signPayload({ purpose: "session", userId, globalRole, authMethod: "passkey"  }, 60 * 60)}`;
 }
 
 function post(path: string, body: unknown, cookie?: string) {
@@ -82,7 +82,7 @@ describe("C1: passkey registration never attaches to an existing account by emai
     const before = await prisma.webAuthnCredential.count({ where: { userId: victim.id } });
     const challenge = randomBytes(32).toString("base64url");
     const challengeCookie = signPayload(
-      { challenge, email: victim.email, displayName: "Attacker", globalRole: "COMPLAINANT" },
+      { purpose: "register", challenge, email: victim.email, displayName: "Attacker", globalRole: "COMPLAINANT" },
       CHALLENGE_TTL_SECONDS
     );
     const response = createRegistrationResponse({ challenge }, ORIGIN, RP_ID);

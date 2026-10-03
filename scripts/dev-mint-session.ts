@@ -32,7 +32,7 @@ async function main() {
     create: { email, displayName: email.split("@")[0], globalRole },
   });
 
-  const token = signPayload({ userId: user.id, globalRole: user.globalRole, authMethod: "dev-bypass" }, 60 * 60 * 24 * 7);
+  const token = signPayload({ purpose: "session", userId: user.id, globalRole: user.globalRole, authMethod: "dev-bypass"  }, 60 * 60 * 24 * 7);
   console.log(`${SESSION_COOKIE}=${token}`);
   console.error(`# user: ${user.id} (${user.email}, ${user.globalRole})`);
 }

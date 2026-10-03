@@ -1,3 +1,4 @@
+import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSession } from "../../../../../lib/session";
 import { filterEventsForRole } from "../../../../../domain/eventTimeline";
@@ -19,6 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   const access = caseReadAccess(caseRow, session);
   if (!access) return Response.json({ message: "Case not found." }, { status: 404 });
 
+  await recordStaffAccess(caseId, session, "events");
   const events = await prisma.event.findMany({
     where: { caseId },
     orderBy: { seq: "asc" },

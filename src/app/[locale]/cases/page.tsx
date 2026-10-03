@@ -1,3 +1,4 @@
+import { signInPath } from "../../../lib/authPaths";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "../../../lib/session";
@@ -15,7 +16,7 @@ import { prisma } from "../../../lib/prisma";
 export default async function CaseListPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const session = await getSession();
-  if (!session) redirect("/auth/sign-in");
+  if (!session) redirect(signInPath(locale, `/${locale}/cases`));
 
   const t = await getTranslations("caseList");
   const tState = await getTranslations("workspace.state");

@@ -252,7 +252,8 @@
         "DEADLINE_EXPIRED": "Deadline expired",
         "PARTY_NOTIFIED": "Party notified",
         "NOTE_ADDED": "Private note added",
-        "ACCESS_STAFF_GRANTED": "Staff access granted"
+        "ACCESS_STAFF_GRANTED": "Staff access granted",
+        "RECOMMENDATION_DRAFT_FAILED": "Draft generation failed; the case can be retried"
       }
     }
   },
@@ -443,7 +444,10 @@
       "COMPLAINANT": "complainant",
       "RESPONDENT": "respondent",
       "CASE_MANAGER": "neutral case manager"
-    }
+    },
+    "home": "Back to home",
+    "cancel": "Cancel",
+    "failed": "Activation failed or was cancelled. Try again or request a new invitation."
   },
   "landing": {
     "title": "Aequitas",
@@ -490,5 +494,67 @@
       "note": "Submissions are made by the parties inside their case, not on this public page. The case workspace explains any unavailable action."
     },
     "footer": "Proposals are reviewed by a person. Consent belongs to each party."
+  },
+  "auth": {
+    "tagline": "a record both sides can read",
+    "otherLanguage": "Français",
+    "chooseMode": "Choose sign-in or registration",
+    "signIn": "Sign in",
+    "register": "Register",
+    "role": "Your role in this dispute",
+    "complainant": "Complainant",
+    "respondent": "Respondent",
+    "email": "Email",
+    "displayName": "Display name",
+    "continue": "Continue with a passkey",
+    "create": "Create a passkey",
+    "waiting": "Waiting for your device…",
+    "cancel": "Cancel",
+    "cancelled": "Sign-in was cancelled or timed out. You can try again.",
+    "failed": "Unable to sign in. Check your email and use a passkey registered for this account, or contact your administrator.",
+    "passkeyNote": "No password to remember. Your device confirms it is you.",
+    "account": "Account navigation",
+    "cases": "Cases",
+    "invites": "Invitations",
+    "signOut": "Sign out"
+  },
+  "adminInvites": {
+    "title": "Manage invitations",
+    "explain": "Invite someone to claim their account with a passkey. Issuing a new invitation revokes their older unused links.",
+    "email": "Email",
+    "displayName": "Display name",
+    "role": "Role",
+    "language": "Language",
+    "sendEmail": "Send the invitation by email",
+    "emailUnavailable": "Email is not configured yet. You can share the invitation link directly.",
+    "issue": "Issue invitation",
+    "failed": "The request failed. Check the account and try again.",
+    "revoked": "Invitation revoked.",
+    "claimLink": "Invitation link (shown once)",
+    "recent": "Recent invitations",
+    "status": "Status",
+    "actions": "Actions",
+    "revoke": "Revoke",
+    "emailAccepted": "email accepted",
+    "retryMail": "Retry pending case notifications",
+    "mailPending": "Some notifications remain pending. Try again after checking email configuration.",
+    "mailAccepted": "Pending notifications were accepted by the email provider.",
+    "roles": {
+      "COMPLAINANT": "Complainant",
+      "RESPONDENT": "Respondent",
+      "CASE_MANAGER": "Case manager"
+    },
+    "states": {
+      "active": "Active",
+      "revoked": "Revoked",
+      "claimed": "Claimed",
+      "expired": "Expired"
+    },
+    "delivery": {
+      "manual": "Invitation created. Share the link with the intended recipient.",
+      "accepted": "Invitation created and accepted by Resend for delivery.",
+      "failed": "Invitation created, but the email failed. Share this link directly or issue another invitation.",
+      "not_configured": "Invitation created. Email is not configured; share this link directly."
+    }
   }
 }

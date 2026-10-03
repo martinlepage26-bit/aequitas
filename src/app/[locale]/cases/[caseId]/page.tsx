@@ -1,3 +1,5 @@
+import { recordStaffAccess } from "../../../../domain/staffAccess";
+import { signInPath } from "../../../../lib/authPaths";
 import ReviewDraftForm from "./ReviewDraftForm";
 import ConflictKnowledgeView from "./ConflictKnowledgeView";
 import { notFound, redirect } from "next/navigation";
@@ -27,7 +29,7 @@ import styles from "./workspace.module.css";
 export default async function CaseWorkspacePage({ params }: { params: Promise<{ locale: string; caseId: string }> }) {
   const { caseId, locale } = await params;
   const session = await getSession();
-  if (!session) redirect("/auth/sign-in");
+  if (!session) redirect(signInPath(locale, `/${locale}/cases/${caseId}`));
 
   const caseRow = await prisma.case.findUnique({
     where: { id: caseId },
@@ -55,6 +57,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   // (see src/domain/caseAccess.ts).
   const access = caseReadAccess(caseRow, session);
   if (!access) notFound();
+  await recordStaffAccess(caseId, session, "workspace");
 
   const progress: CaseProgress = {
     complainantHasCleanEvidence: caseRow.evidenceItems.some((e) => e.submittedById === caseRow.complainantId && e.scanStatus === "CLEAN"),

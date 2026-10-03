@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { ZipArchive } from "archiver";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { prisma } from "../lib/prisma";
-import { uploadBuffer } from "../lib/storage";
+import { rollbackBuffer, uploadBuffer } from "../lib/storage";
 import { canonicalJson } from "./events";
 import type { ExplanationRecord } from "./explanationRecord";
 import { resolveRoleTerm } from "../i18n/categoryGlossary";
@@ -63,9 +63,11 @@ export async function generateExportBundle(input: GenerateExportBundleInput): Pr
 
   const { sha256 } = await uploadBuffer({ storageKey, buffer: zipBuffer, mimeType: "application/zip" });
 
-  await prisma.exportBundle.create({
-    data: { caseId: input.caseId, generatedById: input.actorId, storageKey, sha256 },
-  });
+  try {
+    await prisma.exportBundle.create({
+      data: { caseId: input.caseId, generatedById: input.actorId, storageKey, sha256 },
+    });
+  } catch (error) { await rollbackBuffer(storageKey); throw error; }
 
   return { exportId, storageKey, sha256 };
 }

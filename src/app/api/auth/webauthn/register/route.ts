@@ -4,6 +4,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { createSessionCookie, getSession } from "../../../../../lib/session";
 import { signPayload, verifyPayload } from "../../../../../lib/signedCookie";
 import { CHALLENGE_COOKIE, CHALLENGE_TTL_SECONDS, ORIGIN, RP_ID, RP_NAME } from "../../../../../lib/webauthn";
+import { authLocale } from "../../../../../lib/authPaths";
 
 // Self-registration creates NEW accounts only, as a complainant or a
 // respondent. CASE_MANAGER (the only role that can issue) and ADMIN are
@@ -17,7 +18,8 @@ interface ChallengeCookiePayload {
   email: string;
   displayName: string;
   globalRole: SelfRegisterableRole;
-  purpose?: string;
+  locale: string;
+  purpose: "register";
 }
 
 const EXISTING_ACCOUNT_MESSAGE =
@@ -47,7 +49,9 @@ export async function POST(request: Request) {
   }
 
   if (body.step === "options") {
-    const { email, displayName, globalRole } = body;
+    const { displayName, globalRole } = body;
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const locale = authLocale(body.locale);
     if (typeof email !== "string" || !email.includes("@")) {
       return Response.json({ message: "A valid email is required." }, { status: 400 });
     }
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
       : [];
 
     const options = await generateRegistrationOptions({
+      timeout: 60_000,
       rpName: RP_NAME,
       rpID: RP_ID,
       userName: email,
@@ -77,7 +82,7 @@ export async function POST(request: Request) {
     });
 
     const token = signPayload<ChallengeCookiePayload>(
-      { challenge: options.challenge, email, displayName, globalRole, purpose: "register" },
+      { challenge: options.challenge, email, displayName, globalRole, locale, purpose: "register" },
       CHALLENGE_TTL_SECONDS
     );
     const store = await cookies();
@@ -96,7 +101,7 @@ export async function POST(request: Request) {
     const store = await cookies();
     const token = store.get(CHALLENGE_COOKIE)?.value;
     const challengePayload = token ? verifyPayload<ChallengeCookiePayload>(token) : null;
-    if (!challengePayload || typeof challengePayload.email !== "string" || challengePayload.purpose === "invite-claim") {
+    if (!challengePayload || challengePayload.purpose !== "register" || typeof challengePayload.email !== "string" || typeof challengePayload.challenge !== "string") {
       return Response.json({ message: "Registration ceremony expired or was not started. Try again." }, { status: 400 });
     }
 
@@ -137,6 +142,7 @@ export async function POST(request: Request) {
                 email: challengePayload.email,
                 displayName: challengePayload.displayName,
                 globalRole: challengePayload.globalRole,
+                locale: authLocale(challengePayload.locale),
               },
             });
 

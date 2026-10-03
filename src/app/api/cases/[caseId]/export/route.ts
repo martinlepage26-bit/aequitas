@@ -1,3 +1,4 @@
+import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
 import { generateExportBundle } from "../../../../../domain/exportBundle";
@@ -24,6 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if (isParty && caseRow.state !== "CLOSED") return Response.json({ message: "Case not found." }, { status: 404 });
   if (!isParty && !isAssignedManager && !isAdmin) return Response.json({ message: "Case not found." }, { status: 404 });
 
+  await recordStaffAccess(caseId, session, "export");
   let bundle = await prisma.exportBundle.findFirst({ where: { caseId }, orderBy: { generatedAt: "desc" } });
   if (!bundle) {
     if (isParty) return Response.json({ message: "No export bundle exists for this case yet." }, { status: 404 });

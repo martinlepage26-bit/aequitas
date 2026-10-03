@@ -6,3 +6,5 @@ import { applyTestDatabase } from "./testDatabaseUrl";
 // inherits this process's env, and Next never overrides an already-set
 // variable from .env.local) both see the test database, never dev.
 applyTestDatabase();
+// Test fixtures must never deliver email, even if a developer configured a real provider.
+process.env.RESEND_API_KEY = "";

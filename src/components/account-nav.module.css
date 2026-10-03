@@ -1,0 +1,4 @@
+.nav { display: flex; align-items: center; flex-wrap: wrap; gap: 1.5rem; padding: 1rem 2rem; background: #fbfaf6; border-bottom: 1px solid #d9d3c3; color: #16233d; font-size: .9rem; }
+.nav a { color: inherit; }
+.nav a:first-child { font-weight: 600; margin-right: auto; text-decoration: none; }
+.nav button { cursor: pointer; padding: .4rem .75rem; border: 1px solid #d9d3c3; border-radius: 3px; background: transparent; color: inherit; }

@@ -9,11 +9,11 @@ import fr from "../messages/fr-CA.json";
 for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
   test(`core map review and draft privacy in ${locale}`, async ({ browser }) => {
     const seeded = await seedKnowledgeCase();
-    const manager = await browser.newContext({ baseURL: "http://localhost:3000" });
-    const party = await browser.newContext({ baseURL: "http://localhost:3000" });
+    const manager = await browser.newContext({ baseURL: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3000}` });
+    const party = await browser.newContext({ baseURL: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3000}` });
     try {
-      await manager.addCookies([{ name: SESSION_COOKIE, value: signPayload({ userId: seeded.manager.id, globalRole: "CASE_MANAGER" }, 3600), url: "http://localhost:3000" }]);
-      await party.addCookies([{ name: SESSION_COOKIE, value: signPayload({ userId: seeded.complainant.id, globalRole: "COMPLAINANT" }, 3600), url: "http://localhost:3000" }]);
+      await manager.addCookies([{ name: SESSION_COOKIE, value: signPayload({ purpose: "session", userId: seeded.manager.id, globalRole: "CASE_MANAGER" , authMethod: "dev-bypass" }, 3600), url: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3000}` }]);
+      await party.addCookies([{ name: SESSION_COOKIE, value: signPayload({ purpose: "session", userId: seeded.complainant.id, globalRole: "COMPLAINANT" , authMethod: "dev-bypass" }, 3600), url: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3000}` }]);
       const page = await manager.newPage();
       const url = `/${locale}/cases/${seeded.caseRow.id}`;
       await page.goto(url);

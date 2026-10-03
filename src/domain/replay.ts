@@ -13,7 +13,7 @@ import type { CaseState, EventType } from "../generated/prisma";
  * DECISIONS.md) and does not itself drive a state transition; the state
  * change from the same open_intake call is EVIDENCE_INTAKE_OPENED.
  */
-export function replayCaseState(events: Array<{ type: EventType }>): CaseState | null {
+export function replayCaseState(events: Array<{ type: EventType; payload?: unknown }>): CaseState | null {
   let state: CaseState | null = null;
 
   for (const event of events) {
@@ -44,6 +44,9 @@ export function replayCaseState(events: Array<{ type: EventType }>): CaseState |
         break;
       case "RECOMMENDATION_DRAFT_REQUESTED":
         state = "DRAFTING";
+        break;
+      case "RECOMMENDATION_DRAFT_FAILED":
+        state = (event.payload as { toState?: string } | null)?.toState === "DRAFTING" ? "DRAFTING" : "POSITIONS";
         break;
       case "RECOMMENDATION_DRAFTED":
         // Section 6 row 9: self-loop on DRAFTING (SYSTEM actor) — same

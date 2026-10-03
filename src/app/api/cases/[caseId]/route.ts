@@ -1,3 +1,4 @@
+import { recordStaffAccess } from "../../../../domain/staffAccess";
 import { requireSession } from "../../../../lib/session";
 import { prisma } from "../../../../lib/prisma";
 import { caseReadAccess } from "../../../../domain/caseAccess";
@@ -24,6 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
 
   if (!caseReadAccess(caseRow, session)) return Response.json({ message: "Case not found." }, { status: 404 });
 
+  await recordStaffAccess(caseId, session, "case");
   return Response.json({
     id: caseRow.id,
     referenceNumber: caseRow.referenceNumber,

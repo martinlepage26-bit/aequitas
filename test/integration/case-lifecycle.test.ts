@@ -163,13 +163,11 @@ describe("openIntake — self-claim, role, and COI enforcement", () => {
     const first = await openIntake({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, hasConflict: false });
     expect(first.ok).toBe(true);
 
-    // open_intake's from-state guard already blocks a second call (state is
-    // now EVIDENCE_INTAKE, not OPEN) — this proves that boundary too, since
-    // it's the mechanism that actually prevents a race in practice.
+    // An unassigned manager must not learn this case’s workflow state.
     const second = await openIntake({ actorId: otherManagerId, actorRole: "CASE_MANAGER", caseId, hasConflict: false });
     expect(second.ok).toBe(false);
     if (second.ok) return;
-    expect(second.step).toBe("authorize-state");
+    expect(second.step).toBe("not-found");
   });
 });
 

@@ -30,15 +30,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       : await requestDraft({ actorId: session.userId, actorRole: session.globalRole, caseId });
   if (!requested.ok) return mutationFailureResponse(requested)!;
 
-  const completed = await completeDraft({ caseId });
+  const completed = await completeDraft({ caseId, draftRequestId: requested.data.draftRequestId });
   if (!completed.ok) {
-    // request_draft already succeeded (case is DRAFTING) even though the
-    // draft itself failed to complete — Section 9: "draft rejected, event
-    // recommendation.drafted is not emitted, case manager sees a
-    // validation error." The case stays in DRAFTING; the manager can
-    // request a draft again once whatever failed (AI unavailable, a
-    // structurally invalid response) is resolved.
-    return Response.json({ message: completed.reason, requestedState: requested.data.toState }, { status: 502 });
+    return Response.json({ message: completed.reason, state: (await prisma.case.findUnique({ where: { id: caseId }, select: { state: true } }))?.state }, { status: 502 });
   }
 
   return Response.json({ caseId: completed.data.caseId, state: completed.data.toState });

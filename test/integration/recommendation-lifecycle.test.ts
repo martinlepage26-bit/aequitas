@@ -13,6 +13,7 @@ import {
   submitPosition,
 } from "../../src/domain/mutate";
 import type { ExplanationRecord } from "../../src/domain/explanationRecord";
+import { verifyCase } from "../../src/domain/verifyEvents";
 
 const BENIGN = Buffer.from("A genuine evidence document, nothing suspicious here.");
 
@@ -227,8 +228,29 @@ describe("completeDraft — real failure path (ANTHROPIC_API_KEY unset)", () => 
     expect(events).toHaveLength(0);
 
     const caseRow = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
-    expect(caseRow.state).toBe("DRAFTING");
+    expect(caseRow.state).toBe("POSITIONS");
+    expect(caseRow.draftRequestId).toBeNull();
+    expect(await prisma.event.count({ where: { caseId, type: "RECOMMENDATION_DRAFT_FAILED" } })).toBe(1);
+
     expect(caseRow.currentRecommendationId).toBeNull();
+    expect(await verifyCase(prisma, caseRow)).toEqual([]);
+  });
+
+  it("permits only one concurrent draft request and rejects a duplicate while the job is active", async () => {
+    const caseId = await freshPositionsCase();
+    const outcomes = await Promise.all([1, 2].map(() => requestDraft({ caseId, actorId: managerId, actorRole: "CASE_MANAGER" })));
+    expect(outcomes.filter(result => result.ok)).toHaveLength(1);
+    expect(await prisma.event.count({ where: { caseId, type: "RECOMMENDATION_DRAFT_REQUESTED" } })).toBe(1);
+  });
+
+  it("a late completion cannot recover or overwrite a newer draft request", async () => {
+    const caseId = await freshDraftingCase();
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const replacementRequestId = randomUUID();
+    await prisma.case.update({ where: { id: caseId }, data: { draftRequestId: replacementRequestId } });
+    expect((await completeDraft({ caseId, draftRequestId: row.draftRequestId! })).ok).toBe(false);
+    expect(await prisma.case.findUnique({ where: { id: caseId } })).toMatchObject({ state: "DRAFTING", draftRequestId: replacementRequestId });
+    expect(await prisma.event.count({ where: { caseId, type: "RECOMMENDATION_DRAFT_FAILED" } })).toBe(0);
   });
 });
 

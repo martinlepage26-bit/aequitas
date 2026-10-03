@@ -52,6 +52,8 @@ export interface AppendEventInput {
  * current chain tip, so callers never supply them directly.
  */
 export async function appendEvent(tx: Prisma.TransactionClient, input: AppendEventInput) {
+  // All chain writers, including read-access audits, serialize on the case row.
+  await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
   const tip = await tx.event.findFirst({
     where: { caseId: input.caseId },
     orderBy: { seq: "desc" },

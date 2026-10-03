@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -11,15 +12,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata = {
-  title: "Aequitas — resolution workspace",
-  description: "A human-reviewable dispute-resolution workspace: proposals, consent, and legal research are tracked and attributed, never auto-decided.",
-};
+export async function generateMetadata() {
+  const locale = (await headers()).get("x-aequitas-locale");
+  return locale === "en-CA" ? {
+    title: "Aequitas — resolution workspace",
+    description: "A human-reviewable dispute-resolution workspace: proposals, consent, and legal research are tracked and attributed.",
+  } : {
+    title: "Aequitas — espace de résolution",
+    description: "Un espace de résolution des différends : propositions, consentements et recherche juridique sont révisés et attribués.",
+  };
+}
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const locale = (await headers()).get("x-aequitas-locale") === "en-CA" ? "en-CA" : "fr-CA";
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <body>{children}</body>

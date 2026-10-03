@@ -2,7 +2,7 @@
 # repo-committed dev credentials and must never be reachable from the LAN.
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16@sha256:11a9d238fbb48bab14599c57e41123254452b1a2d93c6c8595bce96f346bd082
     container_name: aequitas-postgres
     restart: unless-stopped
     environment:
@@ -27,7 +27,7 @@ services:
     # denied ... may require 'docker login'") — reproduced directly with
     # `docker pull minio/minio:latest`. quay.io/minio/minio is MinIO's own
     # current free registry for this image; confirmed with a real pull.
-    image: quay.io/minio/minio:latest
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: aequitas-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -49,7 +49,7 @@ services:
   # ClamAV sidecar (dev)"). clamd takes a while to load its signature
   # database on first start — the healthcheck retry budget reflects that.
   clamav:
-    image: clamav/clamav:stable
+    image: clamav/clamav@sha256:78810772a92b4a9168115bc6b2e0ffd702640893b9577f8c3d0432762d2655c4
     container_name: aequitas-clamav
     restart: unless-stopped
     ports:

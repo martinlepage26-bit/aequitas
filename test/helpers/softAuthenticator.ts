@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { isoCBOR } from "@simplewebauthn/server/helpers";
 
 /**
@@ -11,8 +11,10 @@ function b64url(bytes: Uint8Array | Buffer): string {
   return Buffer.from(bytes).toString("base64url");
 }
 
+const signingKeys = new Map<string, KeyObject>();
+
 export function createRegistrationResponse(options: { challenge: string; rp?: { id?: string } }, origin: string, rpId: string) {
-  const { publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
   const jwk = publicKey.export({ format: "jwk" });
   const credentialId = randomBytes(32);
 
@@ -48,6 +50,7 @@ export function createRegistrationResponse(options: { challenge: string; rp?: { 
   );
 
   const id = b64url(credentialId);
+  signingKeys.set(id, privateKey);
   return {
     id,
     rawId: id,
@@ -59,4 +62,14 @@ export function createRegistrationResponse(options: { challenge: string; rp?: { 
     },
     clientExtensionResults: {},
   };
+}
+
+export function createAuthenticationResponse(credentialId: string, challenge: string, origin: string, rpId: string) {
+  const key = signingKeys.get(credentialId);
+  if (!key) throw new Error("Unknown software credential");
+  const counter = Buffer.alloc(4); counter.writeUInt32BE(1);
+  const authenticatorData = Buffer.concat([createHash("sha256").update(rpId).digest(), Buffer.from([0x05]), counter]);
+  const clientDataJSON = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge, origin, crossOrigin: false }));
+  const signature = sign("sha256", Buffer.concat([authenticatorData, createHash("sha256").update(clientDataJSON).digest()]), key);
+  return { id: credentialId, rawId: credentialId, type: "public-key", response: { authenticatorData: b64url(authenticatorData), clientDataJSON: b64url(clientDataJSON), signature: b64url(signature) }, clientExtensionResults: {} };
 }

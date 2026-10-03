@@ -1,3 +1,4 @@
+import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
 import { caseReadAccess } from "../../../../../domain/caseAccess";
@@ -10,6 +11,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
   const { caseId } = await params;
   const row = await prisma.case.findUnique({ where: { id: caseId } });
   if (!row || !caseReadAccess(row, auth.session)) return Response.json({ message: "Not found." }, { status: 404 });
+  await recordStaffAccess(caseId, auth.session, "chronology");
   const entries = await prisma.chronologyEntry.findMany({
     where: { caseId }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     include: { submittedBy: { select: { displayName: true } } },

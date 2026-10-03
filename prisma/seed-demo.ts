@@ -1,3 +1,5 @@
+import "../src/lib/loadEnv";
+import { issueStoredInvite } from "../src/lib/invitations";
 // Demo seed for the private, loopback-only demo service (aequitas-demo).
 //
 // Creates, idempotently, a handful of SIMULATED cases at different states
@@ -13,13 +15,12 @@
 // Usage (on the server, with the demo env loaded, never .env.local's DB):
 //   set -a; . ~/.secrets/aequitas-demo.env; set +a
 //   AEQUITAS_DEMO_SEED_CONFIRM=seed-aequitas-demo npm run seed:demo
-import "../src/lib/loadEnv";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { prisma } from "../src/lib/prisma";
-import { invitePath, issueInviteToken } from "../src/lib/invite";
+import { invitePath } from "../src/lib/invite";
 import { closeIntake, createCase, openIntake, submitCase, submitEvidence, submitPosition } from "../src/domain/mutate";
 import type { DisputeCategory, GlobalRole } from "../src/generated/prisma";
 
@@ -245,7 +246,7 @@ async function main() {
       lines.push(`${a.globalRole}\t${a.email}\t(already claimed: sign in at ${baseUrl}/auth/sign-in)`);
       continue;
     }
-    const { token } = issueInviteToken(users[a.key].id);
+    const { token } = await issueStoredInvite(users[a.key].id, users[a.key].locale);
     lines.push(`${a.globalRole}\t${a.email}\t${baseUrl}${invitePath(a.locale, token)}`);
   }
   const outFile = process.env.DEMO_INVITES_FILE ?? path.join(homedir(), ".secrets", "aequitas-demo-invites.txt");
