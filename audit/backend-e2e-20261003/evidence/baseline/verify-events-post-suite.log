@@ -1,0 +1,12 @@
+[db-guard] target verified: db=aequitas_audit_suite_test host=127.0.0.1 port=54329 datadir=/var/lib/aq-pg-audit/data
+
+> aequitas@0.1.0 verify:events
+> tsx scripts/verify-events.ts
+
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[AE-CHRONOLOGY-TEST-2ff5293e-e635-496e-ad00-29b3e32de44e] projection mismatch: events replay to EVIDENCE_INTAKE, stored Case.state is CLOSED
+[AE-TAMPER-BAD-c18530f5] seq 1: hash mismatch — stored=b067ceb82d04e6ba71bdb11940bf7bd8623441829108017367f2daad458cd9cc recomputed=9bdbe2d800b71a66841cc8ef10d1aa00f3c7ed77f570dda503f7e71700eb91fc
+Checked 72 case(s).
+verify:events FAILED — 2 issue(s) found.
+exit=1

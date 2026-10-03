@@ -1,0 +1,9 @@
+
+> aequitas@0.1.0 lint
+> eslint
+
+
+real	0m12.239s
+user	0m22.246s
+sys	0m1.147s
+exit=0

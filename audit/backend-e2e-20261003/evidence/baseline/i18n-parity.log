@@ -1,0 +1,10 @@
+
+> aequitas@0.1.0 check:i18n-parity
+> node scripts/check-i18n-parity.mjs
+
+i18n parity OK: 446 keys match across fr-CA, en-CA.
+
+real	0m0.188s
+user	0m0.180s
+sys	0m0.021s
+exit=0

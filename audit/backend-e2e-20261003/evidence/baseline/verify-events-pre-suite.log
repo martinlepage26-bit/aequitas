@@ -1,0 +1,10 @@
+[db-guard] target verified: db=aequitas_audit_suite_test host=127.0.0.1 port=54329 datadir=/var/lib/aq-pg-audit/data
+
+> aequitas@0.1.0 verify:events
+> tsx scripts/verify-events.ts
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Checked 0 case(s).
+verify:events OK — all event chains and projections verified.
+exit=0

@@ -1,0 +1,1568 @@
+{
+ "generatedAt": "2026-10-03T11:57:53.540Z",
+ "totals": {
+  "total": 332,
+  "passed": 278,
+  "failed": 54
+ },
+ "suites": [
+  {
+   "suite": "00-harness-smoke",
+   "total": 1,
+   "passed": 1,
+   "failed": 0,
+   "skipped": 0,
+   "failedTests": []
+  },
+  {
+   "suite": "01-http-production",
+   "total": 84,
+   "passed": 83,
+   "failed": 1,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "unsupported methods, oversized requests and file exposure the documented POST /api/cases/:id/recommendation alias exists (docs/aequitas-core-backend.md says it does)",
+     "failure": "AssertionError: documented compatibility alias should not be a route-not-found 404: expected 404 not to be 404 // Object.is equality at /home/user/aequitas/test/audit/01-http-production.audit.ts:225:98 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "02-authentication",
+   "total": 32,
+   "passed": 27,
+   "failed": 5,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "sign-in (real WebAuthn assertions) REPLAY, counter-less authenticator (signCount always 0, e.g. synced passkeys): the same assertion + challenge cookie must be refused",
+     "failure": "AssertionError: challenge is stateless, so only the signature counter could stop a replay: expected 200 to be 400 // Object.is equality at /home/user/aequitas/test/audit/02-authentication.audit.ts:212:103 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "expired, malformed, replayed and wrong-purpose tokens observation: a correctly signed session for a user that does not exist",
+     "failure": "AssertionError: expected 500 to be less than 500 at /home/user/aequitas/test/audit/02-authentication.audit.ts:303:54 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "session lifetime and revocation sign-out accepts a same-origin browser POST arriving through a TLS-terminating proxy (Origin == public Host)",
+     "failure": "AssertionError: a legitimate browser sign-out must succeed; got {\"message\":\"Request not permitted.\"}: expected 403 to be 303 // Object.is equality at /home/user/aequitas/test/audit/02-authentication.audit.ts:338:100 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "session lifetime and revocation a copied session cookie stops working after sign-out (server-side revocation)",
+     "failure": "AssertionError: sessions are stateless HMAC cookies; sign-out only asks the browser to forget it: expected 404 to be 401 // Object.is equality at /home/user/aequitas/test/audit/02-authentication.audit.ts:347:108 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "session lifetime and revocation a changed global role takes effect immediately (cookie role is not trusted for 7 days)",
+     "failure": "AssertionError: expected 200 to be 403 // Object.is equality at /home/user/aequitas/test/audit/02-authentication.audit.ts:357:26 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "03-invitations-email",
+   "total": 31,
+   "passed": 27,
+   "failed": 4,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "claiming an invitation (real WebAuthn) concurrent invitations for the same new address do not 500",
+     "failure": "AssertionError: statuses 200/500: expected false to be true // Object.is equality at /home/user/aequitas/test/audit/03-invitations-email.audit.ts:186:92 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "a respondent named by a complainant becomes a working account only through an invitation naming an EXISTING respondent with different letter case reaches that same account, not a duplicate placeholder",
+     "failure": "AssertionError: the case must be attached to the respondent who owns this mailbox: expected 'e858b59f-12fa-45d9-8074-6e568d9d1a87' to be 'c538dc3f-305f-42e5-9af8-7183097e5e1f' // Object.is equality at /home/user/aequitas/test/audit/03-invitations-email.audit.ts:210:100 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "a respondent named by a complainant becomes a working account only through an invitation a placeholder typed with capital letters can still be invited and then sees its case (addresses are case-insensitive)",
+     "failure": "AssertionError: one mailbox must be one account: expected 2 to be 1 // Object.is equality at /home/user/aequitas/test/audit/03-invitations-email.audit.ts:227:61 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "case notifications: transactional outbox, retries, no case content one permanently failing recipient must not block every other recipient's notifications (head-of-line blocking)",
+     "failure": "AssertionError: the healthy recipient's notification should be delivered despite 21 failing ones ahead of it: expected +0 to be 1 // Object.is equality at /home/user/aequitas/test/audit/03-invitations-email.audit.ts:357:127 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "04-case-workflows",
+   "total": 23,
+   "passed": 20,
+   "failed": 3,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "repeat and refused operations have no side effects repeating a withdrawal is idempotent: no second CASE_WITHDRAWN event and no second notification",
+     "failure": "AssertionError: second withdrawal should not append another CASE_WITHDRAWN: expected [ 'CASE_WITHDRAWN' ] to deeply equal [] at /home/user/aequitas/test/audit/04-case-workflows.audit.ts:274:84 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "repeat and refused operations have no side effects a refused close (case not in a closable state) generates no export bundle row or object",
+     "failure": "AssertionError: refused close from EVIDENCE_INTAKE must not store an export bundle: expected [ Array(1) ] to deeply equal [] at /home/user/aequitas/test/audit/04-case-workflows.audit.ts:289:91 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "repeat and refused operations have no side effects closing an already closed case does not generate and store another export bundle",
+     "failure": "AssertionError: expected [ …(4) ] to deeply equal [ …(3) ] at /home/user/aequitas/test/audit/04-case-workflows.audit.ts:301:19 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "05-authorization",
+   "total": 33,
+   "passed": 30,
+   "failed": 3,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "denial uniformity on write endpoints (no existence oracle) an outsider gets the same answer for a real case id and a non-existent one on every mutation route",
+     "failure": "AssertionError: consent give as COMPLAINANT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"} consent give as RESPONDENT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"} consent give (no statement) as COMPLAINANT: existing -> 400 {\"message\":\"statementVersionId is required.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"} consent give (no statement) as RESPONDENT: existing -> 400 {\"message\":\"statementVersionId is re"
+    },
+    {
+     "name": "denial uniformity on write endpoints (no existence oracle) issuing: an unrelated manager cannot tell a real recommendation id from a made-up one",
+     "failure": "AssertionError: expected [ Array(2) ] to deeply equal [ 404, …(1) ] at /home/user/aequitas/test/audit/05-authorization.audit.ts:153:38 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "pages: case list and workspace projection a respondent cannot see a case the complainant has not submitted yet (existence, reference number, complainant name)",
+     "failure": "AssertionError: GET /api/cases/:id for an unsubmitted case: expected 200 to be 404 // Object.is equality at /home/user/aequitas/test/audit/05-authorization.audit.ts:294:70 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "06-evidence-storage-local",
+   "total": 38,
+   "passed": 26,
+   "failed": 12,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "invalid evidence is refused before anything is stored path-like names are inert: filename, title and description never influence the storage key",
+     "failure": "AssertionError: nul\u0000byte: expected 500 to be less than 500 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:91:32 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) 11 MiB (above Next.js's default 10 MB proxy buffer): accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) 24 MiB: accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) exactly 25 MiB: accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "malware (EICAR through the real clamd) an EICAR upload is rejected: it must not be stored, listed or exported as evidence, and the uploader must be told",
+     "failure": "AssertionError: the HTTP response must tell the uploader the file was refused: expected 200 to be greater than or equal to 400 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:140:89 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "failure handling and cleanup (existing objects are never deleted) export-record failure: the generated archive is removed, the case is not closed, no row or event is left, and the error does not leak internals",
+     "failure": "AssertionError: the 502 body must not echo database/ORM error text: expected '{\"message\":\"Export bundle generation …' not to match /Invalid `prisma|injected|exportBundl…/i at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:252:80 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain the counterparty's e-mail address",
+     "failure": "AssertionError: the workspace never shows e-mail addresses; the export gives the complainant the respondent's and the reviewer's: expected [ …(2) ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:375:135 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@v"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain private reviewer notes",
+     "failure": "AssertionError: expected '{\"case\":{\"category\":\"RETAIL\",\"closedA…' not to contain 'PRIVATE-REVIEW-NOTE-MARKER' at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:378:70 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10) at file:///ho"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain unissued or superseded AI drafts",
+     "failure": "AssertionError: only issued recommendations belong in a party's copy: expected [ 'SUPERSEDED' ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:383:132 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10) at file"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not list the counterparty's rejected (infected) uploads",
+     "failure": "AssertionError: expected [ 'COMP-EXHIBIT-MARKER', …(2) ] to not include 'RESP-REJECTED-MARKER' at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1319:15) at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1156:15) at Proxy.methodWrapper (file:///home/user/aequitas/node_modules/chai/index.js:1737:25) at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:388:24 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/ru"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export timeline withholds the event types the live API withholds (NOTE_ADDED, RECOMMENDATION_DRAFTED)",
+     "failure": "AssertionError: event types in the party's export that the party's live timeline never shows: expected [ 'RECOMMENDATION_DRAFTED', …(1) ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:396:100 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn AVAILABILITY: generating an export for a record with long unbroken text does not freeze the whole server",
+     "failure": "AssertionError: worst /api/health latency while an export ran for 17839 ms: expected 17557 to be less than 3000 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:440:87 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "06-evidence-storage-s3",
+   "total": 38,
+   "passed": 25,
+   "failed": 13,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "invalid evidence is refused before anything is stored path-like names are inert: filename, title and description never influence the storage key",
+     "failure": "AssertionError: nul\u0000byte: expected 500 to be less than 500 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:91:32 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) 11 MiB (above Next.js's default 10 MB proxy buffer): accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) 24 MiB: accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "size limits (stated limit: 25 MB) exactly 25 MiB: accepted with full integrity",
+     "failure": "AssertionError: {\"message\":\"Expected multipart/form-data.\"}: expected 400 to be 200 // Object.is equality at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:117:50 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "malware (EICAR through the real clamd) an EICAR upload is rejected: it must not be stored, listed or exported as evidence, and the uploader must be told",
+     "failure": "AssertionError: the HTTP response must tell the uploader the file was refused: expected 200 to be greater than or equal to 400 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:140:89 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "failure handling and cleanup (existing objects are never deleted) export-record failure: the generated archive is removed, the case is not closed, no row or event is left, and the error does not leak internals",
+     "failure": "AssertionError: the 502 body must not echo database/ORM error text: expected '{\"message\":\"Export bundle generation …' not to match /Invalid `prisma|injected|exportBundl…/i at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:252:80 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "failure handling and cleanup (existing objects are never deleted) object store unavailable (MinIO stopped): uploads and exports fail with no partial state, the store recovers, and client errors do not reveal the store",
+     "failure": "AssertionError: no endpoint, credential or SDK text in client errors: expected ' {\"message\":\"Export bundle generation…' not to match /127\\.0\\.0\\.1|9010|ECONNREFUSED|Acces…/i at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:291:102 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain the counterparty's e-mail address",
+     "failure": "AssertionError: the workspace never shows e-mail addresses; the export gives the complainant the respondent's and the reviewer's: expected [ …(2) ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:375:135 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@v"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain private reviewer notes",
+     "failure": "AssertionError: expected '{\"case\":{\"category\":\"RETAIL\",\"closedA…' not to contain 'PRIVATE-REVIEW-NOTE-MARKER' at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:378:70 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10) at file:///ho"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not contain unissued or superseded AI drafts",
+     "failure": "AssertionError: only issued recommendations belong in a party's copy: expected [ 'SUPERSEDED' ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:383:132 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20 at new Promise (<anonymous>) at runWithCancel (file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10) at file"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export does not list the counterparty's rejected (infected) uploads",
+     "failure": "AssertionError: expected [ 'COMP-EXHIBIT-MARKER', …(2) ] to not include 'RESP-REJECTED-MARKER' at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1319:15) at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1156:15) at Proxy.methodWrapper (file:///home/user/aequitas/node_modules/chai/index.js:1737:25) at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:388:24 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11 at file:///home/user/aequitas/node_modules/@vitest/ru"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn CONFIDENTIALITY: a party's export timeline withholds the event types the live API withholds (NOTE_ADDED, RECOMMENDATION_DRAFTED)",
+     "failure": "AssertionError: event types in the party's export that the party's live timeline never shows: expected [ 'RECOMMENDATION_DRAFTED', …(1) ] to deeply equal [] at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:396:100 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "export bundle: contents, integrity and what each reader may learn AVAILABILITY: generating an export for a record with long unbroken text does not freeze the whole server",
+     "failure": "AssertionError: worst /api/health latency while an export ran for 15604 ms: expected 15329 to be less than 3000 at /home/user/aequitas/test/audit/06-evidence-storage-export.audit.ts:440:87 at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "07-ai-and-concurrency",
+   "total": 34,
+   "passed": 25,
+   "failed": 9,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "redrafting and new versions a failed NEW VERSION request must not destroy the issued recommendation the parties are acting on",
+     "failure": "AssertionError: AI outage during a redraft request must not push an ISSUED case back to POSITIONS: expected 'POSITIONS' to be 'ISSUED' // Object.is equality at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:108:109 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens submitting twice at once: one submission, one event, one notification",
+     "failure": "AssertionError: expected [ 'CASE_SUBMITTED', 'CASE_SUBMITTED' ] to have a length of 1 but got 2 at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1389:20) at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1156:15) at Proxy.methodWrapper (file:///home/user/aequitas/node_modules/chai/index.js:1737:25) at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:247:73 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artif"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens two case managers claiming the same unclaimed case: exactly one becomes the manager",
+     "failure": "AssertionError: both managers were told they own the case: expected [ 200, 200 ] to have a length of 1 but got 2 at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1389:20) at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1156:15) at Proxy.methodWrapper (file:///home/user/aequitas/node_modules/chai/index.js:1737:25) at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:259:104 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runne"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens closing intake twice at once: one transition",
+     "failure": "AssertionError: expected [ 'EVIDENCE_INTAKE_CLOSED', …(1) ] to have a length of 1 but got 2 at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1389:20) at Proxy.<anonymous> (file:///home/user/aequitas/node_modules/@vitest/expect/dist/index.js:1156:15) at Proxy.methodWrapper (file:///home/user/aequitas/node_modules/chai/index.js:1737:25) at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:269:77 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact."
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens a withdrawal that commits first cannot be undone by a request that was already past its checks (withdraw vs close-intake)",
+     "failure": "AssertionError: a withdrawn case must stay withdrawn: expected 'POSITIONS' to be 'WITHDRAWN' // Object.is equality at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:279:64 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens a withdrawal cannot be undone by a request that submits a draft case (withdraw vs submit)",
+     "failure": "AssertionError: expected 'OPEN' to be 'WITHDRAWN' // Object.is equality at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:288:24 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens both parties consenting at the same instant: both requests succeed and the case resolves (no 500, no lost 'both consented')",
+     "failure": "AssertionError: 1818d2fe-0054-4fdd-ad90-a27c402c1241: HTTP 200/500, 1 consent(s) recorded, state ISSUED 5ed534db-d9e4-4b47-b395-bdaa2a7ddd00: HTTP 200/500, 1 consent(s) recorded, state ISSUED 5569bdda-879a-4788-82a1-58c794d96184: HTTP 500/200, 1 consent(s) recorded, state ISSUED 76c43799-d4b6-4279-ae6f-7ae8d03a2226: HTTP 500/200, 1 consent(s) recorded, state ISSUED ed0bfbe7-f95d-4c52-9346-75c310febf86: HTTP 200/500, 1 consent(s) recorded, state ISSUED f36d8d47-f080-4ff4-9372-aa1380e0428c: HTTP 500/200, 1 consent(s) recorded, state ISSUED f8b5dc0c-d3d6-4bd5-b7ee-9b565164f815: HTTP 200/500, 1 co"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens one party submitting two positions at once gets distinct, ordered versions",
+     "failure": "AssertionError: HTTP 500/200: expected false to be true // Object.is equality at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:313:88 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "lifecycle races: a guard checked before the write must still hold when the write happens revoking consent while the case is being closed cannot leave a CLOSED case with a revoked consent (revoke vs close)",
+     "failure": "AssertionError: events in an order the state machine forbids: expected [ Array(2) ] to deeply equal [] at /home/user/aequitas/test/audit/07-ai-and-concurrency.audit.ts:336:76 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "08-integrity",
+   "total": 11,
+   "passed": 10,
+   "failed": 1,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "intentional tamper fixtures (separate database: aequitas_audit_tamper_test) the append-only guarantee has gaps for the table owner: TRUNCATE, DISABLE TRIGGER and DROP TRIGGER are allowed (observation: the app role owns the table)",
+     "failure": "AssertionError: {\"TRUNCATE\":\"allowed\",\"DISABLE TRIGGER\":\"allowed\",\"DROP TRIGGER\":\"allowed\"}: expected false to be true // Object.is equality at /home/user/aequitas/test/audit/08-integrity.audit.ts:157:101 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "10-input-robustness",
+   "total": 4,
+   "passed": 1,
+   "failed": 3,
+   "skipped": 0,
+   "failedTests": [
+    {
+     "name": "U+0000 in text fields must be refused or cleaned, never a 500 every free-text field answers < 500 to U+0000 (and the answer is not a stack trace)",
+     "failure": "AssertionError: register displayName: HTTP 500 register email: HTTP 500 invite displayName: HTTP 500 invite email: HTTP 500 case respondentDisplayName: HTTP 500 case respondentEmail: HTTP 500 chronology title: HTTP 500 chronology description: HTTP 500 position body: HTTP 500 evidence title: HTTP 500 evidence description: HTTP 500 close-intake overrideReason: HTTP 500 open-intake coiDetails: HTTP 500: expected [ …(13) ] to deeply equal [] at /home/user/aequitas/test/audit/10-input-robustness.audit.ts:50:33 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/us"
+    },
+    {
+     "name": "U+0000 in text fields must be refused or cleaned, never a 500 lone surrogates are handled (stored with replacement or refused), never a 500",
+     "failure": "AssertionError: chronology title: HTTP 500 chronology description: HTTP 500: expected [ 'chronology title: HTTP 500', …(1) ] to deeply equal [] at /home/user/aequitas/test/audit/10-input-robustness.audit.ts:58:33 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+     "name": "length limits (the API states none for several fields) a long display name must not produce a challenge cookie that browsers discard (cookies over 4096 bytes are dropped)",
+     "failure": "AssertionError: displayName of 3200 characters -> 4731-byte Set-Cookie (browsers drop cookies above 4096 bytes), status 200: expected true to be false // Object.is equality at /home/user/aequitas/test/audit/10-input-robustness.audit.ts:73:174 at processTicksAndRejections (node:internal/process/task_queues:105:5) at file:///home/user/aequitas/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+   ]
+  },
+  {
+   "suite": "11-mail-not-configured",
+   "total": 3,
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0,
+   "failedTests": []
+  }
+ ],
+ "observations": {
+  "signed-in-visits-signin": {
+   "id": "signed-in-visits-signin",
+   "status": 200,
+   "location": null
+  },
+  "malformed-percent": {
+   "id": "malformed-percent",
+   "path": "/fr-CA/invite/%252",
+   "status": 400,
+   "body": "{\"message\":\"Malformed URL.\"}"
+  },
+  "wellformed-percent": {
+   "id": "wellformed-percent",
+   "path": "/fr-CA/cases/%252e%252e",
+   "status": 308
+  },
+  "malformed-query": {
+   "id": "malformed-query",
+   "path": "/api/cases/x/events?a=%&b=%E0",
+   "status": 401
+  },
+  "405-allow-header": {
+   "id": "405-allow-header",
+   "path": "/api/cases/x/withdraw",
+   "allow": null
+  },
+  "long-url": {
+   "id": "long-url",
+   "status": 431
+  },
+  "huge-header": {
+   "id": "huge-header",
+   "status": 431
+  },
+  "documented-alias-recommendation": {
+   "id": "documented-alias-recommendation",
+   "status": 404
+  },
+  "session-cookie-attributes": {
+   "id": "session-cookie-attributes",
+   "attributes": {
+    "path": "/",
+    "expires": "Sat, 10 Oct 2026 11:52:14 GMT",
+    "max-age": "604800",
+    "secure": true,
+    "httponly": true,
+    "samesite": "strict"
+   },
+   "role": "RESPONDENT"
+  },
+  "registration-enumeration": {
+   "id": "registration-enumeration",
+   "existing": 403,
+   "unknown": 200
+  },
+  "signin-options-shape": {
+   "id": "signin-options-shape",
+   "keys": [
+    "challenge",
+    "rpId",
+    "timeout",
+    "userVerification"
+   ]
+  },
+  "no-rate-limit-signin": {
+   "id": "no-rate-limit-signin",
+   "attempts": 30,
+   "distinct": [
+    400
+   ]
+  },
+  "replay-counterless-signin": {
+   "id": "replay-counterless-signin",
+   "replayStatus": 200,
+   "sessionIssued": true
+  },
+  "challenge-survives-failed-attempt": {
+   "id": "challenge-survives-failed-attempt",
+   "goodAfterBad": 200
+  },
+  "orphan-session": {
+   "id": "orphan-session",
+   "readStatus": 404,
+   "createStatus": 500
+  },
+  "signout-behind-proxy": {
+   "id": "signout-behind-proxy",
+   "status": 403,
+   "body": "{\"message\":\"Request not permitted.\"}"
+  },
+  "session-after-signout": {
+   "id": "session-after-signout",
+   "status": 404
+  },
+  "role-change-takes-effect": {
+   "id": "role-change-takes-effect",
+   "statusAfterDemotion": 200
+  },
+  "concurrent-invite-same-email": {
+   "id": "concurrent-invite-same-email",
+   "statuses": [
+    200,
+    500
+   ],
+   "bodies": [
+    "{\"invitationId\":\"60e1501e-9fb3-4325-9206-4fdb1a5ce8e6\",\"userId\":\"da7e99c8-3ba2-4",
+    ""
+   ]
+  },
+  "existing-respondent-different-case": {
+   "id": "existing-respondent-different-case",
+   "namedAccountIsTheRealOne": false,
+   "accountsForOneMailbox": 2,
+   "caseVisibleToRealRespondent": 404
+  },
+  "mixed-case-placeholder": {
+   "id": "mixed-case-placeholder",
+   "inviteWithoutNameStatus": 400,
+   "userRowsForOneMailbox": 2,
+   "emails": [
+    "Mixedcase.0041c7.18@Audit.example.test",
+    "mixedcase.0041c7.18@audit.example.test"
+   ],
+   "caseReadStatus": 404
+  },
+  "provider-timeout": {
+   "id": "provider-timeout",
+   "elapsedMs": 10017,
+   "delivery": "failed"
+  },
+  "outbox-starvation": {
+   "id": "outbox-starvation",
+   "attemptsToBad": 60,
+   "attemptsToHealthy": 0,
+   "healthyDelivered": 0
+  },
+  "notification-latency-coupling": {
+   "id": "notification-latency-coupling",
+   "providerDelayMs": 3000,
+   "submitElapsedMs": 3025,
+   "status": 200
+  },
+  "outbound-denied-log": {
+   "id": "outbound-denied-log",
+   "lines": 0,
+   "sample": ""
+  },
+  "closed-case-mutations": {
+   "id": "closed-case-mutations",
+   "statuses": [
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409,
+    409
+   ]
+  },
+  "lifecycle-event-sequence": {
+   "id": "lifecycle-event-sequence",
+   "events": [
+    "CASE_CREATED",
+    "CASE_SUBMITTED",
+    "EVIDENCE_INTAKE_OPENED",
+    "CASE_ASSIGNED",
+    "EVIDENCE_SUBMITTED",
+    "EVIDENCE_SUBMITTED",
+    "CHRONOLOGY_ENTRY_SUBMITTED",
+    "CHRONOLOGY_ENTRY_SUBMITTED",
+    "EVIDENCE_SUPERSEDED",
+    "EVIDENCE_INTAKE_CLOSED",
+    "POSITION_SUBMITTED",
+    "POSITION_SUBMITTED",
+    "POSITION_SUBMITTED",
+    "RECOMMENDATION_DRAFT_REQUESTED",
+    "RECOMMENDATION_DRAFTED",
+    "RECOMMENDATION_DRAFTED",
+    "NOTE_ADDED",
+    "RECOMMENDATION_ISSUED",
+    "CONSENT_GIVEN",
+    "CONSENT_GIVEN",
+    "CASE_RESOLVED",
+    "CONSENT_REVOKED",
+    "CASE_REOPENED",
+    "CONSENT_GIVEN",
+    "CASE_RESOLVED",
+    "EXPORT_GENERATED",
+    "CASE_CLOSED"
+   ]
+  },
+  "withdrawn-close": {
+   "id": "withdrawn-close",
+   "stage": "RESOLVED_CONSENT",
+   "managerAssigned": true,
+   "closeStatus": 200
+  },
+  "double-withdraw": {
+   "id": "double-withdraw",
+   "secondStatus": 200,
+   "newEvents": [
+    "CASE_WITHDRAWN"
+   ],
+   "newNotifications": 1
+  },
+  "refused-close-side-effect": {
+   "id": "refused-close-side-effect",
+   "stage": "EVIDENCE_INTAKE",
+   "status": 409,
+   "newObjects": 1,
+   "bundleRows": 1,
+   "events": []
+  },
+  "reclose-side-effect": {
+   "id": "reclose-side-effect",
+   "status": 409,
+   "newObjects": 1
+  },
+  "rejected-transitions-DRAFT": {
+   "id": "rejected-transitions-DRAFT",
+   "matrix": [
+    [
+     "open-intake (manager)",
+     404
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     404
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "draft-requests (manager)",
+     404
+    ],
+    [
+     "issue (manager)",
+     404
+    ],
+    [
+     "consent give (respondent)",
+     404
+    ],
+    [
+     "consent decline (respondent)",
+     404
+    ]
+   ]
+  },
+  "rejected-transitions-OPEN": {
+   "id": "rejected-transitions-OPEN",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     404
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "draft-requests (manager)",
+     404
+    ],
+    [
+     "issue (manager)",
+     404
+    ],
+    [
+     "consent give (respondent)",
+     404
+    ],
+    [
+     "consent decline (respondent)",
+     404
+    ]
+   ]
+  },
+  "rejected-transitions-EVIDENCE_INTAKE": {
+   "id": "rejected-transitions-EVIDENCE_INTAKE",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "draft-requests (manager)",
+     409
+    ],
+    [
+     "issue (manager)",
+     404
+    ],
+    [
+     "consent give (respondent)",
+     404
+    ],
+    [
+     "consent decline (respondent)",
+     404
+    ]
+   ]
+  },
+  "rejected-transitions-POSITIONS": {
+   "id": "rejected-transitions-POSITIONS",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     409
+    ],
+    [
+     "issue (manager)",
+     404
+    ],
+    [
+     "consent give (respondent)",
+     404
+    ],
+    [
+     "consent decline (respondent)",
+     404
+    ]
+   ]
+  },
+  "rejected-transitions-DRAFTING": {
+   "id": "rejected-transitions-DRAFTING",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     409
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "consent give (respondent)",
+     409
+    ],
+    [
+     "consent decline (respondent)",
+     409
+    ]
+   ]
+  },
+  "rejected-transitions-ISSUED": {
+   "id": "rejected-transitions-ISSUED",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     409
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "issue (manager)",
+     409
+    ]
+   ]
+  },
+  "rejected-transitions-RESOLVED_CONSENT": {
+   "id": "rejected-transitions-RESOLVED_CONSENT",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     409
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "draft-requests (manager)",
+     409
+    ],
+    [
+     "issue (manager)",
+     409
+    ],
+    [
+     "consent give (respondent)",
+     409
+    ],
+    [
+     "consent decline (respondent)",
+     409
+    ]
+   ]
+  },
+  "rejected-transitions-CLOSED": {
+   "id": "rejected-transitions-CLOSED",
+   "matrix": [
+    [
+     "submit (complainant)",
+     409
+    ],
+    [
+     "open-intake (manager)",
+     409
+    ],
+    [
+     "evidence (respondent)",
+     409
+    ],
+    [
+     "chronology (respondent)",
+     409
+    ],
+    [
+     "close-intake (manager)",
+     409
+    ],
+    [
+     "position (respondent)",
+     409
+    ],
+    [
+     "draft-requests (manager)",
+     409
+    ],
+    [
+     "issue (manager)",
+     409
+    ],
+    [
+     "consent give (respondent)",
+     409
+    ],
+    [
+     "consent decline (respondent)",
+     409
+    ]
+   ]
+  },
+  "wrong-role-statuses": {
+   "id": "wrong-role-statuses",
+   "statuses": [
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    403,
+    404
+   ]
+  },
+  "consent-ip-from-forwarded-header": {
+   "id": "consent-ip-from-forwarded-header",
+   "ipHashEqualsHashOfClientSuppliedHeader": true,
+   "authMethod": "passkey",
+   "hasSessionIdHash": true
+  },
+  "write-denial-oracles": {
+   "id": "write-denial-oracles",
+   "differences": [
+    "consent give as COMPLAINANT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}",
+    "consent give as RESPONDENT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}",
+    "consent give (no statement) as COMPLAINANT: existing -> 400 {\"message\":\"statementVersionId is required.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}",
+    "consent give (no statement) as RESPONDENT: existing -> 400 {\"message\":\"statementVersionId is required.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}",
+    "consent decline as COMPLAINANT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}",
+    "consent decline as RESPONDENT: existing -> 404 {\"message\":\"Case not found.\"} | missing -> 404 {\"message\":\"No issued recommendation exists for this case.\"}"
+   ]
+  },
+  "issue-denial": {
+   "id": "issue-denial",
+   "realAsOtherManager": [
+    404,
+    "{\"message\":\"Case not found.\"}"
+   ],
+   "missing": [
+    404,
+    "{\"message\":\"Recommendation not found.\"}"
+   ],
+   "realAsOutsider": [
+    404,
+    "{\"message\":\"Case not found.\"}"
+   ]
+  },
+  "respondent-sees-draft-case": {
+   "id": "respondent-sees-draft-case",
+   "listShowsReference": true,
+   "apiStatus": 200,
+   "pageStatus": 200,
+   "apiBodyKeys": [
+    "id",
+    "referenceNumber",
+    "state",
+    "category",
+    "simulated",
+    "complainant",
+    "respondent",
+    "caseManager",
+    "currentRecommendationId",
+    "createdAt",
+    "closedAt"
+   ],
+   "complainantNameInApi": true
+  },
+  "admin-export-generates": {
+   "id": "admin-export-generates",
+   "status": 200,
+   "bundlesBefore": 0,
+   "bundlesAfter": 1
+  },
+  "admin-export-entries": {
+   "id": "admin-export-entries",
+   "entries": [
+    "case-record.json",
+    "case-record.pdf",
+    "verification.txt"
+   ]
+  },
+  "no-content-type-allowlist": {
+   "id": "no-content-type-allowlist",
+   "outcomes": {
+    "exe": {
+     "status": 200
+    },
+    "html": {
+     "status": 200
+    },
+    "svg": {
+     "status": 200
+    }
+   },
+   "storedMimeTypes": [
+    "application/x-msdownload",
+    "text/plain",
+    "text/plain"
+   ],
+   "scanStatuses": [
+    "CLEAN",
+    "CLEAN",
+    "CLEAN"
+   ]
+  },
+  "size-1": {
+   "id": "size-1",
+   "label": "1 byte",
+   "status": 200,
+   "message": "{\"caseId\":\"455fa82c-05c2-426e-8bf3-1f6b0e3e0c84\",\"state\":\"EVIDENCE_INTAKE\"}",
+   "storedBytes": 1,
+   "recordedBytes": 1,
+   "hashMatches": true
+  },
+  "size-9437184": {
+   "id": "size-9437184",
+   "label": "9 MiB",
+   "status": 200,
+   "message": "{\"caseId\":\"fbd81efb-1b44-45ca-b4ff-048339de993b\",\"state\":\"EVIDENCE_INTAKE\"}",
+   "storedBytes": 9437184,
+   "recordedBytes": 9437184,
+   "hashMatches": true
+  },
+  "size-11534336": {
+   "id": "size-11534336",
+   "label": "11 MiB (above Next.js's default 10 MB proxy buffer)",
+   "status": 400,
+   "message": "{\"message\":\"Expected multipart/form-data.\"}",
+   "storedBytes": null,
+   "recordedBytes": null,
+   "hashMatches": null
+  },
+  "size-25165824": {
+   "id": "size-25165824",
+   "label": "24 MiB",
+   "status": 400,
+   "message": "{\"message\":\"Expected multipart/form-data.\"}",
+   "storedBytes": null,
+   "recordedBytes": null,
+   "hashMatches": null
+  },
+  "size-26214400": {
+   "id": "size-26214400",
+   "label": "exactly 25 MiB",
+   "status": 400,
+   "message": "{\"message\":\"Expected multipart/form-data.\"}",
+   "storedBytes": null,
+   "recordedBytes": null,
+   "hashMatches": null
+  },
+  "size-26214401": {
+   "id": "size-26214401",
+   "label": "25 MiB + 1 byte",
+   "status": 400,
+   "message": "{\"message\":\"Expected multipart/form-data.\"}",
+   "storedBytes": null,
+   "recordedBytes": null,
+   "hashMatches": null
+  },
+  "eicar-upload": {
+   "id": "eicar-upload",
+   "httpStatus": 200,
+   "responseBody": "{\"caseId\":\"c8db7611-9556-40b4-b936-35f7a6187fa0\",\"state\":\"EVIDENCE_INTAKE\"}",
+   "rows": [
+    {
+     "scanStatus": "REJECTED",
+     "mimeType": "text/plain"
+    }
+   ],
+   "objectsStored": 1,
+   "eventPayload": {
+    "kind": "OTHER",
+    "signature": "<redacted>",
+    "scanStatus": "REJECTED",
+    "evidenceItemId": "86421427-1800-4b3e-80f9-51cf221d9be9"
+   },
+   "rejectedNotifications": 1
+  },
+  "rejected-item-visibility": {
+   "id": "rejected-item-visibility",
+   "otherPartyPageShowsIt": false,
+   "submitterPageShowsIt": true
+  },
+  "eicar-archive-vs-padded": {
+   "id": "eicar-archive-vs-padded",
+   "zip with eicar": "REJECTED",
+   "padded png with eicar": "CLEAN"
+  },
+  "db-failure-after-upload": {
+   "id": "db-failure-after-upload",
+   "status": 500,
+   "body": ""
+  },
+  "intake-closes-mid-upload": {
+   "id": "intake-closes-mid-upload",
+   "closeStatus": 200,
+   "uploadStatus": 409,
+   "body": "{\"message\":\"Evidence intake has closed. Reload the case before submitting.\"}"
+  },
+  "export-record-failure": {
+   "id": "export-record-failure",
+   "status": 502,
+   "body": "{\"message\":\"Export bundle generation failed: \\nInvalid `prisma.exportBundle.create()` invocation:\\n\\n\\nDatabase error. Code: `P0001`. Message: `audit injected failure`\"}"
+  },
+  "clamd-down": {
+   "id": "clamd-down",
+   "status": 409,
+   "body": "{\"message\":\"Evidence scanning is unavailable.\"}"
+  },
+  "minio-down": {
+   "id": "minio-down",
+   "uploadStatus": 500,
+   "uploadBody": "",
+   "closeStatus": 502,
+   "closeBody": "{\"message\":\"Export bundle generation failed: connect ECONNREFUSED 127.0.0.1:9010\"}"
+  },
+  "pdf-unicode": {
+   "id": "pdf-unicode",
+   "containsEmoji": true,
+   "containsCjk": false,
+   "containsArabic": false,
+   "length": 19351
+  },
+  "export-snapshot-state": {
+   "id": "export-snapshot-state",
+   "exportedCaseState": "RESOLVED_CONSENT",
+   "closedAt": null,
+   "timelineEvents": 20,
+   "liveEvents": 22
+  },
+  "export-emails": {
+   "id": "export-emails",
+   "partyExportContainsOthersEmail": true
+  },
+  "export-recommendations": {
+   "id": "export-recommendations",
+   "statuses": [
+    "SUPERSEDED",
+    "ISSUED"
+   ]
+  },
+  "export-staff-events": {
+   "id": "export-staff-events",
+   "includesAccessStaffGranted": true,
+   "includesNoteAdded": true,
+   "includesDrafted": true
+  },
+  "large-prose-export": {
+   "id": "large-prose-export",
+   "status": 200,
+   "ms": 25639
+  },
+  "export-event-loop-blocking": {
+   "id": "export-event-loop-blocking",
+   "inputChars": 100000,
+   "exportMs": 17839,
+   "status": 200,
+   "healthProbes": 2,
+   "worstHealthLatencyMs": 17557
+  },
+  "local-disk-fault": {
+   "id": "local-disk-fault",
+   "status": 500,
+   "body": ""
+  },
+  "failure-invalid_json": {
+   "id": "failure-invalid_json",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI's response did not match the required schema: Failed to parse structured output as JSON: Unexpected token 'h', \"this is not json {\" is not valid JSON",
+   "calls": 1
+  },
+  "failure-missing_field": {
+   "id": "failure-missing_field",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI's response did not match the required schema: Failed to parse structured output: [\n  {\n    \"expected\": \"array\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"limits\"\n    ],\n    \"message\": \"Invalid input: expected array, received undefined\"\n  }\n]\nValidation issues:\n  - limits: Invalid input: expected array, received undefined",
+   "calls": 1
+  },
+  "failure-bad_citation": {
+   "id": "failure-bad_citation",
+   "status": 502,
+   "message": "Explanation record failed schema validation: Citation does not resolve to clean evidence in this case.",
+   "calls": 1
+  },
+  "failure-bad_excerpt": {
+   "id": "failure-bad_excerpt",
+   "status": 502,
+   "message": "Explanation record failed schema validation: Conflict map validation failed: Unresolvable exact excerpt: position:5e71e73a-3e93-436b-8e16-8d97f261c60d.body",
+   "calls": 1
+  },
+  "failure-forbidden_term": {
+   "id": "failure-forbidden_term",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI's response did not match the required schema: Failed to parse structured output: [\n  {\n    \"code\": \"custom\",\n    \"message\": \"contains a forbidden term (matches /\\\\bdecision\\\\b/i)\",\n    \"path\": [\n      \"summary\"\n    ]\n  }\n]\nValidation issues:\n  - summary: contains a forbidden term (matches /\\bdecision\\b/i)",
+   "calls": 1
+  },
+  "failure-percentage": {
+   "id": "failure-percentage",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI's response did not match the required schema: Failed to parse structured output: [\n  {\n    \"code\": \"custom\",\n    \"message\": \"contains a percentage or star-rating pattern, which Section 9 forbids\",\n    \"path\": [\n      \"reasoning\"\n    ]\n  }\n]\nValidation issues:\n  - reasoning: contains a percentage or star-rating pattern, which Section 9 forbids",
+   "calls": 1
+  },
+  "failure-truncated": {
+   "id": "failure-truncated",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI response was truncated. No draft was saved; retry with a smaller case record.",
+   "calls": 1
+  },
+  "failure-refusal": {
+   "id": "failure-refusal",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI declined to draft a recommendation for this case (category: stub).",
+   "calls": 1
+  },
+  "failure-empty": {
+   "id": "failure-empty",
+   "status": 502,
+   "message": "Explanation record failed schema validation: The AI's response did not include any text content.",
+   "calls": 1
+  },
+  "failure-http400": {
+   "id": "failure-http400",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (400). Check the configured model and account access, then retry.",
+   "calls": 1
+  },
+  "failure-http401": {
+   "id": "failure-http401",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (401). Check the configured model and account access, then retry.",
+   "calls": 1
+  },
+  "failure-http500": {
+   "id": "failure-http500",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (500). Check the configured model and account access, then retry.",
+   "calls": 2
+  },
+  "failure-http429": {
+   "id": "failure-http429",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (429). Check the configured model and account access, then retry.",
+   "calls": 2
+  },
+  "failure-http529": {
+   "id": "failure-http529",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (529). Check the configured model and account access, then retry.",
+   "calls": 2
+  },
+  "failure-drop": {
+   "id": "failure-drop",
+   "status": 502,
+   "message": "Explanation record failed schema validation: AI service error (unknown). Check the configured model and account access, then retry.",
+   "calls": 2
+  },
+  "failed-new-version": {
+   "id": "failed-new-version",
+   "status": 502,
+   "stateAfter": "POSITIONS",
+   "currentRecommendationIsIssued": false,
+   "statuses": [
+    "SUPERSEDED"
+   ]
+  },
+  "stale-success": {
+   "id": "stale-success",
+   "lateStatus": 502,
+   "lateBody": "{\"message\":\"The draft changed. Reload before reviewing or issuing it.\",\"state\":\"DRAFTING\"}"
+  },
+  "review-vs-issue": {
+   "id": "review-vs-issue",
+   "review": 200,
+   "issue": 409
+  },
+  "double-submit": {
+   "id": "double-submit",
+   "statuses": [
+    200,
+    200
+   ],
+   "submittedEvents": 2
+  },
+  "double-claim": {
+   "id": "double-claim",
+   "statuses": [
+    200,
+    200
+   ],
+   "assignedTo": "second",
+   "coiRows": 2,
+   "openedEvents": 2
+  },
+  "double-close-intake": {
+   "id": "double-close-intake",
+   "statuses": [
+    200,
+    200
+   ]
+  },
+  "withdraw-vs-close-intake": {
+   "id": "withdraw-vs-close-intake",
+   "statuses": [
+    200,
+    200
+   ],
+   "finalState": "POSITIONS",
+   "events": [
+    "CASE_ASSIGNED",
+    "CASE_WITHDRAWN",
+    "EVIDENCE_INTAKE_CLOSED"
+   ],
+   "illegal": [
+    {
+     "seq": 6,
+     "message": "EVIDENCE_INTAKE_CLOSED is not legal from WITHDRAWN"
+    }
+   ]
+  },
+  "withdraw-vs-submit": {
+   "id": "withdraw-vs-submit",
+   "statuses": [
+    200,
+    200
+   ],
+   "finalState": "OPEN",
+   "illegal": [
+    {
+     "seq": 3,
+     "message": "CASE_SUBMITTED is not legal from WITHDRAWN"
+    }
+   ]
+  },
+  "simultaneous-consent": {
+   "id": "simultaneous-consent",
+   "iterations": 8,
+   "statusPairs": [
+    [
+     200,
+     500
+    ],
+    [
+     200,
+     500
+    ],
+    [
+     500,
+     200
+    ],
+    [
+     500,
+     200
+    ],
+    [
+     200,
+     500
+    ],
+    [
+     500,
+     200
+    ],
+    [
+     200,
+     500
+    ],
+    [
+     200,
+     500
+    ]
+   ],
+   "problems": 8
+  },
+  "double-position": {
+   "id": "double-position",
+   "statuses": [
+    500,
+    200
+   ],
+   "versions": [
+    1,
+    2
+   ]
+  },
+  "revoke-vs-close": {
+   "id": "revoke-vs-close",
+   "statuses": [
+    200,
+    200
+   ],
+   "finalState": "ISSUED",
+   "closedAt": "2026-10-03T11:54:54.306Z",
+   "revokedConsents": 1,
+   "illegal": [
+    {
+     "seq": 20,
+     "message": "CONSENT_REVOKED is not legal from CLOSED"
+    },
+    {
+     "seq": 21,
+     "message": "CASE_REOPENED is not legal from CLOSED"
+    }
+   ],
+   "events": [
+    "CASE_RESOLVED",
+    "EXPORT_GENERATED",
+    "CASE_CLOSED",
+    "CONSENT_REVOKED",
+    "CASE_REOPENED"
+   ]
+  },
+  "all-chains": {
+   "id": "all-chains",
+   "cases": 142,
+   "events": 1445,
+   "brokenChains": 0
+  },
+  "verify-events-cli-valid-db": {
+   "id": "verify-events-cli-valid-db",
+   "exit": 0,
+   "tail": [
+    "verify:events OK — all event chains and projections verified.",
+    "",
+    "[db-guard] target verified: db=aequitas_audit_test host=127.0.0.1 port=54329 datadir=/var/lib/aq-pg-audit/data"
+   ]
+  },
+  "legality-all-cases": {
+   "id": "legality-all-cases",
+   "cases": 142,
+   "projectionMismatches": 0,
+   "casesWithIllegalSequences": 6,
+   "sample": [
+    "AE-2026-791295: EVIDENCE_INTAKE_CLOSED is not legal from WITHDRAWN",
+    "AE-2026-525668: EVIDENCE_INTAKE_OPENED is not legal from EVIDENCE_INTAKE",
+    "AE-2026-828159: CASE_SUBMITTED is not legal from WITHDRAWN",
+    "AE-2026-510776: CONSENT_REVOKED is not legal from CLOSED; CASE_REOPENED is not legal from CLOSED",
+    "AE-2026-166599: CASE_SUBMITTED is not legal from OPEN",
+    "AE-2026-217443: EVIDENCE_INTAKE_CLOSED is not legal from POSITIONS"
+   ]
+  },
+  "verify-blind-to-illegal-sequences": {
+   "id": "verify-blind-to-illegal-sequences",
+   "casesWithEventsAfterWithdrawal": 2
+  },
+  "concurrent-chronology": {
+   "id": "concurrent-chronology",
+   "statuses": [
+    201
+   ],
+   "accepted": 40
+  },
+  "mixed-concurrent": {
+   "id": "mixed-concurrent",
+   "total": 36,
+   "failures": 0,
+   "statuses": [
+    200,
+    201
+   ]
+  },
+  "append-only-bypass": {
+   "id": "append-only-bypass",
+   "TRUNCATE": "allowed",
+   "DISABLE TRIGGER": "allowed",
+   "DROP TRIGGER": "allowed"
+  },
+  "tamper-detection": {
+   "id": "tamper-detection",
+   "event payload edited": {
+    "code": 1,
+    "matched": true
+   },
+   "middle event deleted": {
+    "code": 1,
+    "matched": true
+   },
+   "prevHash rewritten": {
+    "code": 1,
+    "matched": true
+   },
+   "timestamp altered": {
+    "code": 1,
+    "matched": true
+   },
+   "actor swapped": {
+    "code": 1,
+    "matched": true
+   },
+   "stored state edited (projection)": {
+    "code": 1,
+    "matched": true
+   }
+  },
+  "database-down": {
+   "id": "database-down",
+   "healthStatus": 503,
+   "healthBody": "{\"status\":\"unavailable\"}",
+   "healthMs": 9,
+   "apiStatus": 500,
+   "apiBody": "",
+   "pageStatus": 500,
+   "signinOptionsStatus": 200
+  },
+  "database-recovery": {
+   "id": "database-recovery",
+   "healthChecksUntilOk": 1
+  },
+  "nul-register-displayName": {
+   "id": "nul-register-displayName",
+   "status": 500,
+   "body": ""
+  },
+  "nul-register-email": {
+   "id": "nul-register-email",
+   "status": 500,
+   "body": ""
+  },
+  "nul-invite-displayName": {
+   "id": "nul-invite-displayName",
+   "status": 500,
+   "body": ""
+  },
+  "nul-invite-email": {
+   "id": "nul-invite-email",
+   "status": 500,
+   "body": ""
+  },
+  "nul-case-respondentDisplayName": {
+   "id": "nul-case-respondentDisplayName",
+   "status": 500,
+   "body": ""
+  },
+  "nul-case-respondentEmail": {
+   "id": "nul-case-respondentEmail",
+   "status": 500,
+   "body": ""
+  },
+  "nul-chronology-title": {
+   "id": "nul-chronology-title",
+   "status": 500,
+   "body": ""
+  },
+  "nul-chronology-description": {
+   "id": "nul-chronology-description",
+   "status": 500,
+   "body": ""
+  },
+  "nul-position-body": {
+   "id": "nul-position-body",
+   "status": 500,
+   "body": ""
+  },
+  "nul-evidence-title": {
+   "id": "nul-evidence-title",
+   "status": 500,
+   "body": ""
+  },
+  "nul-evidence-description": {
+   "id": "nul-evidence-description",
+   "status": 500,
+   "body": ""
+  },
+  "nul-close-intake-overrideReason": {
+   "id": "nul-close-intake-overrideReason",
+   "status": 500,
+   "body": ""
+  },
+  "nul-open-intake-coiDetails": {
+   "id": "nul-open-intake-coiDetails",
+   "status": 500,
+   "body": ""
+  },
+  "challenge-cookie-size": {
+   "100": {
+    "status": 200,
+    "setCookieBytes": 598
+   },
+   "1000": {
+    "status": 200,
+    "setCookieBytes": 1798
+   },
+   "2500": {
+    "status": 200,
+    "setCookieBytes": 3798
+   },
+   "3200": {
+    "status": 200,
+    "setCookieBytes": 4731
+   },
+   "6000": {
+    "status": 200,
+    "setCookieBytes": 8465
+   },
+   "id": "challenge-cookie-size"
+  },
+  "length-limits": {
+   "id": "length-limits",
+   "caseRespondentDisplayName1MB": 200,
+   "position1MB": 200,
+   "position9MB": 200,
+   "position12MB": 400,
+   "longestStoredPositionChars": 9000000
+  }
+ }
+}

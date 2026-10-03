@@ -1,0 +1,64 @@
+[db-guard] target verified: db=aequitas_audit_test host=127.0.0.1 port=54329 datadir=/var/lib/aq-pg-audit/data
+
+> aequitas@0.1.0 build
+> next build
+
+▲ Next.js 16.3.8 (Turbopack)
+✓ Running next.config.mjs took 39ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.1s
+  Running TypeScript ...
+  Finished TypeScript in 7.8s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/20) ...
+  Generating static pages using 3 workers (5/20) 
+  Generating static pages using 3 workers (10/20) 
+  Generating static pages using 3 workers (15/20) 
+✓ Generating static pages using 3 workers (20/20) in 301ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /_not-found
+├ ƒ /[locale]
+├ ƒ /[locale]/admin/invites
+├ ƒ /[locale]/auth/sign-in
+├ ƒ /[locale]/cases
+├ ƒ /[locale]/cases/[caseId]
+├ ƒ /[locale]/cases/new
+├ ƒ /[locale]/invite/[token]
+├ ƒ /api/auth/invite
+├ ƒ /api/auth/invite/claim
+├ ƒ /api/auth/sign-out
+├ ƒ /api/auth/webauthn/authenticate
+├ ƒ /api/auth/webauthn/register
+├ ƒ /api/cases
+├ ƒ /api/cases/[caseId]
+├ ƒ /api/cases/[caseId]/chronology
+├ ƒ /api/cases/[caseId]/close
+├ ƒ /api/cases/[caseId]/close-intake
+├ ƒ /api/cases/[caseId]/consent
+├ ƒ /api/cases/[caseId]/draft
+├ ƒ /api/cases/[caseId]/draft-requests
+├ ƒ /api/cases/[caseId]/events
+├ ƒ /api/cases/[caseId]/evidence
+├ ƒ /api/cases/[caseId]/evidence/[evidenceId]/supersede
+├ ƒ /api/cases/[caseId]/export
+├ ƒ /api/cases/[caseId]/knowledge-map
+├ ƒ /api/cases/[caseId]/open-intake
+├ ƒ /api/cases/[caseId]/positions
+├ ƒ /api/cases/[caseId]/submit
+├ ƒ /api/cases/[caseId]/withdraw
+├ ƒ /api/health
+├ ƒ /api/recommendations/[recommendationId]/issue
+└ ƒ /auth/sign-in
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+
+
+real	0m21.002s
+user	0m52.422s
+sys	0m4.153s

@@ -1,0 +1,781 @@
+[db-guard] target verified: db=aequitas_audit_suite_test host=127.0.0.1 port=54329 datadir=/var/lib/aq-pg-audit/data
+
+ RUN  v4.1.11 /home/user/aequitas-suite-wt
+
+stdout | test/integration/case-lifecycle.test.ts
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+ ✓ test/integration/case-lifecycle.test.ts > createCase — role enforcement > rejects a non-COMPLAINANT caller at the authorize-role step, calling createCase() itself (not just runMutation) 2ms
+ ✓ test/integration/case-lifecycle.test.ts > submitCase — role and ownership enforcement > rejects a non-COMPLAINANT caller at the authorize-role step, calling submitCase() itself 38ms
+ ✓ test/integration/case-lifecycle.test.ts > submitCase — role and ownership enforcement > rejects a different consumer (right role, wrong owner) as not-found (Section 16: RBAC failures for non-assigned cases are 404, not 403/409) 10ms
+ ✓ test/integration/case-lifecycle.test.ts > openIntake — self-claim, role, and COI enforcement > rejects a non-CASE_MANAGER caller at the authorize-role step 21ms
+ ✓ test/integration/case-lifecycle.test.ts > openIntake — self-claim, role, and COI enforcement > blocks a case manager who declares a conflict of interest 18ms
+ ✓ test/integration/case-lifecycle.test.ts > openIntake — self-claim, role, and COI enforcement > lets the first case manager to call claim the case (self-claim) 27ms
+ ✓ test/integration/case-lifecycle.test.ts > openIntake — self-claim, role, and COI enforcement > blocks a second case manager from claiming an already-assigned case 21ms
+ ✓ test/integration/case-lifecycle.test.ts > submitEvidence — role, party, and scan-result enforcement > rejects a non-party role (CASE_MANAGER) at the authorize-role step 19ms
+ ✓ test/integration/case-lifecycle.test.ts > submitEvidence — role, party, and scan-result enforcement > rejects a party role for the wrong case (right role, not this case's party) as not-found 18ms
+ ✓ test/integration/case-lifecycle.test.ts > submitEvidence — role, party, and scan-result enforcement > stores a clean submission as CLEAN and emits EVIDENCE_SUBMITTED 103ms
+ ✓ test/integration/case-lifecycle.test.ts > submitEvidence — role, party, and scan-result enforcement > stores an EICAR-flagged submission as REJECTED and notifies the submitter in their own locale 48ms
+ ✓ test/integration/case-lifecycle.test.ts > supersedeEvidence — ownership and versioning enforcement > rejects a non-party role (CASE_MANAGER) at the authorize-role step 38ms
+ ✓ test/integration/case-lifecycle.test.ts > supersedeEvidence — ownership and versioning enforcement > blocks a party who did not submit the original item (not-found, not a generic guard conflict) 43ms
+ ✓ test/integration/case-lifecycle.test.ts > supersedeEvidence — ownership and versioning enforcement > lets the original submitter supersede their own item, incrementing version and linking supersedesId 61ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > rejects a non-CASE_MANAGER caller at the authorize-role step 19ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > rejects a case manager who is not assigned to this case as not-found 18ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > blocks closing intake when only one party has submitted evidence, without an override reason 39ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > allows closing intake with only one party's evidence when an override reason is recorded 51ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > closes intake and transitions to POSITIONS once both parties have clean evidence 69ms
+ ✓ test/integration/case-lifecycle.test.ts > closeIntake — manager assignment and evidence-coverage enforcement > ignores REJECTED-only evidence for the per-party coverage check (EICAR-flagged submission does not count) 62ms
+ ✓ test/integration/case-lifecycle.test.ts > submitPosition — role, party, and versioning enforcement > rejects a non-party role (CASE_MANAGER) at the authorize-role step 65ms
+ ✓ test/integration/case-lifecycle.test.ts > submitPosition — role, party, and versioning enforcement > rejects a party role for the wrong case (right role, not this case's party) as not-found 66ms
+ ✓ test/integration/case-lifecycle.test.ts > submitPosition — role, party, and versioning enforcement > stores a party's first position statement as version 1 and emits POSITION_SUBMITTED 68ms
+ ✓ test/integration/case-lifecycle.test.ts > submitPosition — role, party, and versioning enforcement > increments version on a second submission by the same party, keeping both rows 74ms
+ ✓ test/integration/case-lifecycle.test.ts > submitPosition — role, party, and versioning enforcement > tracks versions independently per party 71ms
+stdout | test/integration/recommendation-lifecycle.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+ ✓ test/integration/recommendation-lifecycle.test.ts > requestDraft — role, assignment, and precondition enforcement > rejects a non-CASE_MANAGER caller at the authorize-role step 220ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > requestDraft — role, assignment, and precondition enforcement > rejects a case manager who is not assigned to this case as not-found 96ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > requestDraft — role, assignment, and precondition enforcement > blocks the request when a party has no current position 33ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > requestDraft — role, assignment, and precondition enforcement > succeeds and transitions POSITIONS -> DRAFTING once both parties have current positions 102ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > completeDraft — real failure path (ANTHROPIC_API_KEY unset) > rejects at the guard step and writes no Recommendation row when the AI is unavailable 122ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > completeDraft — real failure path (ANTHROPIC_API_KEY unset) > permits only one concurrent draft request and rejects a duplicate while the job is active 95ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > completeDraft — real failure path (ANTHROPIC_API_KEY unset) > a late completion cannot recover or overwrite a newer draft request 102ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > issueRecommendation — role, assignment, checklist-adjacent guards, and quarantine > rejects a non-CASE_MANAGER caller at the authorize-role step 106ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > issueRecommendation — role, assignment, checklist-adjacent guards, and quarantine > rejects a case manager who is not assigned to this case as not-found (also covers reviewerIsIssuingManager) 87ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > issueRecommendation — role, assignment, checklist-adjacent guards, and quarantine > rejects when the recommendation cites evidence not in this case 95ms
+ ✓ test/integration/recommendation-lifecycle.test.ts > issueRecommendation — role, assignment, checklist-adjacent guards, and quarantine > succeeds, sets reviewer/issuedAt, and transitions DRAFTING -> ISSUED 95ms
+stdout | test/unit/authorityView.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > covers every progress-independent state defined in ALL_STATES (EVIDENCE_INTAKE/POSITIONS are tested separately below) 2ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFT > role=COMPLAINANT 1ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFT > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFT > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFT > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > OPEN > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > OPEN > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > OPEN > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > OPEN > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFTING > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFTING > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFTING > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > DRAFTING > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > ISSUED > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > ISSUED > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > ISSUED > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > ISSUED > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_CONSENT > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_CONSENT > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_CONSENT > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_CONSENT > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_DECLINED > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_DECLINED > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_DECLINED > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > RESOLVED_DECLINED > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > WITHDRAWN > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > WITHDRAWN > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > WITHDRAWN > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > WITHDRAWN > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > CLOSED > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > CLOSED > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > CLOSED > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — progress-independent states (every state x role pair) > CLOSED > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > neither party has evidence yet > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > neither party has evidence yet > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > neither party has evidence yet > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > neither party has evidence yet > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > consumer has submitted, retailer handler hasn't > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > consumer has submitted, retailer handler hasn't > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > consumer has submitted, retailer handler hasn't > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > consumer has submitted, retailer handler hasn't > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > retailer handler has submitted, consumer hasn't > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > retailer handler has submitted, consumer hasn't > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > retailer handler has submitted, consumer hasn't > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > retailer handler has submitted, consumer hasn't > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > both parties have submitted clean evidence > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > both parties have submitted clean evidence > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > both parties have submitted clean evidence > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — EVIDENCE_INTAKE (progress-dependent) > both parties have submitted clean evidence > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > neither party has submitted a position yet > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > neither party has submitted a position yet > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > neither party has submitted a position yet > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > neither party has submitted a position yet > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > consumer has submitted, retailer handler hasn't > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > consumer has submitted, retailer handler hasn't > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > consumer has submitted, retailer handler hasn't > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > consumer has submitted, retailer handler hasn't > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > retailer handler has submitted, consumer hasn't > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > retailer handler has submitted, consumer hasn't > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > retailer handler has submitted, consumer hasn't > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > retailer handler has submitted, consumer hasn't > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > both parties have current positions > role=COMPLAINANT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > both parties have current positions > role=RESPONDENT 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > both parties have current positions > role=CASE_MANAGER 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — POSITIONS (progress-dependent) > both parties have current positions > role=ADMIN 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — cross-cutting invariants > ADMIN never receives an actionable authority, at any state (Section 10 lists no ADMIN capability) 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — cross-cutting invariants > CLOSED is terminal: no role has any authority or anything to wait on 0ms
+ ✓ test/unit/authorityView.test.ts > getAuthorityView — cross-cutting invariants > a role that currently holds authority never simultaneously shows a waitingOn pointing at itself 1ms
+stdout | test/integration/consent-closure-lifecycle.test.ts
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/integration/consent-closure-lifecycle.test.ts > giveConsent / declineConsent — real state derivation > a single party giving consent keeps the case ISSUED (waiting on the other party) 243ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > giveConsent / declineConsent — real state derivation > both parties giving consent resolves the case to RESOLVED_CONSENT 127ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > giveConsent / declineConsent — real state derivation > rejects a non-party attempting to give consent 124ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > giveConsent / declineConsent — real state derivation > declining resolves the case to RESOLVED_DECLINED, regardless of the other party's state 460ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > giveConsent / declineConsent — real state derivation > rejects consent bound to a stale recommendation id 337ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > revokeConsent — reopens the case > revoking a given consent moves the case back to ISSUED and records CASE_REOPENED 131ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > revokeConsent — reopens the case > rejects revocation from a party who never gave consent 90ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > requestNewVersion — RESOLVED_DECLINED -> DRAFTING > supersedes the prior recommendation and starts a new one at the next version number 112ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > requestNewVersion — RESOLVED_DECLINED -> DRAFTING > rejects a non-assigned case manager 104ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > withdrawCase — standing complainant capability > withdraws a case from ISSUED, emitting CASE_WITHDRAWN 99ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > withdrawCase — standing complainant capability > rejects withdrawal by the respondent (owner-only) 91ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > closeCase + generateExportBundle — Section 15 sealed export > generates a real bundle (JSON + PDF + verification.txt zipped, uploaded, hashed) and closes the case 467ms
+ ✓ test/integration/consent-closure-lifecycle.test.ts > closeCase + generateExportBundle — Section 15 sealed export > rejects close_case with no export hash 128ms
+stdout | test/integration/rbac-http.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > POST /api/cases -> 401 with no session cookie 1409ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > POST /api/cases/any-id/submit -> 401 with no session cookie 1198ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > POST /api/cases/any-id/open-intake -> 401 with no session cookie 1210ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > POST /api/cases/any-id/close-intake -> 401 with no session cookie 1201ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > POST /api/cases/any-id/positions -> 401 with no session cookie 1174ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — unauthenticated requests (401) > GET /api/cases/any-id/events -> 401 with no session cookie 920ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — wrong role (403) > retailer handler cannot open evidence intake 243ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — wrong role (403) > case manager cannot submit evidence 1291ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — wrong role (403) > consumer cannot close evidence intake 77ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — wrong role (403) > case manager cannot submit a position 76ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — right role, not this case's party/manager (404, Section 16) > a different consumer cannot submit this case 63ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — right role, not this case's party/manager (404, Section 16) > an unrelated retailer handler cannot submit evidence on this case 104ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — right role, not this case's party/manager (404, Section 16) > a case manager who never claimed this case cannot close intake 45ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — right role, not this case's party/manager (404, Section 16) > an unrelated consumer cannot submit a position on this case 55ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — right role, not this case's party/manager (404, Section 16) > an unrelated consumer cannot read this case's event timeline 73ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — real business-rule conflict (409, not 403/404) > closing intake without any evidence and no override reason is a 409, not a role/access failure 59ms
+ ✓ test/integration/rbac-http.test.ts > RBAC over real HTTP — the correct actor still succeeds (sanity check on the same routes) > the assigned manager can close intake with an override reason 76ms
+stdout | test/integration/auth-takeover.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > options for an email that already has a passkey: 403 without a session 133ms
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > options for a placeholder account (no passkey yet): 403 without a session; placeholders are claimed by invite 28ms
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > options for someone else's email while signed in as a different user: 403 22ms
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > verify with a valid attestation for an existing email and no session: 403, and no credential is attached 44ms
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > a signed-in user may add another passkey to their own account 79ms
+ ✓ test/integration/auth-takeover.test.ts > C1: passkey registration never attaches to an existing account by email alone > a brand-new email can still self-register as a complainant, end to end 58ms
+ ✓ test/integration/auth-takeover.test.ts > H1: CASE_MANAGER is not self-registerable > options with globalRole CASE_MANAGER for a new email: 400 19ms
+ ✓ test/integration/auth-takeover.test.ts > Invite path: admin-issued, single-use claim of a pre-created account > issuing an invite needs a session (401) and the ADMIN role (403) 184ms
+ ✓ test/integration/auth-takeover.test.ts > Invite path: admin-issued, single-use claim of a pre-created account > an admin provisions a case manager; the invitee claims it once with a passkey; a second claim is refused 392ms
+ ✓ test/integration/auth-takeover.test.ts > Invite path: admin-issued, single-use claim of a pre-created account > a placeholder respondent is claimed through an invite, never through plain registration 64ms
+ ✓ test/integration/auth-takeover.test.ts > Invite path: admin-issued, single-use claim of a pre-created account > no invite for an account that already has a passkey (409), and a tampered token is rejected (400) 25ms
+ ✓ test/integration/auth-takeover.test.ts > Invite path: admin-issued, single-use claim of a pre-created account > ADMIN cannot be provisioned through an invite 12ms
+stdout | test/integration/security-http.test.ts
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+ ✓ test/integration/security-http.test.ts > Token purpose and sign-in privacy > returns identical option shapes for known and unknown email addresses without a user id 359ms
+ ✓ test/integration/security-http.test.ts > Token purpose and sign-in privacy > rejects a public sign-in challenge and invite token when copied into the session cookie 13654ms
+ ✓ test/integration/security-http.test.ts > Token purpose and sign-in privacy > still registers and authenticates with a real signed WebAuthn assertion 1814ms
+ ✓ test/integration/security-http.test.ts > Revocation, access checks and page hardening > revokes a link even after its claim ceremony has started 516ms
+ ✓ test/integration/security-http.test.ts > Revocation, access checks and page hardening > hides inaccessible case existence before checking workflow state 96ms
+ ✓ test/integration/security-http.test.ts > Revocation, access checks and page hardening > records authorized administrator reads in the case's hash chain 102ms
+ ✓ test/integration/security-http.test.ts > Revocation, access checks and page hardening > serves localized titles, script nonces, security headers and graceful malformed URLs 1993ms
+ ✓ test/integration/security-http.test.ts > Revocation, access checks and page hardening > clears sign-in cookies and preserves locale when signing out 148ms
+stdout | test/integration/chronology.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+ ✓ test/integration/chronology.test.ts > chronology on isolated PostgreSQL > persists both parties' reports, calendar ordering and complete audit provenance 91ms
+ ✓ test/integration/chronology.test.ts > chronology on isolated PostgreSQL > rejects managers and outsiders without writing an entry or event 28ms
+ ✓ test/integration/chronology.test.ts > chronology on isolated PostgreSQL > rejects invalid calendar dates and every non-intake stage 59ms
+ ✓ test/integration/chronology.test.ts > chronology on isolated PostgreSQL > serializes concurrent entries and refuses new ones once intake closes 54ms
+ ✓ test/integration/chronology.test.ts > chronology on isolated PostgreSQL > retains original reports at database level and includes them in JSON and PDF exports 347ms
+stdout | test/unit/guards.test.ts
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+
+ ✓ test/unit/guards.test.ts > guards > authenticated 2ms
+ ✓ test/unit/guards.test.ts > guards > statementVersionsCurrent 0ms
+ ✓ test/unit/guards.test.ts > guards > isCaseOwner 0ms
+ ✓ test/unit/guards.test.ts > guards > requiredIntakeFieldsComplete 0ms
+ ✓ test/unit/guards.test.ts > guards > caseAssignedToManager 0ms
+ ✓ test/unit/guards.test.ts > guards > caseAssignedToManagerOrUnclaimed 0ms
+ ✓ test/unit/guards.test.ts > guards > coiDeclarationOnFile 0ms
+ ✓ test/unit/guards.test.ts > guards > isCaseParty 0ms
+ ✓ test/unit/guards.test.ts > guards > supersedesOwnItem 1ms
+ ✓ test/unit/guards.test.ts > guards > atLeastOneEvidenceItemPerPartyOrOverride 0ms
+ ✓ test/unit/guards.test.ts > guards > bothPartiesHaveCurrentPositions 0ms
+ ✓ test/unit/guards.test.ts > guards > explanationRecordValidatesAgainstSchema / explanationRecordValid 0ms
+ ✓ test/unit/guards.test.ts > guards > citationsResolveToCaseEvidence 0ms
+ ✓ test/unit/guards.test.ts > guards > reviewerIsIssuingManager delegates to caseAssignedToManager 0ms
+ ✓ test/unit/guards.test.ts > guards > consentBindsToCurrentRecommendationVersion 0ms
+ ✓ test/unit/guards.test.ts > guards > isConsentingParty 0ms
+ ✓ test/unit/guards.test.ts > guards > caseNotClosed 0ms
+ ✓ test/unit/guards.test.ts > guards > newVersionNumber 0ms
+ ✓ test/unit/guards.test.ts > guards > priorRecommendationSuperseded 0ms
+ ✓ test/unit/guards.test.ts > guards > exportBundleGeneratedAndHashed 0ms
+ ✓ test/unit/guards.test.ts > guards > descriptive no-op guards always pass 0ms
+ ✓ test/unit/guards.test.ts > guards > every guard returns a reason string on failure 0ms
+stdout | test/unit/conflictKnowledgePipeline.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > persists a validated map with server-owned source versions and draft audit event 15ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > rejects fabricated map quotations before a transaction or drafted event 3ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > does not silently accept a legacy-shaped AI response 2ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > preserves the original on correction and attributes the new version to its human reviewer 3ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > rejects another manager and stale base versions 1ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > returns a conflict if another operation replaces the draft before correction 1ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > cannot issue an obsolete version after concurrent correction 2ms
+ ✓ test/unit/conflictKnowledgePipeline.test.ts > conflict map persistence and review > checks map integrity again before issuing 4ms
+stdout | test/unit/conflictKnowledge.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > accepts uncertainty and preserves original bilingual quotations 8ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > maps legal-research results into cite-able, non-fabricated sources 0ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects invented source 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects invented excerpt 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects translated quotation 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects wrong source field 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects duplicate node 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects dangling edge 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects self edge 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects unsupported documented context 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects invented claim reference 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects experience collapsed into fact 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects unresolved claim declared supported 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects double-counted evidence 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects missing independence assessment 0ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects unknown repair target 0ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > rejects malformed provenance rather than trusting a persisted snapshot 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > counts identical file hashes as one evidentiary pathway 1ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > requires a map for new generation and converts the schema for the SDK 2ms
+ ✓ test/unit/conflictKnowledge.test.ts > Aequitas Core knowledge integrity > applies the method to category-aware drafting and labels source limitations 1ms
+stdout | test/integration/case-read-access.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+
+ ✓ test/integration/case-read-access.test.ts > filterEventsForRole takes assignment into account > the assigned case manager sees private notes and drafts 2ms
+ ✓ test/integration/case-read-access.test.ts > filterEventsForRole takes assignment into account > an unassigned case manager does not 1ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > a different case manager gets 404 on the events of a claimed case 1088ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > a different case manager gets 404 on the projection of a claimed case 911ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > a different case manager gets 404 on the workspace page of a claimed case 4545ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > the assigned case manager still gets 200 on the events 98ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > the assigned case manager still gets 200 on the projection 60ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > the assigned case manager still gets 200 on the workspace page 319ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > a party still reads their own claimed case 33ms
+ ✓ test/integration/case-read-access.test.ts > H2 over HTTP: a claimed case is readable only by its parties and its assigned manager > any case manager can still open an OPEN, unclaimed case (the claim screen) 248ms
+stdout | test/integration/mutate.test.ts
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/integration/mutate.test.ts > mutation pipeline: createCase > writes the Case row and its CASE_CREATED event atomically 38ms
+ ✓ test/integration/mutate.test.ts > mutation pipeline: createCase > rejects an unauthenticated actor before touching the transaction 0ms
+ ✓ test/integration/mutate.test.ts > mutation pipeline: createCase > rejects a role other than COMPLAINANT (authorize-role step, before any guard runs) 0ms
+ ✓ test/integration/mutate.test.ts > mutation pipeline: createCase > rolls back the domain write when the transaction throws after it 9ms
+stdout | test/unit/explanationRecord.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > accepts a well-formed record 5ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > aiGeneratedFieldsSchema accepts the AI-only subset (no model/reviewer) 1ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects empty limits — 'a recommendation that claims no limits is definitionally overclaiming' 1ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects empty not_considered 1ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects a non-UUID evidence_item_id 0ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects a summary over 120 words 0ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects a percentage anywhere in reasoning ('no numeric scores, percentages of fault... anywhere') 0ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects a star-rating pattern in proposed_outcome 0ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects the forbidden term 'decision' (Section 12 glossary, extended to AI output) 1ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > allows a plain dollar amount traced to evidence (quantified amounts are explicitly permitted) 0ms
+ ✓ test/unit/explanationRecord.test.ts > explanationRecordSchema — Section 9 hard constraints > rejects a missing model or reviewer block on the full record 1ms
+ ✓ test/unit/explanationRecord.test.ts > validateExplanationRecord — human-readable message for the guard > returns null for a valid record 0ms
+ ✓ test/unit/explanationRecord.test.ts > validateExplanationRecord — human-readable message for the guard > returns a non-null, informative message for an invalid record 0ms
+stdout | test/unit/stateMachine.test.ts
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > covers every trigger defined in Section 6 3ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=NONE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > create_case > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=DRAFT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_case > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=OPEN -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > open_intake > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=EVIDENCE_INTAKE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_evidence > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=EVIDENCE_INTAKE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_chronology > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=EVIDENCE_INTAKE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > supersede_evidence > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=EVIDENCE_INTAKE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_intake > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=POSITIONS -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > submit_position > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=POSITIONS -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=DRAFTING -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_draft > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=DRAFTING -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=RESOLVED_DECLINED -> rejected 2ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > draft_completed > role=SYSTEM -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=DRAFTING -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > review_draft > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=DRAFTING -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > issue_recommendation > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=ISSUED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > give_consent > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=ISSUED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > decline_consent > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=ISSUED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=RESOLVED_CONSENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=RESOLVED_DECLINED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > role=RESPONDENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > revoke_consent > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=ISSUED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=RESOLVED_CONSENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=RESOLVED_DECLINED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=WITHDRAWN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > request_new_version > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=DRAFT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=OPEN -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=EVIDENCE_INTAKE -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=POSITIONS -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=DRAFTING -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=ISSUED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=RESOLVED_CONSENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=RESOLVED_DECLINED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=WITHDRAWN -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > role=COMPLAINANT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > role=CASE_MANAGER -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > withdraw > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=NONE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=DRAFT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=OPEN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=EVIDENCE_INTAKE -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=POSITIONS -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=DRAFTING -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=ISSUED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=RESOLVED_CONSENT -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=RESOLVED_DECLINED -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=WITHDRAWN -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > from=CLOSED -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > role=COMPLAINANT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > role=RESPONDENT -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > role=CASE_MANAGER -> allowed 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > role=ADMIN -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > close_case > role=SYSTEM -> rejected 0ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > asserts the full state x trigger x role cross product (880 combinations) 14ms
+ ✓ test/unit/stateMachine.test.ts > state machine: exhaustive (state, trigger, role) coverage > ADMIN is never a valid actor for any state-machine trigger (guardrail 10) 0ms
+stdout | test/integration/verify-events-tamper.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/integration/verify-events-tamper.test.ts > verify:events — tamper detection (Section 18 Integrity) > passes on an untampered case 39ms
+ ✓ test/integration/verify-events-tamper.test.ts > verify:events — tamper detection (Section 18 Integrity) > fails after an event row is tampered with — the append-only trigger must be bypassed to even attempt it 31ms
+stdout | test/unit/chronologyRoute.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > preserves authentication failure without querying case data 41ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > hides chronology from outsider 1ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > hides chronology from otherManager 1ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > allows a case party to read with private, no-store 1ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > retains the existing administrator case-read policy 2ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > rejects invalid dates and forged client author fields 8ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > retains denied not-found status 1ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > retains denied authorize-role status 1ms
+ ✓ test/unit/chronologyRoute.test.ts > chronology HTTP contract > retains denied authorize-state status 1ms
+stdout | test/unit/chronology.test.ts
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date 2026-02-31 2ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date 2025-02-29 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date 0000-01-01 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date 2026-13-01 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date 2026-1-1 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > rejects invalid date not-a-date 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > accepts real calendar date 2024-02-29 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > accepts real calendar date 2026-01-01 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > accepts real calendar date 0099-01-01 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > validates required text, limits and locale 3ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > formats the reported date without converting to a local previous day 16ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > keeps audit-only chronology entries from advancing the case state 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > provides visible guidance at every stage without granting new permissions 0ms
+ ✓ test/unit/chronology.test.ts > party-reported chronology > preserves date, author, locale and original words in the drafting source registry 2ms
+stdout | test/unit/mail.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+
+stderr | test/unit/mail.test.ts > Resend delivery > keeps failed notifications pending and retries with the same idempotency key
+Case notification delivery failed; retained for retry.
+
+ ✓ test/unit/mail.test.ts > Resend delivery > honestly reports missing configuration and does not send 3ms
+ ✓ test/unit/mail.test.ts > Resend delivery > sets the authorized From and Reply-To, localizes the invitation and marks provider acceptance 41ms
+ ✓ test/unit/mail.test.ts > Resend delivery > keeps failed notifications pending and retries with the same idempotency key 2ms
+stdout | test/unit/events.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/events.test.ts > canonicalJson > sorts object keys recursively 2ms
+ ✓ test/unit/events.test.ts > canonicalJson > emits no whitespace 1ms
+ ✓ test/unit/events.test.ts > canonicalJson > preserves array order (arrays are ordered data, not sorted) 0ms
+ ✓ test/unit/events.test.ts > canonicalJson > handles primitives and null 0ms
+ ✓ test/unit/events.test.ts > canonicalJson > is order-independent: differently-ordered input objects produce identical output 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > matches an independently computed SHA-256 of the literal concatenation 1ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > is deterministic for identical input 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > changes if prevHash changes 1ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > changes if payload changes 1ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > changes if actorId changes 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > changes if seq changes 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > changes if createdAtIso changes 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > payload key order never affects the hash (canonical JSON) 0ms
+ ✓ test/unit/events.test.ts > computeEventHash (Section 8) > produces a 64-character lowercase hex digest 0ms
+stdout | test/unit/knowledgeMapRoute.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > returns a draft only to its assigned manager, with no-store 55ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > hides draft from party1 1ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > hides draft from other 0ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > hides draft from admin 1ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > returns issued maps to parties 1ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > does not expose cross-case or legacy records as a map 1ms
+ ✓ test/unit/knowledgeMapRoute.test.ts > knowledge map confidentiality > preserves authentication failure 1ms
+stdout | test/unit/eventTimeline.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > the assigned CASE_MANAGER sees every event type, unfiltered 3ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > COMPLAINANT never sees RECOMMENDATION_DRAFTED or NOTE_ADDED 1ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > COMPLAINANT sees every other event type unfiltered 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > RESPONDENT never sees RECOMMENDATION_DRAFTED or NOTE_ADDED 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > RESPONDENT sees every other event type unfiltered 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > ADMIN never sees RECOMMENDATION_DRAFTED or NOTE_ADDED 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > ADMIN sees every other event type unfiltered 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > consumer and retailer handler see identical filtering (Section 10: both listed as 'filtered', not differentiated) 0ms
+ ✓ test/unit/eventTimeline.test.ts > filterEventsForRole — Section 313 timeline visibility > is a pure function: does not mutate the input array 0ms
+stdout | test/integration/knowledge-export.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+ ✓ test/integration/knowledge-export.test.ts > knowledge map PDF export > preserves bilingual source text and all graph layers in the rendered PDF 311ms
+stdout | test/unit/evidenceText.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+
+ ✓ test/unit/evidenceText.test.ts > source text extraction > recognizes UTF-8 text without trusting a client MIME declaration 5ms
+ ✓ test/unit/evidenceText.test.ts > source text extraction > preserves exact bilingual text and records truncation 1ms
+ ✓ test/unit/evidenceText.test.ts > source text extraction > never fabricates extracted text for unsupported files 1ms
+ ✓ test/unit/evidenceText.test.ts > source text extraction > verifies byte size and intake hash before parsing 2ms
+ ✓ test/unit/evidenceText.test.ts > source text extraction > reports unavailable parsers without storing invented content 19ms
+stdout | test/integration/storage-rollback.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+
+stderr | test/integration/storage-rollback.test.ts > Evidence storage rollback against MinIO and ClamAV > does not upload anything when the virus scanner is unavailable
+Evidence scan failed: Error: connect ECONNREFUSED 127.0.0.1:9
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 9
+}
+
+ ✓ test/integration/storage-rollback.test.ts > Evidence storage rollback against MinIO and ClamAV > removes the new object when a domain write fails after a successful upload 126ms
+ ✓ test/integration/storage-rollback.test.ts > Evidence storage rollback against MinIO and ClamAV > does not upload anything when the virus scanner is unavailable 10ms
+stdout | test/unit/session.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"challenge":"challenge","userId":"victim"} 3ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"authenticate","challenge":"challenge","userId":"victim"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"invite","userId":"victim","nonce":"nonce"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"invite-claim","userId":"victim","challenge":"challenge"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"userId":"victim","globalRole":"ADMIN","authMethod":"passkey"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"session","userId":"victim"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"session","userId":"victim","globalRole":"SYSTEM","authMethod":"passkey"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"session","userId":"","globalRole":"ADMIN","authMethod":"passkey"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: {"purpose":"session","userId":"victim","globalRole":"ADMIN","authMethod":"unknown"} 0ms
+ ✓ test/unit/session.test.ts > session token boundary > rejects a signed non-session or malformed claim: null 0ms
+ ✓ test/unit/session.test.ts > session token boundary > accepts a complete purpose-bound authenticated session 1ms
+ ✓ test/unit/session.test.ts > session token boundary > session creation adds its required purpose 1ms
+stdout | test/unit/legipro.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+ ✓ test/unit/legipro.test.ts > LegiPro legal-research lookup > returns no results without throwing when unconfigured, and makes no network call 4ms
+ ✓ test/unit/legipro.test.ts > LegiPro legal-research lookup > maps a successful response into cite-able sources 1ms
+ ✓ test/unit/legipro.test.ts > LegiPro legal-research lookup > returns no results on a non-2xx response, never throwing 1ms
+ ✓ test/unit/legipro.test.ts > LegiPro legal-research lookup > returns no results when the request throws (timeout, network failure) 1ms
+stdout | test/integration/conflict-knowledge-review.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ test/integration/conflict-knowledge-review.test.ts > core review on PostgreSQL > preserves prior content and serializes concurrent corrections before human issuance 257ms
+stdout | test/unit/consent.test.ts
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > NOT_GIVEN --give--> GIVEN 2ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > NOT_GIVEN --decline--> DECLINED 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > GIVEN --revoke--> REVOKED 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > REVOKED --give--> GIVEN (a new explicit action) 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > DECLINED is terminal for that version: no action succeeds 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > rejects actions with no defined transition 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > give_consent stays ISSUED until both parties have given consent 0ms
+ ✓ test/unit/consent.test.ts > consent lifecycle (Section 7) > give_consent resolves to RESOLVED_CONSENT once both parties are GIVEN 0ms
+stdout | test/unit/signedCookie.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+
+ ✓ test/unit/signedCookie.test.ts > signedCookie > round-trips a payload 3ms
+ ✓ test/unit/signedCookie.test.ts > signedCookie > rejects a token with a tampered payload 1ms
+ ✓ test/unit/signedCookie.test.ts > signedCookie > rejects a token with a wrong signature 0ms
+ ✓ test/unit/signedCookie.test.ts > signedCookie > rejects an expired token 0ms
+ ✓ test/unit/signedCookie.test.ts > signedCookie > rejects a malformed token 0ms
+ ✓ test/unit/signedCookie.test.ts > signedCookie > rejects a token signed with a different secret 0ms
+stdout | test/integration/evidence-extraction.test.ts
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ✓ test/integration/evidence-extraction.test.ts > native PDF and image extraction > reads real PDF text and OCR text from a rendered page 280ms
+stdout | test/unit/replay.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ✓ test/unit/replay.test.ts > post-issuance event replay > requires the resolution event rather than treating one party's consent as agreement 2ms
+ ✓ test/unit/replay.test.ts > post-issuance event replay > replays a decline and subsequent redraft 0ms
+ ✓ test/unit/replay.test.ts > post-issuance event replay > reopens a resolved case following revocation 0ms
+ ✓ test/unit/replay.test.ts > post-issuance event replay > preserves withdrawal and closure through audit-only events 0ms
+
+ Test Files  32 passed (32)
+      Tests  629 passed (629)
+   Start at  11:01:45
+   Duration  71.38s (transform 1.03s, setup 717ms, import 6.84s, tests 59.01s, environment 3ms)
+
+JSON report written to /home/user/aequitas/audit/backend-e2e-20261003/evidence/existing-suite/vitest-existing-suite.json

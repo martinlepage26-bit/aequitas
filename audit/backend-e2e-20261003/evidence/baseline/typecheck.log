@@ -1,0 +1,9 @@
+
+> aequitas@0.1.0 typecheck
+> tsc --noEmit
+
+
+real	0m7.629s
+user	0m14.893s
+sys	0m0.575s
+exit=0

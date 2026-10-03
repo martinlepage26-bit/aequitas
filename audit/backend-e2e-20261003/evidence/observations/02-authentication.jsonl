@@ -1,0 +1,11 @@
+{"t":"2026-10-03T11:52:14.722Z","id":"session-cookie-attributes","attributes":{"path":"/","expires":"Sat, 10 Oct 2026 11:52:14 GMT","max-age":"604800","secure":true,"httponly":true,"samesite":"strict"},"role":"COMPLAINANT"}
+{"t":"2026-10-03T11:52:14.740Z","id":"session-cookie-attributes","attributes":{"path":"/","expires":"Sat, 10 Oct 2026 11:52:14 GMT","max-age":"604800","secure":true,"httponly":true,"samesite":"strict"},"role":"RESPONDENT"}
+{"t":"2026-10-03T11:52:15.004Z","id":"registration-enumeration","existing":403,"unknown":200}
+{"t":"2026-10-03T11:52:15.037Z","id":"signin-options-shape","keys":["challenge","rpId","timeout","userVerification"]}
+{"t":"2026-10-03T11:52:15.710Z","id":"no-rate-limit-signin","attempts":30,"distinct":[400]}
+{"t":"2026-10-03T11:52:15.784Z","id":"replay-counterless-signin","replayStatus":200,"sessionIssued":true}
+{"t":"2026-10-03T11:52:15.832Z","id":"challenge-survives-failed-attempt","goodAfterBad":200}
+{"t":"2026-10-03T11:52:16.239Z","id":"orphan-session","readStatus":404,"createStatus":500}
+{"t":"2026-10-03T11:52:16.311Z","id":"signout-behind-proxy","status":403,"body":"{\"message\":\"Request not permitted.\"}"}
+{"t":"2026-10-03T11:52:16.340Z","id":"session-after-signout","status":404}
+{"t":"2026-10-03T11:52:16.383Z","id":"role-change-takes-effect","statusAfterDemotion":200}

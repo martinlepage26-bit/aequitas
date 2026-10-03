@@ -1,0 +1,12 @@
+# Production reachability check — 2026-10-03T11:53:10Z
+# One unauthenticated GET of the public health URL, as authorized. Sandbox egress policy decides whether it can leave the container.
+HTTP/1.1 403 Forbidden
+Content-Type: text/plain; charset=utf-8
+X-Content-Type-Options: nosniff
+Content-Length: 97
+Connection: close
+
+curl: (56) CONNECT tunnel failed, response 403
+
+# proxy-side record:
+{"ts":"2026-10-03T11:53:10.791Z","kind":"connect_rejected","detail":"gateway answered 403 to CONNECT (policy denial or upstream failure)","host":"aequitas-production-5a0c.up.railway.app:443"}

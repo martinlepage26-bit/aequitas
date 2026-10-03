@@ -1,0 +1,15 @@
+{"t":"2026-10-03T11:54:59.095Z","id":"nul-register-displayName","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.103Z","id":"nul-register-email","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.114Z","id":"nul-invite-displayName","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.121Z","id":"nul-invite-email","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.139Z","id":"nul-case-respondentDisplayName","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.147Z","id":"nul-case-respondentEmail","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.205Z","id":"nul-chronology-title","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.264Z","id":"nul-chronology-description","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.427Z","id":"nul-position-body","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.503Z","id":"nul-evidence-title","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.566Z","id":"nul-evidence-description","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.627Z","id":"nul-close-intake-overrideReason","status":500,"body":""}
+{"t":"2026-10-03T11:54:59.673Z","id":"nul-open-intake-coiDetails","status":500,"body":""}
+{"100":{"status":200,"setCookieBytes":598},"1000":{"status":200,"setCookieBytes":1798},"2500":{"status":200,"setCookieBytes":3798},"3200":{"status":200,"setCookieBytes":4731},"6000":{"status":200,"setCookieBytes":8465},"t":"2026-10-03T11:55:00.061Z","id":"challenge-cookie-size"}
+{"t":"2026-10-03T11:55:00.775Z","id":"length-limits","caseRespondentDisplayName1MB":200,"position1MB":200,"position9MB":200,"position12MB":400,"longestStoredPositionChars":9000000}

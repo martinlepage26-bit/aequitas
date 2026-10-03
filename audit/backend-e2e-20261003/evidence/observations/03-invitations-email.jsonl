@@ -1,0 +1,7 @@
+{"t":"2026-10-03T11:52:18.667Z","id":"concurrent-invite-same-email","statuses":[200,500],"bodies":["{\"invitationId\":\"60e1501e-9fb3-4325-9206-4fdb1a5ce8e6\",\"userId\":\"da7e99c8-3ba2-4",""]}
+{"t":"2026-10-03T11:52:18.780Z","id":"existing-respondent-different-case","namedAccountIsTheRealOne":false,"accountsForOneMailbox":2,"caseVisibleToRealRespondent":404}
+{"t":"2026-10-03T11:52:18.862Z","id":"mixed-case-placeholder","inviteWithoutNameStatus":400,"userRowsForOneMailbox":2,"emails":["Mixedcase.0041c7.18@Audit.example.test","mixedcase.0041c7.18@audit.example.test"],"caseReadStatus":404}
+{"t":"2026-10-03T11:52:29.182Z","id":"provider-timeout","elapsedMs":10017,"delivery":"failed"}
+{"t":"2026-10-03T11:52:29.731Z","id":"outbox-starvation","attemptsToBad":60,"attemptsToHealthy":0,"healthyDelivered":0}
+{"t":"2026-10-03T11:52:32.789Z","id":"notification-latency-coupling","providerDelayMs":3000,"submitElapsedMs":3025,"status":200}
+{"t":"2026-10-03T11:52:32.797Z","id":"outbound-denied-log","lines":0,"sample":""}

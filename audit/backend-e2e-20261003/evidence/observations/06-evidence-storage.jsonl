@@ -1,0 +1,48 @@
+{"t":"2026-10-03T11:53:02.032Z","id":"no-content-type-allowlist","outcomes":{"exe":{"status":200},"html":{"status":200},"svg":{"status":200}},"storedMimeTypes":["application/x-msdownload","text/plain","text/plain"],"scanStatuses":["CLEAN","CLEAN","CLEAN"]}
+{"t":"2026-10-03T11:53:02.320Z","id":"size-1","label":"1 byte","status":200,"message":"{\"caseId\":\"027f0203-16b8-4465-bfe9-877f4fbcdcea\",\"state\":\"EVIDENCE_INTAKE\"}","storedBytes":1,"recordedBytes":1,"hashMatches":true}
+{"t":"2026-10-03T11:53:03.179Z","id":"size-9437184","label":"9 MiB","status":200,"message":"{\"caseId\":\"05e0a72e-c5f4-4f45-8c5f-ebf1cb80036c\",\"state\":\"EVIDENCE_INTAKE\"}","storedBytes":9437184,"recordedBytes":9437184,"hashMatches":true}
+{"t":"2026-10-03T11:53:03.292Z","id":"size-11534336","label":"11 MiB (above Next.js's default 10 MB proxy buffer)","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:53:03.488Z","id":"size-25165824","label":"24 MiB","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:53:03.674Z","id":"size-26214400","label":"exactly 25 MiB","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:53:03.855Z","id":"size-26214401","label":"25 MiB + 1 byte","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:53:03.973Z","id":"eicar-upload","httpStatus":200,"responseBody":"{\"caseId\":\"23b374dc-9301-439c-a0eb-2ee0ad59c4a7\",\"state\":\"EVIDENCE_INTAKE\"}","rows":[{"scanStatus":"REJECTED","mimeType":"text/plain"}],"objectsStored":1,"eventPayload":{"kind":"OTHER","signature":"<redacted>","scanStatus":"REJECTED","evidenceItemId":"adef5960-d9e3-43c3-a87f-aa3323cb448c"},"rejectedNotifications":1}
+{"t":"2026-10-03T11:53:04.096Z","id":"rejected-item-visibility","otherPartyPageShowsIt":false,"submitterPageShowsIt":true}
+{"t":"2026-10-03T11:53:04.233Z","id":"eicar-archive-vs-padded","zip with eicar":"REJECTED","padded png with eicar":"CLEAN"}
+{"t":"2026-10-03T11:53:04.544Z","id":"db-failure-after-upload","status":500,"body":""}
+{"t":"2026-10-03T11:53:05.532Z","id":"intake-closes-mid-upload","closeStatus":200,"uploadStatus":409,"body":"{\"message\":\"Evidence intake has closed. Reload the case before submitting.\"}"}
+{"t":"2026-10-03T11:53:06.249Z","id":"export-record-failure","status":502,"body":"{\"message\":\"Export bundle generation failed: \\nInvalid `prisma.exportBundle.create()` invocation:\\n\\n\\nDatabase error. Code: `P0001`. Message: `audit injected failure`\"}"}
+{"t":"2026-10-03T11:53:06.462Z","id":"clamd-down","status":409,"body":"{\"message\":\"Evidence scanning is unavailable.\"}"}
+{"t":"2026-10-03T11:53:24.566Z","id":"minio-down","uploadStatus":500,"uploadBody":"","closeStatus":502,"closeBody":"{\"message\":\"Export bundle generation failed: connect ECONNREFUSED 127.0.0.1:9010\"}"}
+{"t":"2026-10-03T11:53:27.711Z","id":"pdf-unicode","containsEmoji":true,"containsCjk":false,"containsArabic":false,"length":19249}
+{"t":"2026-10-03T11:53:27.714Z","id":"export-snapshot-state","exportedCaseState":"RESOLVED_CONSENT","closedAt":null,"timelineEvents":20,"liveEvents":22}
+{"t":"2026-10-03T11:53:27.715Z","id":"export-emails","partyExportContainsOthersEmail":true}
+{"t":"2026-10-03T11:53:27.720Z","id":"export-recommendations","statuses":["SUPERSEDED","ISSUED"]}
+{"t":"2026-10-03T11:53:27.723Z","id":"export-staff-events","includesAccessStaffGranted":true,"includesNoteAdded":true,"includesDrafted":true}
+{"t":"2026-10-03T11:53:51.844Z","id":"large-prose-export","status":200,"ms":23597}
+{"t":"2026-10-03T11:54:07.835Z","id":"export-event-loop-blocking","inputChars":100000,"exportMs":15604,"status":200,"healthProbes":2,"worstHealthLatencyMs":15329}
+{"t":"2026-10-03T11:55:23.216Z","id":"no-content-type-allowlist","outcomes":{"exe":{"status":200},"html":{"status":200},"svg":{"status":200}},"storedMimeTypes":["application/x-msdownload","text/plain","text/plain"],"scanStatuses":["CLEAN","CLEAN","CLEAN"]}
+{"t":"2026-10-03T11:55:23.768Z","id":"size-1","label":"1 byte","status":200,"message":"{\"caseId\":\"455fa82c-05c2-426e-8bf3-1f6b0e3e0c84\",\"state\":\"EVIDENCE_INTAKE\"}","storedBytes":1,"recordedBytes":1,"hashMatches":true}
+{"t":"2026-10-03T11:55:24.611Z","id":"size-9437184","label":"9 MiB","status":200,"message":"{\"caseId\":\"fbd81efb-1b44-45ca-b4ff-048339de993b\",\"state\":\"EVIDENCE_INTAKE\"}","storedBytes":9437184,"recordedBytes":9437184,"hashMatches":true}
+{"t":"2026-10-03T11:55:24.765Z","id":"size-11534336","label":"11 MiB (above Next.js's default 10 MB proxy buffer)","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:55:24.975Z","id":"size-25165824","label":"24 MiB","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:55:25.198Z","id":"size-26214400","label":"exactly 25 MiB","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:55:25.421Z","id":"size-26214401","label":"25 MiB + 1 byte","status":400,"message":"{\"message\":\"Expected multipart/form-data.\"}","storedBytes":null,"recordedBytes":null,"hashMatches":null}
+{"t":"2026-10-03T11:55:25.507Z","id":"eicar-upload","httpStatus":200,"responseBody":"{\"caseId\":\"c8db7611-9556-40b4-b936-35f7a6187fa0\",\"state\":\"EVIDENCE_INTAKE\"}","rows":[{"scanStatus":"REJECTED","mimeType":"text/plain"}],"objectsStored":1,"eventPayload":{"kind":"OTHER","signature":"<redacted>","scanStatus":"REJECTED","evidenceItemId":"86421427-1800-4b3e-80f9-51cf221d9be9"},"rejectedNotifications":1}
+{"t":"2026-10-03T11:55:25.911Z","id":"rejected-item-visibility","otherPartyPageShowsIt":false,"submitterPageShowsIt":true}
+{"t":"2026-10-03T11:55:26.062Z","id":"eicar-archive-vs-padded","zip with eicar":"REJECTED","padded png with eicar":"CLEAN"}
+{"t":"2026-10-03T11:55:26.373Z","id":"db-failure-after-upload","status":500,"body":""}
+{"t":"2026-10-03T11:55:27.246Z","id":"intake-closes-mid-upload","closeStatus":200,"uploadStatus":409,"body":"{\"message\":\"Evidence intake has closed. Reload the case before submitting.\"}"}
+{"t":"2026-10-03T11:55:28.342Z","id":"export-record-failure","status":502,"body":"{\"message\":\"Export bundle generation failed: \\nInvalid `prisma.exportBundle.create()` invocation:\\n\\n\\nDatabase error. Code: `P0001`. Message: `audit injected failure`\"}"}
+{"t":"2026-10-03T11:55:28.601Z","id":"clamd-down","status":409,"body":"{\"message\":\"Evidence scanning is unavailable.\"}"}
+{"t":"2026-10-03T11:55:44.959Z","id":"local-disk-fault","status":500,"body":""}
+{"t":"2026-10-03T11:55:46.425Z","id":"pdf-unicode","containsEmoji":true,"containsCjk":false,"containsArabic":false,"length":19351}
+{"t":"2026-10-03T11:55:46.430Z","id":"export-snapshot-state","exportedCaseState":"RESOLVED_CONSENT","closedAt":null,"timelineEvents":20,"liveEvents":22}
+{"t":"2026-10-03T11:55:46.432Z","id":"export-emails","partyExportContainsOthersEmail":true}
+{"t":"2026-10-03T11:55:46.441Z","id":"export-recommendations","statuses":["SUPERSEDED","ISSUED"]}
+{"t":"2026-10-03T11:55:46.448Z","id":"export-staff-events","includesAccessStaffGranted":true,"includesNoteAdded":true,"includesDrafted":true}
+{"t":"2026-10-03T11:56:12.560Z","id":"large-prose-export","status":200,"ms":25639}
+{"t":"2026-10-03T11:56:30.799Z","id":"export-event-loop-blocking","inputChars":100000,"exportMs":17839,"status":200,"healthProbes":2,"worstHealthLatencyMs":17557}
+{"t":"2026-10-03T12:15:06.547Z","id":"export-record-failure","status":502,"body":"{\"message\":\"Export bundle generation failed: \\nInvalid `prisma.exportBundle.create()` invocation:\\n\\n\\nDatabase error. Code: `P0001`. Message: `audit injected failure`\"}"}
+{"t":"2026-10-03T12:15:12.094Z","id":"export-record-failure","status":502,"body":"{\"message\":\"Export bundle generation failed: \\nInvalid `prisma.exportBundle.create()` invocation:\\n\\n\\nDatabase error. Code: `P0001`. Message: `audit injected failure`\"}"}
+{"t":"2026-10-03T12:15:34.713Z","id":"eicar-upload","httpStatus":200,"responseBody":"{\"caseId\":\"68bbc528-13a0-4f16-addb-b684d98e50e3\",\"state\":\"EVIDENCE_INTAKE\"}","rows":[{"scanStatus":"REJECTED","mimeType":"text/plain"}],"objectsStored":1,"eventPayload":{"kind":"OTHER","signature":"<redacted>","scanStatus":"REJECTED","evidenceItemId":"e9973c6f-0616-44cc-8d0b-ee92b865f136"},"rejectedNotifications":1}
+{"t":"2026-10-03T12:15:38.327Z","id":"eicar-upload","httpStatus":200,"responseBody":"{\"caseId\":\"6ae12042-15b4-4bc2-abb3-d642d0eb65fe\",\"state\":\"EVIDENCE_INTAKE\"}","rows":[{"scanStatus":"REJECTED","mimeType":"text/plain"}],"objectsStored":1,"eventPayload":{"kind":"OTHER","signature":"<redacted>","scanStatus":"REJECTED","evidenceItemId":"4fa5bf55-9e74-423d-8dd7-190769357adb"},"rejectedNotifications":1}

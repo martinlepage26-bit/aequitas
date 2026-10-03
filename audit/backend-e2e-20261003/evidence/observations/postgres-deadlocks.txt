@@ -1,0 +1,13 @@
+# Postgres log excerpt from the audit cluster (sanitized: counts and lock-wait pairs only; no row data or parameters appear in these lines)
+# source: the audit cluster's server log, filtered with: grep 'deadlock detected'
+deadlock detected entries: 27
+first / last: 2026-10-03 11:44:18.459 UTC / 2026-10-03 11:54:53.240 UTC
+statements that were waiting in those deadlocks (count, first 100 chars):
+     30 SELECT id FROM "Case" WHERE id = $1 FOR UPDATE
+     24 UPDATE "public"."Case" SET "state" = CAST($1::text AS "public"."CaseState") WHERE ("public"."Case"."
+first entry (DETAIL lines, statements cut to 120 chars):
+2026-10-03 11:44:18.459 UTC [17341] ERROR:  deadlock detected
+2026-10-03 11:44:18.459 UTC [17341] DETAIL:  Process 17341 waits for ShareLock on transaction 4496; blocked by process 1
+	Process 17340 waits for ShareLock on transaction 4495; blocked by process 17341.
+	Process 17341: UPDATE "public"."Case" SET "state" = CAST($1::text AS "public"."CaseState") WHERE ("public"."Case"."id" 
+	Process 17340: SELECT id FROM "Case" WHERE id = $1 FOR UPDATE

@@ -1,0 +1,41 @@
+{"t":"2026-10-03T11:52:07.574Z","id":"signed-in-visits-signin","status":200,"location":null}
+{"t":"2026-10-03T11:52:07.579Z","id":"malformed-percent","path":"/%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.582Z","id":"malformed-percent","path":"/%zz","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.584Z","id":"malformed-percent","path":"/%E0%A4%A","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.587Z","id":"malformed-percent","path":"/%E0%A4","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.589Z","id":"malformed-percent","path":"/fr-CA/%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.591Z","id":"malformed-percent","path":"/fr-CA/cases/%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.594Z","id":"malformed-percent","path":"/fr-CA/cases/%zz","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.597Z","id":"malformed-percent","path":"/fr-CA/invite/%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.599Z","id":"malformed-percent","path":"/fr-CA/invite/%E0%A4%A","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.602Z","id":"malformed-percent","path":"/fr-CA/invite/abc%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.604Z","id":"malformed-percent","path":"/en-CA/invite/%ZZ","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.606Z","id":"malformed-percent","path":"/api/cases/%/events","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.609Z","id":"malformed-percent","path":"/api/cases/%zz","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.611Z","id":"malformed-percent","path":"/api/cases/%E0%A4%A/export","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.613Z","id":"malformed-percent","path":"/api/health%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.615Z","id":"malformed-percent","path":"/api/auth/webauthn/%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.617Z","id":"malformed-percent","path":"/%C0%AF","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.620Z","id":"malformed-percent","path":"/%ED%A0%80","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.623Z","id":"malformed-percent","path":"/fr-CA/invite/%25%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.625Z","id":"malformed-percent","path":"/fr-CA/invite/%2525%","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.627Z","id":"malformed-percent","path":"/fr-CA/invite/%252","status":400,"body":"{\"message\":\"Malformed URL.\"}"}
+{"t":"2026-10-03T11:52:07.630Z","id":"wellformed-percent","path":"/%25","status":400}
+{"t":"2026-10-03T11:52:07.641Z","id":"wellformed-percent","path":"/fr-CA/invite/%2525","status":400}
+{"t":"2026-10-03T11:52:07.657Z","id":"wellformed-percent","path":"/fr-CA/invite/a%2Fb","status":200}
+{"t":"2026-10-03T11:52:07.667Z","id":"wellformed-percent","path":"/fr-CA/invite/%E2%82%AC","status":200}
+{"t":"2026-10-03T11:52:07.669Z","id":"wellformed-percent","path":"/api/cases/%2e%2e","status":308}
+{"t":"2026-10-03T11:52:07.673Z","id":"wellformed-percent","path":"/fr-CA/cases/%252e%252e","status":308}
+{"t":"2026-10-03T11:52:07.678Z","id":"malformed-query","path":"/api/health?x=%","status":200}
+{"t":"2026-10-03T11:52:07.690Z","id":"malformed-query","path":"/fr-CA/auth/sign-in?next=%","status":200}
+{"t":"2026-10-03T11:52:07.700Z","id":"malformed-query","path":"/fr-CA/auth/sign-in?next=%E0%A4%A","status":200}
+{"t":"2026-10-03T11:52:07.711Z","id":"malformed-query","path":"/fr-CA?%zz=1","status":200}
+{"t":"2026-10-03T11:52:07.717Z","id":"malformed-query","path":"/api/cases/x/events?a=%&b=%E0","status":401}
+{"t":"2026-10-03T11:52:09.178Z","id":"405-allow-header","path":"/api/cases/x/submit","allow":null}
+{"t":"2026-10-03T11:52:09.182Z","id":"405-allow-header","path":"/api/cases/x/consent","allow":null}
+{"t":"2026-10-03T11:52:09.188Z","id":"405-allow-header","path":"/api/auth/sign-out","allow":null}
+{"t":"2026-10-03T11:52:09.192Z","id":"405-allow-header","path":"/api/auth/webauthn/register","allow":null}
+{"t":"2026-10-03T11:52:09.196Z","id":"405-allow-header","path":"/api/cases/x/withdraw","allow":null}
+{"t":"2026-10-03T11:52:13.113Z","id":"long-url","status":431}
+{"t":"2026-10-03T11:52:13.115Z","id":"huge-header","status":431}
+{"t":"2026-10-03T11:52:13.226Z","id":"documented-alias-recommendation","status":404}

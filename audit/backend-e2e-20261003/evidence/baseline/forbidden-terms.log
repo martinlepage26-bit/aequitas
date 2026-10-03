@@ -1,0 +1,14 @@
+
+> aequitas@0.1.0 check:forbidden-terms
+> node scripts/check-forbidden-terms.mjs
+
+Forbidden-terms check OK: no matches across fr-CA, en-CA.
+(node:10551) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///home/user/aequitas/src/i18n/glossary.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /home/user/aequitas/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+real	0m0.224s
+user	0m0.196s
+sys	0m0.051s
+exit=0
