@@ -26,6 +26,7 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   submit_case: { from: ["DRAFT"], roles: ["COMPLAINANT"] },
   open_intake: { from: ["OPEN"], roles: ["CASE_MANAGER"] },
   submit_evidence: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
+  submit_chronology: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
   supersede_evidence: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
   close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_MANAGER"] },
   submit_position: { from: ["POSITIONS"], roles: ["COMPLAINANT", "RESPONDENT"] },

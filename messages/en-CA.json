@@ -50,6 +50,7 @@
       "supersedeEvidence": "replace a submitted item",
       "closeIntake": "close evidence intake",
       "submitPosition": "submit your position",
+      "submitChronology": "add an event to the dispute chronology",
       "requestDraft": "request a draft recommendation",
       "issueRecommendation": "issue the recommendation",
       "giveConsent": "give consent",
@@ -101,6 +102,8 @@
         "titleLabel": "Title",
         "descriptionLabel": "Description (optional)",
         "fileLabel": "File",
+        "fileHint": "One file per submission, up to 25 MB. Files are scanned before they can be used.",
+        "success": "Submission recorded. Check the scan status in the evidence list.",
         "submit": "Submit evidence",
         "submitting": "Submitting…",
         "error": "The evidence could not be submitted."
@@ -113,9 +116,47 @@
       "version": "Version {version}",
       "form": {
         "bodyLabel": "Your position",
+        "success": "Your position has been recorded as a new version.",
         "submit": "Submit position",
         "submitting": "Submitting…",
         "error": "The position could not be submitted."
+      }
+    },
+    "submission": {
+      "backToCases": "Back to my cases",
+      "title": "Add to this case",
+      "description": "Choose what you want to submit. Each section explains when submissions are available to you.",
+      "actions": {
+        "evidence": "Add evidence",
+        "chronology": "Add a dated event",
+        "position": "Write your position"
+      },
+      "evidenceHelp": "Attach the documents, photos, messages or receipts supporting your account. Add a title and optional description for each file.",
+      "positionHelp": "Explain your account, refer to your evidence and dated events, and describe the outcome you are seeking. New submissions retain earlier versions.",
+      "availability": {
+        "available": "You can submit here now.",
+        "submitCaseFirst": "Submit this draft case first. A case manager then opens evidence intake.",
+        "waitingForManager": "Waiting for a case manager to open evidence intake.",
+        "afterEvidence": "Position submissions open after the case manager closes evidence intake.",
+        "intakeClosed": "Evidence intake is closed. You can read the record, but cannot add evidence or dated events at this stage.",
+        "readOnly": "Submissions are closed at this stage. Previously submitted material remains available to read.",
+        "partiesOnly": "Only the parties to this case can submit. Case managers review their submissions."
+      }
+    },
+    "chronology": {
+      "title": "Dispute chronology",
+      "description": "Add events from the dispute using the date they happened, not the date you submit them. Both parties can read these accounts; they are reported events, not verified findings.",
+      "empty": "No dispute events have been added yet.",
+      "reportedBy": "Reported by {name}",
+      "form": {
+        "dateLabel": "Date of the event",
+        "titleLabel": "Event title",
+        "descriptionLabel": "What happened, according to you?",
+        "hint": "Explain what you observed and identify supporting evidence. If a date or detail is uncertain, say so. Submitted entries are retained; add a clarification rather than overwriting an account.",
+        "submit": "Add event",
+        "submitting": "Adding event…",
+        "success": "Your event has been added to the dispute chronology.",
+        "error": "The event could not be added. Check the date and required fields, and whether evidence intake is still open. Your text has been kept."
       }
     },
     "intake": {
@@ -180,7 +221,8 @@
       "error": "The recommendation could not be issued."
     },
     "timeline": {
-      "title": "Timeline",
+      "title": "Case activity",
+      "description": "An automatic log of actions taken in Aequitas. These timestamps record submissions and case progress, not when events in the dispute happened.",
       "empty": "No events yet.",
       "by": "by {name}",
       "event": {
@@ -193,6 +235,7 @@
         "EVIDENCE_SUPERSEDED": "Evidence replaced",
         "EVIDENCE_INTAKE_CLOSED": "Evidence intake closed",
         "POSITION_SUBMITTED": "Position submitted",
+        "CHRONOLOGY_ENTRY_SUBMITTED": "Dispute chronology event submitted",
         "RECOMMENDATION_DRAFT_REQUESTED": "Draft recommendation requested",
         "RECOMMENDATION_DRAFTED": "Draft recommendation completed",
         "RECOMMENDATION_ISSUED": "Recommendation issued",
@@ -408,6 +451,44 @@
     "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
     "signIn": "Sign in with a passkey",
     "myCases": "My cases",
-    "otherLocale": "Français"
+    "otherLocale": "Français",
+    "skipToContent": "Skip to content",
+    "navigationLabel": "Main navigation",
+    "workspaceLabel": "A workspace for dispute resolution",
+    "intro": "Bring your evidence, share your perspective, and work toward a proposed outcome with a neutral case manager.",
+    "imageCaption": "Two perspectives. One shared record.",
+    "processTitle": "A clear process, together.",
+    "steps": {
+      "evidence": {
+        "title": "Share the facts",
+        "description": "Each party adds evidence and explains their point of view in the same case record."
+      },
+      "review": {
+        "title": "Review a proposal",
+        "description": "A neutral case manager reviews the proposed outcome before it is shared with the parties."
+      },
+      "consent": {
+        "title": "Choose whether to consent",
+        "description": "Each party decides explicitly. A proposed outcome becomes an agreement only with both parties' consent."
+      }
+    },
+    "submissions": {
+      "title": "Where to submit your material",
+      "path": "Sign in, open My cases, then select a case with View. To begin a case, choose Start a new case from that list.",
+      "evidence": {
+        "title": "Evidence",
+        "description": "In the case's Evidence section, attach a file with a title and optional description while evidence intake is open."
+      },
+      "chronology": {
+        "title": "Dispute chronology",
+        "description": "In Dispute chronology, add each event's date, title and your account of what happened during evidence intake."
+      },
+      "position": {
+        "title": "Your position",
+        "description": "In Positions, explain your account and the outcome you are seeking once the case manager closes evidence intake."
+      },
+      "note": "Submissions are made by the parties inside their case, not on this public page. The case workspace explains any unavailable action."
+    },
+    "footer": "Proposals are reviewed by a person. Consent belongs to each party."
   }
 }

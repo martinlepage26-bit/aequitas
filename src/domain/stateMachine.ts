@@ -12,6 +12,7 @@ export const TRIGGERS = [
   "submit_case",
   "open_intake",
   "submit_evidence",
+  "submit_chronology",
   "supersede_evidence",
   "close_intake",
   "submit_position",
@@ -122,6 +123,14 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: ["COMPLAINANT", "RESPONDENT"],
     guards: ["isCaseParty", "supersedesOwnItem"],
     events: ["EVIDENCE_SUPERSEDED"],
+  },
+  {
+    trigger: "submit_chronology",
+    from: ["EVIDENCE_INTAKE"],
+    to: "EVIDENCE_INTAKE",
+    actorRoles: ["COMPLAINANT", "RESPONDENT"],
+    guards: ["isCaseParty"],
+    events: ["CHRONOLOGY_ENTRY_SUBMITTED"],
   },
   {
     trigger: "close_intake",

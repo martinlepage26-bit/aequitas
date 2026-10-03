@@ -14,7 +14,7 @@ import { coreAiGeneratedFieldsSchema } from "../../domain/explanationRecord";
  * entry to CHANGELOG.md whenever buildDraftPrompt's output changes in any
  * way that could affect model behavior.
  */
-export const PROMPT_VERSION = "2026-09-22.2";
+export const PROMPT_VERSION = "2026-10-01.1";
 
 /**
  * coreAiGeneratedFieldsSchema's full JSON Schema, spelled out in the prompt
@@ -57,6 +57,10 @@ export interface DraftPromptInput {
   respondentEvidence: EvidenceSummary[];
   complainantPosition: PositionSummary;
   respondentPosition: PositionSummary;
+  chronology?: Array<{
+    id: string; occurredOn: string; title: string; description: string; locale: string;
+    createdAt: string; submittedByRole: "complainant" | "respondent";
+  }>;
   // Fetched once, before this input is built (see mutate.ts's completeDraft)
   // — never re-fetched live inside buildKnowledgeSources, which must stay a
   // pure function of its input: it runs twice per draft (once to build this
@@ -91,6 +95,7 @@ ${glossaryLines}
 ${CONFLICT_KNOWLEDGE_INSTRUCTIONS}
 
 Ground every claim in the evidence and positions provided. Do not speculate about facts not present in the case file.
+Chronology sources are dated events REPORTED by a party, not independently verified facts. Their reported dates differ from their submission timestamps. Preserve conflicting accounts and dates; a chronology entry repeating a position is not independent corroboration.
 
 ## Output format
 Respond with exactly one JSON object and nothing else: no markdown code fences, no prose before or after it. The object must conform exactly to this JSON Schema (field names, required fields, enum values, and nesting are all exact — do not add, omit, or rename fields):

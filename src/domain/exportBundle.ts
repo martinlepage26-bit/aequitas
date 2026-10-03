@@ -70,7 +70,7 @@ export async function generateExportBundle(input: GenerateExportBundleInput): Pr
   return { exportId, storageKey, sha256 };
 }
 
-async function buildExportRecord(caseId: string) {
+export async function buildExportRecord(caseId: string) {
   const caseRow = await prisma.case.findUniqueOrThrow({
     where: { id: caseId },
     include: {
@@ -80,12 +80,13 @@ async function buildExportRecord(caseId: string) {
     },
   });
 
-  const [events, evidenceItems, positionStatements, recommendations, consentRecords] = await Promise.all([
+  const [events, evidenceItems, positionStatements, recommendations, consentRecords, chronologyEntries] = await Promise.all([
     prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } }),
     prisma.evidenceItem.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } }),
     prisma.positionStatement.findMany({ where: { caseId }, include: { party: { select: { displayName: true } } }, orderBy: [{ partyId: "asc" }, { version: "asc" }] }),
     prisma.recommendation.findMany({ where: { caseId }, include: { issuedBy: { select: { displayName: true } } }, orderBy: { version: "asc" } }),
     prisma.consentRecord.findMany({ where: { caseId }, include: { party: { select: { displayName: true } }, statementVersion: true }, orderBy: { createdAt: "asc" } }),
+    prisma.chronologyEntry.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }] }),
   ]);
 
   const actorIds = [...new Set(events.map((e) => e.actorId))];
@@ -136,6 +137,11 @@ async function buildExportRecord(caseId: string) {
       version: e.version,
       supersedesId: e.supersedesId,
       createdAt: e.createdAt.toISOString(),
+    })),
+    chronology: chronologyEntries.map(entry => ({
+      id: entry.id, occurredOn: entry.occurredOn.toISOString().slice(0, 10), title: entry.title,
+      description: entry.description, locale: entry.locale, submittedById: entry.submittedById,
+      submittedByName: entry.submittedBy.displayName, createdAt: entry.createdAt.toISOString(),
     })),
     positions: positionStatements.map((p) => ({
       id: p.id,
@@ -335,7 +341,8 @@ function paragraph(cursor: PdfCursor, text: string): PdfCursor {
   return c;
 }
 
-type ExportRecord = Awaited<ReturnType<typeof buildExportRecord>>["record"];
+type FullExportRecord = Awaited<ReturnType<typeof buildExportRecord>>["record"];
+type ExportRecord = Omit<FullExportRecord, "chronology"> & { chronology?: FullExportRecord["chronology"] };
 
 export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
   const category = record.case.category;
@@ -373,9 +380,17 @@ export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
   }
   cursor = paragraph(cursor, `Category / Catégorie: ${record.case.category}    State / État: ${record.case.state}`);
 
-  cursor = subheading(cursor, "Timeline / Chronologie");
+  cursor = subheading(cursor, "Case activity / Activité du dossier");
   for (const e of record.timeline) {
     cursor = paragraph(cursor, `#${e.seq}  ${e.createdAt}  ${e.type}  — ${e.actorName ?? e.actorId}`);
+  }
+
+  cursor = subheading(cursor, "Dispute chronology / Chronologie du différend");
+  cursor = paragraph(cursor, "Party-reported events, not verified findings / Événements rapportés par les parties, non vérifiés.");
+  for (const entry of record.chronology ?? []) {
+    cursor = paragraph(cursor, `${entry.occurredOn} - ${entry.title} - ${entry.submittedByName}`);
+    cursor = paragraph(cursor, entry.description);
+    cursor = paragraph(cursor, `Submitted / Soumis: ${entry.createdAt} (${entry.locale})`);
   }
 
   cursor = subheading(cursor, "Evidence manifest / Registre des pièces");

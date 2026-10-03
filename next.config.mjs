@@ -11,9 +11,15 @@ const nextConfig = {
   ...(process.env.NEXT_BUILD_CPUS ? { experimental: { cpus: Number(process.env.NEXT_BUILD_CPUS) } } : {}),
   // H6/H7: the root is the default-locale landing, not the retired M0 demo.
   // /fr and /en follow the short-locale URL convention used elsewhere.
+  // Using rewrites() instead of redirects() for the root path to ensure
+  // the Railway healthcheck gets an HTTP 200 OK.
+  async rewrites() {
+    return [
+      { source: "/", destination: "/fr-CA" },
+    ];
+  },
   async redirects() {
     return [
-      { source: "/", destination: "/fr-CA", permanent: false },
       { source: "/fr", destination: "/fr-CA", permanent: false },
       { source: "/en", destination: "/en-CA", permanent: false },
     ];

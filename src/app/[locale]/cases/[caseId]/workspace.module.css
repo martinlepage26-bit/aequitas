@@ -1,0 +1,59 @@
+.workspace {
+  --case-background: #faf9f7;
+  --case-surface: #f0f1f2;
+  --case-ink: #1b1e23;
+  --case-muted: #555e69;
+  --case-accent: #2f4a6b;
+  --case-on-accent: #faf9f7;
+  --case-border: #c4c9d0;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 32px 32px 64px;
+  background: var(--case-background);
+  color: var(--case-ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.workspace h1 { font-size: clamp(26px, 4vw, 36px); letter-spacing: -.025em; }
+.workspace h2 { font-size: 24px; margin-bottom: 12px; }
+.workspace a { color: var(--case-accent); text-underline-offset: 4px; }
+.workspace :is(a, button, input, select, textarea):focus-visible { outline: 3px solid var(--case-accent); outline-offset: 3px; }
+.backLink { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 16px; }
+.simulatedNote { background: #fff3cd; color: #4a3b13; border: 1px solid #e0c36b; padding: 8px 16px; margin-bottom: 16px; }
+.submissionNav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0 40px; }
+.submissionLink { display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid var(--case-border); border-radius: 8px; text-decoration: none; }
+.submissionLink:hover { background: var(--case-surface); }
+.submissionLink strong { font-size: 18px; }
+.submissionLink span { color: var(--case-muted); font-size: 14px; }
+.section { padding-top: 24px; margin-bottom: 32px; border-top: 1px solid var(--case-border); scroll-margin-top: 24px; }
+.guidance { color: var(--case-muted); background: var(--case-surface); padding: 12px 16px; border-radius: 8px; }
+.form { margin-top: 24px; }
+.form fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.formRow { display: grid; gap: 8px; margin-bottom: 20px; }
+.formRow label { font-weight: 500; }
+.workspace :is(input, select, textarea) { color: var(--case-ink); background: var(--case-background); border: 1px solid var(--case-border); border-radius: 8px; padding: 10px 12px; min-height: 44px; max-width: 100%; font: inherit; }
+.workspace :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { width: 100%; }
+.workspace input[type=file] { padding: 8px; }
+.workspace input[type=file]::file-selector-button { min-height: 36px; margin-right: 12px; padding: 4px 12px; font: inherit; }
+.workspace button { min-height: 44px; border: 1px solid var(--case-accent); border-radius: 8px; background: var(--case-accent); color: var(--case-on-accent); padding: 10px 16px; font: inherit; cursor: pointer; }
+.workspace :is(button, input, select, textarea):disabled { cursor: not-allowed; }
+.workspace button:disabled { background: var(--case-surface); color: var(--case-muted); border-color: var(--case-border); }
+.hint { margin: 0; color: var(--case-muted); font-size: 14px; }
+.error { color: #8a2a2a; }
+.chronology { list-style: none; padding: 0; }
+.chronology li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--case-border); }
+.chronology time { font-size: 14px; color: var(--case-muted); }
+.chronology h3 { margin: 0; font-size: 18px; }
+.chronology p { white-space: pre-wrap; }
+.workspace .recordText { white-space: pre-wrap; }
+@media (prefers-color-scheme: dark) {
+  .workspace { --case-background: #171c23; --case-surface: #222b35; --case-ink: #f2f3f5; --case-muted: #b5beca; --case-accent: #a4c3e3; --case-on-accent: #171c23; --case-border: #536274; }
+  .error { color: #f4aaaa; }
+}
+@media (max-width: 767px) {
+  .workspace { padding: 24px 20px 48px; }
+  .submissionNav { grid-template-columns: 1fr; gap: 12px; }
+  .submissionLink { padding: 16px; }
+  .chronology li { grid-template-columns: 1fr; gap: 8px; }
+}

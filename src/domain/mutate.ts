@@ -1,4 +1,5 @@
 import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceText";
+import { chronologyInputSchema } from "./chronology";
 import { buildKnowledgeSources } from "../ai/prompts/conflictKnowledge";
 import { validateConflictKnowledgeMap } from "./conflictKnowledge";
 import { type DraftPromptInput } from "../ai/prompts/draftRecommendation";
@@ -169,12 +170,14 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
 
     return { ok: true, data };
   } catch (error) {
+    if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
     throw error;
   }
 }
 
 class StaleDraftError extends Error {}
+class StaleSubmissionError extends Error {}
 
 // --- create_case: the first concrete mutation built on the pipeline,
 // used by M1's integration test to prove atomicity end to end. -----------
@@ -488,6 +491,46 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   });
 }
 
+export interface SubmitChronologyInput {
+  actorId: string;
+  actorRole: GlobalRole;
+  caseId: string;
+  occurredOn: string;
+  title: string;
+  description: string;
+  locale: string;
+}
+
+export async function submitChronology(input: SubmitChronologyInput): Promise<MutationOutcome<WriteResult>> {
+  if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
+    return { ok: false, step: "authorize-role", reason: "Only case parties may submit chronology entries." };
+  }
+  const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
+  if (!caseRow || (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId)) {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+  const parsed = chronologyInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, step: "guard", reason: "A valid date, title, description and locale are required." };
+  return runMutation({
+    trigger: "submit_chronology", actorId: input.actorId, actorRole: input.actorRole, fromState: caseRow.state,
+    guardContexts: { isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId } },
+    write: async (tx) => {
+      // Serialize submissions and reject a manager closing intake after the
+      // precheck. Holding the case row lock also serializes the event chain.
+      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      if (locked.count !== 1) throw new StaleSubmissionError();
+      const entry = await tx.chronologyEntry.create({ data: {
+        caseId: input.caseId, submittedById: input.actorId, ...parsed.data,
+        occurredOn: new Date(`${parsed.data.occurredOn}T00:00:00.000Z`),
+      } });
+      return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [{
+        type: "CHRONOLOGY_ENTRY_SUBMITTED",
+        payload: { chronologyEntryId: entry.id, ...parsed.data },
+      }] };
+    },
+  });
+}
+
 // --- close_intake: EVIDENCE_INTAKE -> POSITIONS ---------------------------
 
 export interface CloseIntakeInput {
@@ -690,6 +733,10 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
     prisma.positionStatement.findFirst({ where: { caseId: input.caseId, partyId: caseRow.respondentId }, orderBy: { version: "desc" } }),
   ]);
 
+  const chronologyRows = await prisma.chronologyEntry.findMany({
+    where: { caseId: input.caseId }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+  });
+
   let promptInput: DraftPromptInput | undefined;
   let draftResult: Awaited<ReturnType<typeof draftRecommendation>>;
   if (!complainantPositionRow || !respondentPositionRow) {
@@ -707,6 +754,11 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
       complainantPosition: { partyRole: "complainant", body: complainantPositionRow.body, id: complainantPositionRow.id, version: complainantPositionRow.version, locale: complainantPositionRow.locale, createdAt: complainantPositionRow.createdAt.toISOString() },
       respondentPosition: { partyRole: "respondent", body: respondentPositionRow.body, id: respondentPositionRow.id, version: respondentPositionRow.version, locale: respondentPositionRow.locale, createdAt: respondentPositionRow.createdAt.toISOString() },
       legalResearch,
+      chronology: chronologyRows.map(entry => ({
+        id: entry.id, occurredOn: entry.occurredOn.toISOString().slice(0, 10), title: entry.title,
+        description: entry.description, locale: entry.locale, createdAt: entry.createdAt.toISOString(),
+        submittedByRole: entry.submittedById === caseRow.complainantId ? "complainant" as const : "respondent" as const,
+      })),
     };
     draftResult = await draftRecommendation(promptInput);
   }

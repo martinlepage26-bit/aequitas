@@ -117,11 +117,11 @@ describe("getAuthorityView — EVIDENCE_INTAKE (progress-dependent)", () => {
       progress: { ...NEUTRAL, complainantHasCleanEvidence: false, respondentHasCleanEvidence: false },
       expected: {
         COMPLAINANT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence", "withdraw"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology", "withdraw"],
           waitingOn: { roleKey: "bothParties", actionKey: "submitEvidence" },
         },
         RESPONDENT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology"],
           waitingOn: { roleKey: "bothParties", actionKey: "submitEvidence" },
         },
         CASE_MANAGER: { actionKeys: ["closeIntake"], waitingOn: { roleKey: "bothParties", actionKey: "submitEvidence" } },
@@ -133,10 +133,10 @@ describe("getAuthorityView — EVIDENCE_INTAKE (progress-dependent)", () => {
       progress: { ...NEUTRAL, complainantHasCleanEvidence: true, respondentHasCleanEvidence: false },
       expected: {
         COMPLAINANT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence", "withdraw"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology", "withdraw"],
           waitingOn: { roleKey: "respondent", actionKey: "submitEvidence" },
         },
-        RESPONDENT: { actionKeys: ["submitEvidence", "supersedeEvidence"], waitingOn: null },
+        RESPONDENT: { actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology"], waitingOn: null },
         CASE_MANAGER: { actionKeys: ["closeIntake"], waitingOn: { roleKey: "respondent", actionKey: "submitEvidence" } },
         ADMIN: { actionKeys: [], waitingOn: { roleKey: "respondent", actionKey: "submitEvidence" } },
       },
@@ -145,9 +145,9 @@ describe("getAuthorityView — EVIDENCE_INTAKE (progress-dependent)", () => {
       label: "retailer handler has submitted, consumer hasn't",
       progress: { ...NEUTRAL, complainantHasCleanEvidence: false, respondentHasCleanEvidence: true },
       expected: {
-        COMPLAINANT: { actionKeys: ["submitEvidence", "supersedeEvidence", "withdraw"], waitingOn: null },
+        COMPLAINANT: { actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology", "withdraw"], waitingOn: null },
         RESPONDENT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology"],
           waitingOn: { roleKey: "complainant", actionKey: "submitEvidence" },
         },
         CASE_MANAGER: { actionKeys: ["closeIntake"], waitingOn: { roleKey: "complainant", actionKey: "submitEvidence" } },
@@ -159,11 +159,11 @@ describe("getAuthorityView — EVIDENCE_INTAKE (progress-dependent)", () => {
       progress: { ...NEUTRAL, complainantHasCleanEvidence: true, respondentHasCleanEvidence: true },
       expected: {
         COMPLAINANT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence", "withdraw"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology", "withdraw"],
           waitingOn: { roleKey: "caseManager", actionKey: "closeIntake" },
         },
         RESPONDENT: {
-          actionKeys: ["submitEvidence", "supersedeEvidence"],
+          actionKeys: ["submitEvidence", "supersedeEvidence", "submitChronology"],
           waitingOn: { roleKey: "caseManager", actionKey: "closeIntake" },
         },
         CASE_MANAGER: { actionKeys: ["closeIntake"], waitingOn: null },

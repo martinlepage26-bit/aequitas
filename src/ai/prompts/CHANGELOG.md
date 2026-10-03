@@ -4,6 +4,14 @@ Section 9: "The prompt itself is versioned (`prompt_version`); prompts live
 in `src/ai/prompts/` with a changelog. Prompt changes require the same
 review as code."
 
+## 2026-10-01.1
+
+Adds immutable party-reported dispute chronology entries to the authoritative
+source registry, with reported calendar date, title, original description,
+author role, locale and submission timestamp. Chronology statements are not
+verified facts or independent corroboration. Reported dates remain distinct
+from application activity dates; disagreements must be preserved.
+
 ## 2026-09-22.2
 
 Two more prompt-clarity gaps surfaced by live smoke testing 2026-09-22.1

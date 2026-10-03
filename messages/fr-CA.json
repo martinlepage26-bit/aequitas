@@ -50,6 +50,7 @@
       "supersedeEvidence": "remplacer un élément soumis",
       "closeIntake": "clore la collecte de preuves",
       "submitPosition": "soumettre votre position",
+      "submitChronology": "ajouter un événement à la chronologie du différend",
       "requestDraft": "demander une ébauche de recommandation",
       "issueRecommendation": "rendre la recommandation",
       "giveConsent": "consentir",
@@ -101,6 +102,8 @@
         "titleLabel": "Titre",
         "descriptionLabel": "Description (facultatif)",
         "fileLabel": "Fichier",
+        "fileHint": "Un fichier par envoi, jusqu'à 25 Mo. Les fichiers sont analysés avant de pouvoir être utilisés.",
+        "success": "Envoi enregistré. Consultez le résultat de l'analyse dans la liste des preuves.",
         "submit": "Soumettre la preuve",
         "submitting": "Soumission en cours…",
         "error": "La preuve n'a pas pu être soumise."
@@ -113,9 +116,47 @@
       "version": "Version {version}",
       "form": {
         "bodyLabel": "Votre position",
+        "success": "Votre position a été enregistrée comme nouvelle version.",
         "submit": "Soumettre la position",
         "submitting": "Soumission en cours…",
         "error": "La position n'a pas pu être soumise."
+      }
+    },
+    "submission": {
+      "backToCases": "Retour à mes dossiers",
+      "title": "Ajouter au dossier",
+      "description": "Choisissez ce que vous souhaitez soumettre. Chaque section précise quand vous pouvez le faire.",
+      "actions": {
+        "evidence": "Ajouter une preuve",
+        "chronology": "Ajouter un événement daté",
+        "position": "Rédiger votre position"
+      },
+      "evidenceHelp": "Joignez les documents, photos, messages ou reçus qui appuient votre récit. Ajoutez un titre et une description facultative pour chaque fichier.",
+      "positionHelp": "Expliquez votre point de vue, renvoyez à vos preuves et aux événements datés, puis décrivez le résultat recherché. Les versions précédentes sont conservées.",
+      "availability": {
+        "available": "Vous pouvez soumettre ici maintenant.",
+        "submitCaseFirst": "Soumettez d'abord ce dossier en brouillon. Un gestionnaire ouvrira ensuite la collecte de preuves.",
+        "waitingForManager": "En attente d'un gestionnaire pour ouvrir la collecte de preuves.",
+        "afterEvidence": "Vous pourrez soumettre votre position après la clôture de la collecte de preuves par le gestionnaire.",
+        "intakeClosed": "La collecte de preuves est close. Vous pouvez lire le dossier, mais pas ajouter de preuve ou d'événement daté à cette étape.",
+        "readOnly": "Les soumissions sont closes à cette étape. Les éléments déjà soumis restent consultables.",
+        "partiesOnly": "Seules les parties au dossier peuvent soumettre. Les gestionnaires examinent leurs soumissions."
+      }
+    },
+    "chronology": {
+      "title": "Chronologie du différend",
+      "description": "Ajoutez les événements du différend selon leur date, et non celle de votre envoi. Les deux parties peuvent lire ces récits; ce sont des événements rapportés, non des faits vérifiés.",
+      "empty": "Aucun événement du différend n'a encore été ajouté.",
+      "reportedBy": "Rapporté par {name}",
+      "form": {
+        "dateLabel": "Date de l'événement",
+        "titleLabel": "Titre de l'événement",
+        "descriptionLabel": "Que s'est-il passé, selon vous?",
+        "hint": "Décrivez ce que vous avez observé et indiquez les preuves pertinentes. Précisez toute incertitude sur la date ou un détail. Les entrées sont conservées; ajoutez une clarification plutôt que d'effacer un récit.",
+        "submit": "Ajouter l'événement",
+        "submitting": "Ajout de l'événement…",
+        "success": "Votre événement a été ajouté à la chronologie du différend.",
+        "error": "L'événement n'a pas pu être ajouté. Vérifiez la date, les champs requis et si la collecte de preuves est encore ouverte. Votre texte a été conservé."
       }
     },
     "intake": {
@@ -180,7 +221,8 @@
       "error": "La recommandation n'a pas pu être rendue."
     },
     "timeline": {
-      "title": "Chronologie",
+      "title": "Activité du dossier",
+      "description": "Le journal automatique des actions dans Aequitas. Ces dates indiquent les soumissions et l'avancement du dossier, pas les événements du différend.",
       "empty": "Aucun événement pour l'instant.",
       "by": "par {name}",
       "event": {
@@ -193,6 +235,7 @@
         "EVIDENCE_SUPERSEDED": "Preuve remplacée",
         "EVIDENCE_INTAKE_CLOSED": "Collecte de preuves close",
         "POSITION_SUBMITTED": "Position soumise",
+        "CHRONOLOGY_ENTRY_SUBMITTED": "Événement du différend soumis",
         "RECOMMENDATION_DRAFT_REQUESTED": "Ébauche de recommandation demandée",
         "RECOMMENDATION_DRAFTED": "Ébauche de recommandation complétée",
         "RECOMMENDATION_ISSUED": "Recommandation rendue",
@@ -408,6 +451,44 @@
     "lead": "Aequitas accompagne la résolution de différends : chaque partie dépose ses pièces et sa position, un gestionnaire de dossier neutre fait réviser un résultat proposé, et rien n'est conclu sans le consentement explicite de chaque partie.",
     "signIn": "Se connecter avec une clé d'accès",
     "myCases": "Mes dossiers",
-    "otherLocale": "English"
+    "otherLocale": "English",
+    "skipToContent": "Aller au contenu",
+    "navigationLabel": "Navigation principale",
+    "workspaceLabel": "Un espace pour résoudre les différends",
+    "intro": "Déposez vos pièces, faites entendre votre point de vue et avancez avec un gestionnaire de dossier neutre.",
+    "imageCaption": "Deux perspectives. Un même dossier.",
+    "processTitle": "Un chemin clair, ensemble.",
+    "steps": {
+      "evidence": {
+        "title": "Présenter les faits",
+        "description": "Chaque partie dépose ses pièces et explique son point de vue dans un même dossier."
+      },
+      "review": {
+        "title": "Examiner une proposition",
+        "description": "Un gestionnaire de dossier neutre révise le résultat proposé avant de le partager avec les parties."
+      },
+      "consent": {
+        "title": "Choisir de consentir",
+        "description": "Chaque partie décide explicitement. Un résultat proposé devient un accord seulement avec le consentement des deux parties."
+      }
+    },
+    "submissions": {
+      "title": "Où déposer vos éléments",
+      "path": "Connectez-vous, ouvrez Mes dossiers, puis sélectionnez un dossier avec Voir. Pour commencer un dossier, choisissez Ouvrir un nouveau dossier dans cette liste.",
+      "evidence": {
+        "title": "Preuves",
+        "description": "Dans la section Preuves du dossier, joignez un fichier avec un titre et une description facultative pendant la collecte de preuves."
+      },
+      "chronology": {
+        "title": "Chronologie du différend",
+        "description": "Dans Chronologie du différend, ajoutez la date, le titre et votre récit de chaque événement pendant la collecte de preuves."
+      },
+      "position": {
+        "title": "Votre position",
+        "description": "Dans Positions, expliquez votre point de vue et le résultat recherché après la clôture de la collecte de preuves par le gestionnaire."
+      },
+      "note": "Les parties soumettent leurs éléments dans leur dossier, pas sur cette page publique. Le dossier explique pourquoi une action n'est pas disponible."
+    },
+    "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie."
   }
 }

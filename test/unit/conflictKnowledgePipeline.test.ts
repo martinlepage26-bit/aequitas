@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { validMap, sources } from "../fixtures/conflictKnowledge";
 const mocks = vi.hoisted(() => ({
-  caseFind: vi.fn(), evidenceFind: vi.fn(), positionFind: vi.fn(), recommendationFind: vi.fn(),
+  caseFind: vi.fn(), evidenceFind: vi.fn(), positionFind: vi.fn(), recommendationFind: vi.fn(), chronologyFind: vi.fn(),
   draft: vi.fn(), transaction: vi.fn(), create: vi.fn(), update: vi.fn(), lock: vi.fn(), eventCreate: vi.fn(),
 }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: {
   case: { findUnique: mocks.caseFind }, evidenceItem: { findMany: mocks.evidenceFind },
   positionStatement: { findFirst: mocks.positionFind }, recommendation: { findUnique: mocks.recommendationFind },
+  chronologyEntry: { findMany: mocks.chronologyFind },
   $transaction: mocks.transaction,
 } }));
 vi.mock("../../src/ai/draftRecommendation", () => ({ draftRecommendation: mocks.draft }));
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.caseFind.mockResolvedValue({ id: "case1", state: "DRAFTING", category: "EMPLOYMENT", caseManagerId: managerId, currentRecommendationId: "rec1", complainantId: "party1", respondentId: "party2", complainant: { locale: "fr-CA" }, respondent: { locale: "en-CA" } });
   mocks.evidenceFind.mockResolvedValue([]);
+  mocks.chronologyFind.mockResolvedValue([]);
   mocks.positionFind.mockImplementation(({ where }) => {
     const source = sources[where.partyId === "party1" ? 0 : 1];
     return Promise.resolve({ id: source.record_id, body: source.fields.body, locale: source.locale, version: source.version, createdAt: new Date("2026-09-20T00:00:00Z") });

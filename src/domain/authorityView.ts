@@ -28,6 +28,7 @@ export type AuthorityActionKey =
   | "submitCase"
   | "openIntake"
   | "submitEvidence"
+  | "submitChronology"
   | "supersedeEvidence"
   | "closeIntake"
   | "submitPosition"
@@ -92,6 +93,7 @@ const TRIGGER_TO_ACTION_KEY: Partial<Record<Trigger, AuthorityActionKey>> = {
   submit_case: "submitCase",
   open_intake: "openIntake",
   submit_evidence: "submitEvidence",
+  submit_chronology: "submitChronology",
   supersede_evidence: "supersedeEvidence",
   close_intake: "closeIntake",
   submit_position: "submitPosition",
@@ -159,6 +161,7 @@ export function getAuthorityView(state: CaseState, role: GlobalRole, progress: C
 
     case "EVIDENCE_INTAKE": {
       if (has("submitEvidence")) actionKeys.push("submitEvidence", "supersedeEvidence");
+      if (has("submitChronology")) actionKeys.push("submitChronology");
       // closeIntake is always technically callable by the assigned manager
       // (the override path lets them close without full coverage), so it's
       // shown as an available authority regardless of progress.
