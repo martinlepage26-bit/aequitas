@@ -8,7 +8,9 @@ const localize = createMiddleware(routing);
 
 export default function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  try { decodeURI(pathname); } catch {
+  // Production rewrites can decode route parameters again. Validate both
+  // forms before a literal percent reaches Next's dynamic route matcher.
+  try { decodeURI(decodeURI(pathname)); } catch {
     return NextResponse.json({ message: "Malformed URL." }, { status: 400 });
   }
 

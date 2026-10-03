@@ -57,9 +57,12 @@ was sent as part of deployment verification.
 Responses carry CSP with script nonces, HSTS in production, frame denial,
 nosniff, a referrer policy and restrictive camera/microphone/geolocation
 permissions. Next.js's powered-by header is disabled. Existing inline styles
-are still allowed by the style policy. Malformed percent encodings return
-400 instead of an application exception. Invalid invitations use a styled
-page with links home and to sign-in.
+are still allowed by the style policy. The app rejects malformed percent
+encodings, including the second decode used by production routing, with 400.
+Railway's edge rejects a raw unescaped `%` before it reaches the app and
+currently returns a gateway error; the app stays healthy. Encoded percent
+paths that reach the app are covered by the production smoke checks. Invalid
+invitations use a styled page with links home and to sign-in.
 
 Railway checks `/api/health`, which checks the database and reports the
 deployed `RELEASE_COMMIT`. Failed draft generation restores `POSITIONS` when
@@ -78,8 +81,13 @@ storage sweeper.
 
 Next.js and eslint-config-next are pinned to 16.3.8, Vitest and coverage to
 4.1.11, and brace-expansion resolves to 5.0.12. Node is pinned to the 22 line;
-npm is pinned to 11.21.0. Compose images use the tested immutable digests and
-retain loopback-only ports. GitHub Actions requests only `contents: read`.
+npm is pinned to 11.21.0. Postgres and ClamAV Compose images use immutable
+digests and retain loopback-only ports. MinIO's community registry image is
+no longer downloadable, so Compose builds the final upstream security release
+from commit `9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a`, with an archive
+checksum and pinned Go/Alpine base digests. This follows the upstream source
+build distribution: https://github.com/minio/minio/releases/tag/RELEASE.2025-10-15T17-29-55Z.
+GitHub Actions requests only `contents: read`.
 
 The dependency audit reports zero critical, zero moderate and five high
 package entries arising from the unpatched development-only `braces`

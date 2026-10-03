@@ -120,6 +120,7 @@ describe("Revocation, access checks and page hardening", () => {
     }
     expect((await fetch(base + "/fr-CA/%")).status).toBe(400);
     expect((await fetch(base + "/fr-CA/invite/%25")).status).toBe(400);
+    expect((await fetch(base + "/en-CA/invite/%25ZZ")).status).toBe(400);
     expect((await fetch(base + "/api/health")).status).toBe(200);
   });
 
