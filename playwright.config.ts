@@ -8,6 +8,10 @@ import { applyTestDatabase } from "./test/testDatabaseUrl";
 applyTestDatabase();
 process.env.RESEND_API_KEY = "";
 const testPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
+// Virtual browser credentials must be checked against the actual test
+// server, independently of a developer's demo or production RP settings.
+process.env.WEBAUTHN_RP_ID = "localhost";
+process.env.WEBAUTHN_ORIGIN = `http://localhost:${testPort}`;
 
 /**
  * M2's "Done when" criterion (Section 19): "M2 E2E segment passes in both

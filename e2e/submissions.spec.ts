@@ -33,7 +33,7 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
       expect(violations, `${locale} ${scheme} ${width}px home accessibility`).toEqual([]);
     }
   });
-  test(`evidence, chronology, positions and denied paths (${locale})`, async ({ browser, baseURL }) => {
+  test(`evidence, chronology, positions and denied paths (${locale})`, async ({ browser, baseURL }, testInfo) => {
     if (!baseURL) throw new Error("Missing test base URL");
     const user = (role: GlobalRole) => prisma.user.create({ data: { email: `submission-e2e-${randomUUID()}@example.com`, displayName: `Submission E2E ${role}`, globalRole: role, locale } });
     const [party, respondent, manager, outsider] = await Promise.all([user("COMPLAINANT"), user("RESPONDENT"), user("CASE_MANAGER"), user("COMPLAINANT")]);
@@ -109,7 +109,7 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
         await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: scheme });
         await expect(page.getByRole("note")).toHaveCSS("color", "rgb(74, 59, 19)");
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-        await page.screenshot({ path: `/srv/workspaces/shared/aequitas-submissions-${locale}-${name}.png`, fullPage: true });
+        await page.screenshot({ path: testInfo.outputPath(`submissions-${locale}-${name}.png`), fullPage: true });
         const violations = await page.evaluate(async () => {
           const axe = (window as unknown as { axe: { run: (options: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
           const result = await axe.run({ runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
