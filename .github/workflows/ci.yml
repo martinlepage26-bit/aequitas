@@ -81,7 +81,23 @@ jobs:
       # so running it after would make this step fail on every CI run.
       - run: npm run verify:events
       - run: npm run test
-      - run: npm run build
+      # Next 16.3 Turbopack fetches next/font/google once and does not retry.
+      # A single fonts.gstatic miss fails the build with
+      # "Can't resolve @vercel/turbopack-next/internal/font/google/font"
+      # (https://github.com/vercel/next.js/issues/97378). The same tree
+      # compiled on the previous run, so clear .next and try again instead
+      # of moving off the pinned Next version.
+      - name: Build
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if npm run build; then
+              exit 0
+            fi
+            echo "next build failed (attempt ${attempt}); clearing .next and retrying"
+            rm -rf .next
+          done
+          exit 1
 
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
