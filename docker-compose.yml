@@ -23,11 +23,12 @@ services:
   # bucket"). Ports offset from MinIO's 9000/9001 defaults, matching the
   # 5433 pattern above, since this host runs containers for other projects.
   minio:
-    # Docker Hub now denies anonymous pulls of minio/minio ("pull access
-    # denied ... may require 'docker login'") — reproduced directly with
-    # `docker pull minio/minio:latest`. quay.io/minio/minio is MinIO's own
-    # current free registry for this image; confirmed with a real pull.
-    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # Docker Hub denies anonymous pulls of minio/minio, and quay.io/minio/minio
+    # now returns UNAUTHORIZED for anonymous pulls (the token's actions list
+    # is empty). Pinning the old digest does not help — the registry refuses
+    # the pull. cgr.dev/chainguard/minio is the free public replacement that
+    # still allows anonymous pulls; digest is the current image index.
+    image: cgr.dev/chainguard/minio@sha256:0f95aa412a12351a95bb43c3b54b66440eb0aa022bb3f3458942678a489e915b
     container_name: aequitas-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -39,8 +40,11 @@ services:
       - "127.0.0.1:9011:9001"
     volumes:
       - aequitas-minio-data:/data
+    # Chainguard's image ships /usr/bin/mc and /bin/sh, but not curl or wget,
+    # so the old curl live probe can never succeed. `mc ready` is the
+    # readiness check CI waits on via Docker's health status.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "MC_DISABLE_PAGER=1 /usr/bin/mc --disable-pager alias set --config-dir /tmp/mc-health local http://127.0.0.1:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" >/dev/null && MC_DISABLE_PAGER=1 /usr/bin/mc --disable-pager ready --config-dir /tmp/mc-health local"]
       interval: 5s
       timeout: 5s
       retries: 10
