@@ -27,14 +27,18 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "list",
-  // A genuinely cold CI checkout has no warm .next/dev cache, so the FIRST
-  // test pays for next dev's on-demand per-route compilation across every
-  // route it's the first to hit (case-lifecycle.spec.ts, fr-CA, run first)
-  // — confirmed live in CI: that run alone exceeded a 30s timeout while the
-  // second (en-CA, routes already compiled) finished in 23.2s. Not a real
-  // bug; a local sandbox with prior `next dev`/`next build` runs never
-  // reproduces this because its .next/dev cache is already warm.
+  // A cold CI checkout has no warm .next/dev cache, so the first request to
+  // a route pays for on-demand compilation inside whatever assertion is
+  // waiting on it. `timeout` does not extend Playwright's expect timeout.
+  // The default 5s expired on push while that compile was still in flight:
+  // run 37464352382 (/api/auth/webauthn/register) and run 37469978362
+  // (fr-CA submissions, /api/cases/[caseId]/chronology, element still
+  // absent at 5s). The same SHAs passed on pull_request, and the other
+  // locale passed once the route was compiled. 20s still requires the
+  // expected UI. A warm local .next/dev cache does not pay this cost, which
+  // is why a local run does not reproduce it.
   timeout: 60_000,
+  expect: { timeout: 20_000 },
   use: {
     baseURL: `http://localhost:${testPort}`,
     trace: "retain-on-failure",

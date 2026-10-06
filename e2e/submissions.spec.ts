@@ -64,7 +64,17 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await page.fill("#chronology-date", "2026-01-15");
       await page.fill("#chronology-title", "Invoice received");
       await page.fill("#chronology-description", "I received the invoice on this date.");
+      // This is the first request to the chronology route. next dev compiles
+      // it before the handler runs; the list item is server-rendered only
+      // after that response and the following router.refresh(). Waiting on
+      // the response keeps a slow compile from being reported as a missing
+      // entry, and a non-OK response still fails before the visibility check.
+      const submitted = page.waitForResponse(
+        response => response.request().method() === "POST" && new URL(response.url()).pathname === `/api/cases/${caseId}/chronology`,
+        { timeout: 20_000 },
+      );
       await page.getByRole("button", { name: m.workspace.chronology.form.submit, exact: true }).click();
+      expect((await submitted).ok()).toBe(true);
       await expect(page.locator("[id^=chronology-]").filter({ hasText: "Invoice received" }).first()).toBeVisible();
       await expect(page.locator("#chronology-title")).toHaveValue("");
       await expect(page.getByRole("status").filter({ hasText: m.workspace.chronology.form.success })).toBeVisible();
