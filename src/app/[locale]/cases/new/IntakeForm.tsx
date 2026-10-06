@@ -21,6 +21,8 @@ export default function IntakeForm({
   const [respondentEmail, setRespondentEmail] = useState("");
   const [respondentDisplayName, setRespondentDisplayName] = useState("");
   const [category, setCategory] = useState(categoryOptions[0]?.value ?? "RETAIL");
+  const [disputeDescription, setDisputeDescription] = useState("");
+  const [amountAtStake, setAmountAtStake] = useState("");
   const [simulated, setSimulated] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [status, setStatus] = useState<{ kind: "idle" | "busy" | "error"; message?: string }>({ kind: "idle" });
@@ -36,6 +38,8 @@ export default function IntakeForm({
         respondentEmail,
         respondentDisplayName,
         category,
+        disputeDescription,
+        ...(amountAtStake.trim() === "" ? {} : { amountAtStake: Number(amountAtStake) }),
         requestedStatementVersionId: statementVersionId,
         simulated,
       }),
@@ -98,6 +102,43 @@ export default function IntakeForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <label htmlFor="dispute-description">{t("disputeDescriptionLabel")}</label>
+        <br />
+        <textarea
+          id="dispute-description"
+          required
+          maxLength={2000}
+          rows={4}
+          value={disputeDescription}
+          aria-describedby="dispute-description-hint"
+          onChange={(e) => setDisputeDescription(e.target.value)}
+          style={{ width: "100%" }}
+        />
+        <p id="dispute-description-hint" style={{ fontSize: "0.85rem", color: "#555" }}>
+          {t("disputeDescriptionHint")}
+        </p>
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <label htmlFor="amount-at-stake">{t("amountLabel")}</label>
+        <br />
+        <input
+          id="amount-at-stake"
+          type="number"
+          min={0}
+          step="0.01"
+          inputMode="decimal"
+          value={amountAtStake}
+          aria-describedby="amount-at-stake-hint"
+          onChange={(e) => setAmountAtStake(e.target.value)}
+          style={{ width: "100%" }}
+        />
+        <p id="amount-at-stake-hint" style={{ fontSize: "0.85rem", color: "#555" }}>
+          {t("amountHint")}
+        </p>
       </div>
 
       <div style={{ marginBottom: "1rem" }}>

@@ -14,7 +14,7 @@ describe("knowledge map PDF export", () => {
     const map = validMap();
     const pdf = await buildExportPdf({
       exportedAt: now,
-      case: { id: "synthetic", referenceNumber: "CORE-PDF", category: "EMPLOYMENT", state: "CLOSED", simulated: true, createdAt: now, closedAt: now },
+      case: { id: "synthetic", referenceNumber: "CORE-PDF", category: "EMPLOYMENT", disputeDescription: null, amountAtStakeCents: null, state: "CLOSED", simulated: true, createdAt: now, closedAt: now },
       parties: { complainant: party, respondent: party, caseManager: null },
       timeline: [], evidence: [], positions: [], consent: [],
       recommendations: [{ id: "draft", version: 1, status: "DRAFT", modelId: "synthetic", promptVersion: "test", issuedById: null, issuedByName: null, issuedAt: null, createdAt: now,

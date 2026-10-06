@@ -189,6 +189,11 @@ async function main() {
         complainantId: complainant.id,
         respondentId: respondent.id,
         category: c.category,
+        disputeDescription:
+          c.positions?.[0]?.body ??
+          (c.locale.startsWith("fr")
+            ? "Démonstration : un différend simulé au sujet d'une obligation non respectée."
+            : "Demonstration: a simulated dispute about an obligation that was not met."),
         simulated: true,
         requestedStatementVersionId: statement.id,
         currentStatementVersionId: statement.id,

@@ -10,7 +10,8 @@ import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { scanBuffer, type ScanResult } from "../lib/scan";
-import { deliverPendingNotifications } from "../lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, deliverPendingNotifications } from "../lib/mail";
+import { assertStoredIntake, missingIntakeFields } from "./intake";
 import { rollbackBuffer, uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
@@ -202,12 +203,19 @@ export interface CreateCaseInput {
   respondentId: string;
   /** Defaults to RETAIL, matching Case.category's schema default, when omitted. */
   category?: DisputeCategory;
+  /** Required short account of the dispute, already trimmed. */
+  disputeDescription: string;
+  /** Optional approximate amount at stake, in Canadian cents. */
+  amountAtStakeCents?: number | null;
   simulated: boolean;
   requestedStatementVersionId: string;
   currentStatementVersionId: string;
 }
 
 export async function createCase(input: CreateCaseInput): Promise<MutationOutcome<WriteResult>> {
+  const intake = assertStoredIntake(input);
+  if (!intake.ok) return { ok: false, step: "guard", reason: intake.reason };
+
   return runMutation({
     trigger: "create_case",
     actorId: input.actorId,
@@ -227,6 +235,8 @@ export async function createCase(input: CreateCaseInput): Promise<MutationOutcom
           state: "DRAFT",
           simulated: input.simulated,
           category: input.category ?? "RETAIL",
+          disputeDescription: intake.description,
+          amountAtStakeCents: intake.cents,
           complainantId: input.complainantId,
           respondentId: input.respondentId,
         },
@@ -237,7 +247,13 @@ export async function createCase(input: CreateCaseInput): Promise<MutationOutcom
         eventPayloads: [
           {
             type: "CASE_CREATED",
-            payload: { referenceNumber: created.referenceNumber, simulated: created.simulated },
+            payload: {
+              referenceNumber: created.referenceNumber,
+              simulated: created.simulated,
+              category: created.category,
+              disputeDescription: created.disputeDescription,
+              amountAtStakeCents: created.amountAtStakeCents,
+            },
           },
         ],
       };
@@ -268,19 +284,25 @@ export async function submitCase(input: SubmitCaseInput): Promise<MutationOutcom
     fromState: caseRow.state,
     guardContexts: {
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
-      // Section 5's Case model has no additional intake fields beyond what
-      // create_case already requires NOT NULL — see DECISIONS.md. Nothing
-      // further to check yet; this guard exists for when the intake wizard
-      // grows real optional fields.
-      requiredIntakeFieldsComplete: { missingFields: [] },
+      requiredIntakeFieldsComplete: { missingFields: missingIntakeFields(caseRow) },
     },
     write: async (tx) => {
+      // Activated means a passkey is on the account. Inactive managers are
+      // not queued: a pending row for someone who cannot sign in would sit
+      // in the outbox forever.
+      const managers = await tx.user.findMany({
+        where: { globalRole: "CASE_MANAGER", credentials: { some: {} } },
+        select: { id: true, locale: true },
+      });
       await tx.case.update({ where: { id: input.caseId }, data: { state: "OPEN" } });
       return {
         caseId: input.caseId,
         toState: "OPEN",
         eventPayloads: [{ type: "CASE_SUBMITTED", payload: {} }],
-        notifications: [{ userId: caseRow.respondentId, kind: "case_submitted", locale: caseRow.respondent.locale }],
+        notifications: [
+          { userId: caseRow.respondentId, kind: "case_submitted", locale: caseRow.respondent.locale },
+          ...managers.map((manager) => ({ userId: manager.id, kind: CASE_AWAITING_MANAGER_KIND, locale: manager.locale })),
+        ],
       };
     },
   });

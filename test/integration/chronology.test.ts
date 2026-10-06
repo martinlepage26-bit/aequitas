@@ -23,7 +23,7 @@ beforeAll(async () => {
 
 async function freshCase() {
   const created = await createCase({ actorId: complainantId, actorRole: "COMPLAINANT", referenceNumber: `AE-CHRONOLOGY-TEST-${randomUUID()}`,
-    complainantId, respondentId, simulated: true, requestedStatementVersionId: statementId, currentStatementVersionId: statementId });
+    complainantId, respondentId, disputeDescription: "The other party did not do what we agreed.", simulated: true, requestedStatementVersionId: statementId, currentStatementVersionId: statementId });
   if (!created.ok) throw new Error("Case setup failed");
   const caseId = created.data.caseId;
   if (!(await submitCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId })).ok) throw new Error("Submit setup failed");

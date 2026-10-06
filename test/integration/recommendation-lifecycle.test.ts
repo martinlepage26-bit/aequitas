@@ -52,6 +52,7 @@ async function freshPositionsCase(): Promise<string> {
     complainantId,
     respondentId,
     simulated: true,
+    disputeDescription: "The other party did not do what we agreed.",
     requestedStatementVersionId: statementVersionId,
     currentStatementVersionId: statementVersionId,
   });
@@ -169,6 +170,7 @@ describe("requestDraft — role, assignment, and precondition enforcement", () =
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });

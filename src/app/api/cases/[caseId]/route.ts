@@ -31,6 +31,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     referenceNumber: caseRow.referenceNumber,
     state: caseRow.state,
     category: caseRow.category,
+    disputeDescription: caseRow.disputeDescription,
+    amountAtStakeCents: caseRow.amountAtStakeCents,
     simulated: caseRow.simulated,
     complainant: caseRow.complainant,
     respondent: caseRow.respondent,

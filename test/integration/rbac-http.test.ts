@@ -111,6 +111,7 @@ async function freshEvidenceIntakeCase(): Promise<string> {
     complainantId,
     respondentId,
     simulated: true,
+    disputeDescription: "The other party did not do what we agreed.",
     requestedStatementVersionId: statementVersionId,
     currentStatementVersionId: statementVersionId,
   });
@@ -207,6 +208,7 @@ describe("RBAC over real HTTP — right role, not this case's party/manager (404
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });

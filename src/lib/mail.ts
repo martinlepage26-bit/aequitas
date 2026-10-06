@@ -1,4 +1,9 @@
+import type { DisputeCategory } from "../generated/prisma";
+import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
+
+/** Queued when a complainant submits a case and a case manager should see it. */
+export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
 
 export function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.EMAIL_REPLY_TO && process.env.APP_URL);
@@ -33,15 +38,59 @@ export async function sendInvitationEmail(input: { email: string; locale: string
   return "accepted" as const;
 }
 
+/**
+ * Email copy for one queued notification. Case-manager alerts name only the
+ * reference number and category. Every other kind stays a generic update
+ * with a link, and never includes the dispute description.
+ */
+export function notificationEmail(input: {
+  kind: string;
+  locale: string;
+  caseId: string;
+  referenceNumber?: string;
+  category?: DisputeCategory;
+}): { subject: string; text: string } {
+  const french = input.locale === "fr-CA";
+  if (input.kind === CASE_AWAITING_MANAGER_KIND && input.referenceNumber && input.category) {
+    const category = resolveCategoryLabel(input.category, input.locale);
+    const reference = input.referenceNumber;
+    const link = appUrl(`/${input.locale}/cases`);
+    return french
+      ? {
+          subject: "Un nouveau dossier attend un gestionnaire",
+          text: `Un nouveau dossier est ouvert et attend qu’un gestionnaire le prenne en charge.\n\nRéférence : ${reference}\nCatégorie : ${category}\n\nConnectez-vous pour voir les dossiers en attente :\n${link}`,
+        }
+      : {
+          subject: "A new case is waiting for a case manager",
+          text: `A new case is open and waiting for a case manager to take it.\n\nReference: ${reference}\nCategory: ${category}\n\nSign in to see cases that are waiting:\n${link}`,
+        };
+  }
+  return {
+    subject: french ? "Une mise à jour dans Aequitas" : "An update in Aequitas",
+    text: `${french ? "Votre dossier a été mis à jour. Connectez-vous pour consulter le dossier :" : "Your case has been updated. Sign in to read the record:"}\n\n${appUrl(`/${input.locale}/cases/${input.caseId}`)}`,
+  };
+}
+
 /** Transactional outbox: failures remain pending; retries use the same Resend idempotency key. */
 export async function deliverPendingNotifications(caseId?: string) {
   if (!emailConfigured()) return { accepted: 0, pending: true };
-  const pending = await prisma.notification.findMany({ where: { sentAt: null, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) }, include: { user: { select: { email: true } } }, orderBy: { createdAt: "asc" }, take: 20 });
+  const pending = await prisma.notification.findMany({
+    where: { sentAt: null, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) },
+    include: { user: { select: { email: true } }, case: { select: { referenceNumber: true, category: true } } },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
   let accepted = 0;
   for (const notification of pending) {
     try {
-      const french = notification.locale === "fr-CA";
-      await sendEmail(notification.user.email, french ? "Une mise à jour dans Aequitas" : "An update in Aequitas", `${french ? "Votre dossier a été mis à jour. Connectez-vous pour consulter le dossier :" : "Your case has been updated. Sign in to read the record:"}\n\n${appUrl(`/${notification.locale}/cases/${notification.caseId}`)}`, `notification/${notification.id}`);
+      const copy = notificationEmail({
+        kind: notification.kind,
+        locale: notification.locale,
+        caseId: notification.caseId,
+        referenceNumber: notification.case?.referenceNumber,
+        category: notification.case?.category,
+      });
+      await sendEmail(notification.user.email, copy.subject, copy.text, `notification/${notification.id}`);
       await prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
       accepted++;
     } catch {

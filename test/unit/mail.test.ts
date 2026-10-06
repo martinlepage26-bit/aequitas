@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ invitation: { update: vi.fn() }, notification: { findMany: vi.fn(), update: vi.fn() } }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
-import { emailConfigured, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 function configure() {
@@ -34,5 +34,51 @@ describe("Resend delivery", () => {
     expect(db.notification.update).not.toHaveBeenCalled();
     expect(await deliverPendingNotifications("case-1")).toEqual({ accepted: 1, pending: false });
     expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["notification/notification-1", "notification/notification-1"]);
+  });
+  it("tells case managers only the reference and category, in their language", async () => {
+    configure();
+    const description = "The landlord kept the deposit after move-out.";
+    const french = notificationEmail({
+      kind: CASE_AWAITING_MANAGER_KIND,
+      locale: "fr-CA",
+      caseId: "case-secret",
+      referenceNumber: "AE-2026-000111",
+      category: "TENANCY",
+    });
+    expect(french.subject).toBe("Un nouveau dossier attend un gestionnaire");
+    expect(french.text).toContain("AE-2026-000111");
+    expect(french.text).toContain("Logement locatif");
+    expect(french.text).toContain("https://aequitas.example/fr-CA/cases");
+    expect(french.text).not.toContain("case-secret");
+    expect(french.text).not.toContain(description);
+
+    const english = notificationEmail({
+      kind: CASE_AWAITING_MANAGER_KIND,
+      locale: "en-CA",
+      caseId: "case-secret",
+      referenceNumber: "AE-2026-000111",
+      category: "TENANCY",
+    });
+    expect(english.subject).toBe("A new case is waiting for a case manager");
+    expect(english.text).toContain("Tenancy");
+    expect(english.text).toContain("https://aequitas.example/en-CA/cases");
+    expect(english.text).not.toContain(description);
+
+    db.notification.findMany.mockResolvedValue([{
+      id: "notification-mgr",
+      kind: CASE_AWAITING_MANAGER_KIND,
+      caseId: "case-secret",
+      locale: "en-CA",
+      user: { email: "manager@example.com" },
+      case: { referenceNumber: "AE-2026-000111", category: "TENANCY", disputeDescription: description },
+    }]);
+    const fetch = vi.fn().mockResolvedValue(Response.json({ id: "resend-mgr" }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await deliverPendingNotifications("case-secret")).toEqual({ accepted: 1, pending: false });
+    const sent = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(sent.text).toContain("AE-2026-000111");
+    expect(sent.text).toContain("Tenancy");
+    expect(sent.text).not.toContain(description);
+    expect(sent.text).not.toContain("case-secret");
   });
 });
