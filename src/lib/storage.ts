@@ -39,6 +39,11 @@ function getS3Client(): S3Client {
 const SIMULATED_PREFIX = process.env.STORAGE_SIMULATED_PREFIX ?? "simulated/";
 const LIVE_PREFIX = "live/";
 
+/** Key for one evidence object. The prefix follows the case flag, never the request. */
+export function evidenceObjectKey(simulated: boolean, caseId: string, evidenceId: string): string {
+  return `${simulated ? SIMULATED_PREFIX : LIVE_PREFIX}${caseId}/${evidenceId}`;
+}
+
 async function putObject(storageKey: string, buffer: Buffer, mimeType: string): Promise<void> {
   validateStorageKey(storageKey);
   const localDir = getLocalDir();
@@ -95,8 +100,7 @@ export interface UploadEvidenceResult {
  * upload request itself.
  */
 export async function uploadEvidence(input: UploadEvidenceInput): Promise<UploadEvidenceResult> {
-  const prefix = input.simulated ? SIMULATED_PREFIX : LIVE_PREFIX;
-  const storageKey = `${prefix}${input.caseId}/${input.evidenceId}`;
+  const storageKey = evidenceObjectKey(input.simulated, input.caseId, input.evidenceId);
   const sha256 = createHash("sha256").update(input.buffer).digest("hex");
 
   try { await putObject(storageKey, input.buffer, input.mimeType); }

@@ -55,6 +55,22 @@ export const CATEGORY_ROLE_TERMS: Record<DisputeCategory, CategoryRoleTerms> = {
 
 export const DISPUTE_CATEGORIES = Object.keys(CATEGORY_ROLE_TERMS) as DisputeCategory[];
 
+/** Short category names for notices that must not carry the dispute itself. */
+export const CATEGORY_LABELS: Record<DisputeCategory, RoleTerm> = {
+  RETAIL: { en: "Retail", fr: "Commerce de détail" },
+  TENANCY: { en: "Tenancy", fr: "Logement locatif" },
+  EMPLOYMENT: { en: "Employment", fr: "Emploi" },
+  B2B: { en: "Business contract", fr: "Contrat entre entreprises" },
+  FREELANCE: { en: "Freelance", fr: "Travail autonome" },
+  P2P_MARKETPLACE: { en: "Peer-to-peer sale", fr: "Vente entre particuliers" },
+  PARTNERSHIP: { en: "Partnership", fr: "Société" },
+};
+
+export function resolveCategoryLabel(category: DisputeCategory, locale: string): string {
+  const label = CATEGORY_LABELS[category];
+  return locale.startsWith("fr") ? label.fr : label.en;
+}
+
 /**
  * Resolves the domain-appropriate display term for a party role, given the
  * case's category and the viewer's locale. `locale` is matched by prefix

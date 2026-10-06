@@ -66,6 +66,7 @@ for (const { code: locale, messages: m } of LOCALES) {
         const consumerPage = await consumerCtx.newPage();
         await consumerPage.goto(`/${locale}/cases/new`);
         await consumerPage.fill("#respondent-email", retailer.email);
+        await consumerPage.fill("#dispute-description", "The goods were not delivered as agreed.");
         await consumerPage.check("#acknowledge");
         await consumerPage.click(`button:has-text("${m.newCase.submitButton}")`);
         await consumerPage.waitForURL(new RegExp(`/${locale}/cases/[0-9a-f-]+$`));

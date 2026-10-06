@@ -14,6 +14,10 @@
     "respondentNameLabel": "Nom de la partie intimée",
     "respondentNameHint": "Si cette personne n'a pas encore de compte Aequitas, un compte sera préparé pour elle. Elle y accédera au moyen d'un lien d'invitation remis par l'équipe Aequitas; aucun courriel n'est envoyé automatiquement.",
     "categoryLabel": "De quel type de différend s'agit-il?",
+    "disputeDescriptionLabel": "De quoi s'agit-il?",
+    "disputeDescriptionHint": "Décrivez brièvement le différend. Ce champ est obligatoire.",
+    "amountLabel": "Montant approximatif en jeu (CAD, facultatif)",
+    "amountHint": "Un ordre de grandeur suffit. Laissez vide si vous ne le savez pas.",
     "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
     "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",
     "submitButton": "Créer le dossier",
@@ -23,6 +27,11 @@
   "workspace": {
     "title": "Espace de dossier",
     "caseReference": "Dossier {reference}",
+    "dispute": {
+      "title": "Le différend",
+      "amount": "Montant approximatif en jeu : {amount}",
+      "missing": "Aucune description du différend n'a été enregistrée."
+    },
     "state": {
       "DRAFT": "Brouillon",
       "OPEN": "Ouvert",
@@ -84,6 +93,7 @@
       "title": "Preuves",
       "empty": "Aucune preuve n'a encore été soumise.",
       "submittedBy": "Soumis par {name}",
+      "download": "Télécharger {title}",
       "supersededNotice": "Remplacé",
       "scanStatus": {
         "CLEAN": "Vérifié",
@@ -232,6 +242,7 @@
         "COI_DECLARED": "Déclaration de conflit d'intérêts enregistrée",
         "EVIDENCE_INTAKE_OPENED": "Collecte de preuves ouverte",
         "EVIDENCE_SUBMITTED": "Preuve soumise",
+        "EVIDENCE_ACCESSED": "Fichier de preuve consulté",
         "EVIDENCE_SUPERSEDED": "Preuve remplacée",
         "EVIDENCE_INTAKE_CLOSED": "Collecte de preuves close",
         "POSITION_SUBMITTED": "Position soumise",

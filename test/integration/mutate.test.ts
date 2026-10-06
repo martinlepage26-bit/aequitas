@@ -40,6 +40,7 @@ describe("mutation pipeline: createCase", () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });
@@ -66,6 +67,7 @@ describe("mutation pipeline: createCase", () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: "stale-version-id",
       currentStatementVersionId: statementVersionId,
     });

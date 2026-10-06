@@ -1,5 +1,6 @@
 import { prisma } from "../../../lib/prisma";
 import { requireSession } from "../../../lib/session";
+import { normalizeAmountAtStake, normalizeDisputeDescription } from "../../../domain/intake";
 import { createCase, mutationFailureResponse } from "../../../domain/mutate";
 import { DISPUTE_CATEGORIES } from "../../../i18n/categoryGlossary";
 import type { DisputeCategory } from "../../../generated/prisma";
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
   if (body.category !== undefined && !DISPUTE_CATEGORIES.includes(body.category)) {
     return Response.json({ message: `category must be one of: ${DISPUTE_CATEGORIES.join(", ")}` }, { status: 400 });
   }
+  const description = normalizeDisputeDescription(body.disputeDescription);
+  if (!description.ok) return Response.json({ message: description.reason }, { status: 400 });
+  const amount = normalizeAmountAtStake(body.amountAtStake);
+  if (!amount.ok) return Response.json({ message: amount.reason }, { status: 400 });
 
   // A respondent doesn't need an existing account: a complainant can name
   // anyone by email. If nobody with that email is registered yet, a
@@ -74,6 +79,8 @@ export async function POST(request: Request) {
     complainantId: session.userId,
     respondentId: respondent.id,
     category: body.category as DisputeCategory | undefined,
+    disputeDescription: description.description,
+    amountAtStakeCents: amount.cents,
     simulated: Boolean(body.simulated),
     requestedStatementVersionId: body.requestedStatementVersionId,
     currentStatementVersionId: currentStatement.id,

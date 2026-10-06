@@ -66,6 +66,7 @@ beforeAll(async () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: sv.id,
       currentStatementVersionId: sv.id,
     });

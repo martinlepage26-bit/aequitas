@@ -101,6 +101,8 @@ export async function buildExportRecord(caseId: string) {
       id: caseRow.id,
       referenceNumber: caseRow.referenceNumber,
       category: caseRow.category,
+      disputeDescription: caseRow.disputeDescription,
+      amountAtStakeCents: caseRow.amountAtStakeCents,
       state: caseRow.state,
       simulated: caseRow.simulated,
       createdAt: caseRow.createdAt.toISOString(),
@@ -381,6 +383,14 @@ export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
     cursor = paragraph(cursor, `Case manager / Gestionnaire de dossier: ${record.parties.caseManager.displayName} (${record.parties.caseManager.email})`);
   }
   cursor = paragraph(cursor, `Category / Catégorie: ${record.case.category}    State / État: ${record.case.state}`);
+  if (record.case.disputeDescription) {
+    cursor = subheading(cursor, "Dispute / Différend");
+    cursor = paragraph(cursor, record.case.disputeDescription);
+  }
+  if (typeof record.case.amountAtStakeCents === "number") {
+    const amount = (record.case.amountAtStakeCents / 100).toFixed(2);
+    cursor = paragraph(cursor, `Approximate amount at stake / Montant approximatif en jeu: ${amount} CAD`);
+  }
 
   cursor = subheading(cursor, "Case activity / Activité du dossier");
   for (const e of record.timeline) {

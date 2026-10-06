@@ -77,6 +77,7 @@ enum EventType {
   COI_DECLARED
   EVIDENCE_INTAKE_OPENED
   EVIDENCE_SUBMITTED
+  EVIDENCE_ACCESSED
   EVIDENCE_SUPERSEDED
   EVIDENCE_INTAKE_CLOSED
   POSITION_SUBMITTED
@@ -158,6 +159,10 @@ model Case {
   referenceNumber         String    @unique
   state                   CaseState
   category                DisputeCategory @default(RETAIL)
+  // Nullable so rows created before intake captured a description stay valid.
+  // New cases must set disputeDescription; amountAtStakeCents is optional CAD cents.
+  disputeDescription      String?
+  amountAtStakeCents      Int?
   metadata                Json?
   simulated               Boolean   @default(false)
   complainantId           String

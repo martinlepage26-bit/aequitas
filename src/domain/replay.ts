@@ -71,6 +71,9 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "CASE_CLOSED":
         state = "CLOSED";
         break;
+      case "EVIDENCE_ACCESSED":
+        // A download audit. It does not move the case.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

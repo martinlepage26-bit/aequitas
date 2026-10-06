@@ -55,6 +55,7 @@ async function seedIssuedCase(): Promise<{ caseId: string; recommendationId: str
     complainantId,
     respondentId,
     simulated: true,
+    disputeDescription: "The other party did not do what we agreed.",
     requestedStatementVersionId: statementVersionId,
     currentStatementVersionId: statementVersionId,
   });

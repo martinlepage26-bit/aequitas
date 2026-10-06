@@ -14,6 +14,10 @@
     "respondentNameLabel": "Respondent's name",
     "respondentNameHint": "If they don't have an Aequitas account yet, one will be prepared for them. They join through an invitation link from the Aequitas team; no email is sent automatically.",
     "categoryLabel": "What kind of dispute is this?",
+    "disputeDescriptionLabel": "What is this dispute about?",
+    "disputeDescriptionHint": "A short description of the dispute. This field is required.",
+    "amountLabel": "Approximate amount at stake (CAD, optional)",
+    "amountHint": "A rough figure is enough. Leave this blank if you do not know.",
     "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
     "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
     "submitButton": "Create case",
@@ -23,6 +27,11 @@
   "workspace": {
     "title": "Case workspace",
     "caseReference": "Case {reference}",
+    "dispute": {
+      "title": "The dispute",
+      "amount": "Approximate amount at stake: {amount}",
+      "missing": "No dispute description was recorded."
+    },
     "state": {
       "DRAFT": "Draft",
       "OPEN": "Open",
@@ -84,6 +93,7 @@
       "title": "Evidence",
       "empty": "No evidence has been submitted yet.",
       "submittedBy": "Submitted by {name}",
+      "download": "Download {title}",
       "supersededNotice": "Superseded / replaced",
       "scanStatus": {
         "CLEAN": "Clean",
@@ -232,6 +242,7 @@
         "COI_DECLARED": "Conflict-of-interest declaration recorded",
         "EVIDENCE_INTAKE_OPENED": "Evidence intake opened",
         "EVIDENCE_SUBMITTED": "Evidence submitted",
+        "EVIDENCE_ACCESSED": "Evidence file opened",
         "EVIDENCE_SUPERSEDED": "Evidence replaced",
         "EVIDENCE_INTAKE_CLOSED": "Evidence intake closed",
         "POSITION_SUBMITTED": "Position submitted",

@@ -39,7 +39,7 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const [party, respondent, manager, outsider] = await Promise.all([user("COMPLAINANT"), user("RESPONDENT"), user("CASE_MANAGER"), user("COMPLAINANT")]);
     const statement = await prisma.consentStatementVersion.create({ data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale, body: "Synthetic submission-flow test.", effectiveFrom: new Date() } });
     const created = await createCase({ actorId: party.id, actorRole: "COMPLAINANT", complainantId: party.id, respondentId: respondent.id,
-      referenceNumber: `AE-SUBMISSION-E2E-${randomUUID()}`, simulated: true, requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
+      referenceNumber: `AE-SUBMISSION-E2E-${randomUUID()}`, disputeDescription: "The other party did not do what we agreed.", simulated: true, requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
     if (!created.ok) throw new Error("Fixture creation failed");
     const caseId = created.data.caseId;
     const partyContext = await contextFor(browser, party.id, "COMPLAINANT", baseURL);

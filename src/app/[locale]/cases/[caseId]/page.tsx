@@ -151,6 +151,22 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <strong>{t(`state.${caseRow.state}`)}</strong>
       </p>
 
+      <section aria-labelledby="dispute-heading" className={styles.section}>
+        <h2 id="dispute-heading">{t("dispute.title")}</h2>
+        {caseRow.disputeDescription ? (
+          <p className={styles.recordText}>{caseRow.disputeDescription}</p>
+        ) : (
+          <p>{t("dispute.missing")}</p>
+        )}
+        {caseRow.amountAtStakeCents != null && (
+          <p>
+            {t("dispute.amount", {
+              amount: new Intl.NumberFormat(locale, { style: "currency", currency: "CAD" }).format(caseRow.amountAtStakeCents / 100),
+            })}
+          </p>
+        )}
+      </section>
+
       <h2 id="submission-heading">{t("submission.title")}</h2>
       <p>{t("submission.description")}</p>
       <nav className={styles.submissionNav} aria-labelledby="submission-heading">
@@ -203,6 +219,12 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                   <strong>{e.title}</strong> ({t(`evidence.kind.${e.kind}`)}) — {t("evidence.submittedBy", { name: e.submittedBy.displayName })}
                   {" — "}
                   {t(`evidence.scanStatus.${e.scanStatus}`)}
+                  {e.scanStatus === "CLEAN" && (isParty || isAssignedManager) && (
+                    <>
+                      {" — "}
+                      <a href={`/api/cases/${caseId}/evidence/${e.id}`}>{t("evidence.download", { title: e.title })}</a>
+                    </>
+                  )}
                   {caseRow.evidenceItems.some((other) => other.supersedesId === e.id) && <> — {t("evidence.supersededNotice")}</>}
                 </li>
               ))}

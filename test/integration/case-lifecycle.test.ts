@@ -49,6 +49,7 @@ async function freshOpenCase() {
     complainantId,
     respondentId,
     simulated: true,
+    disputeDescription: "The other party did not do what we agreed.",
     requestedStatementVersionId: statementVersionId,
     currentStatementVersionId: statementVersionId,
   });
@@ -74,6 +75,7 @@ describe("createCase — role enforcement", () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });
@@ -92,6 +94,7 @@ describe("submitCase — role and ownership enforcement", () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });
@@ -114,6 +117,7 @@ describe("submitCase — role and ownership enforcement", () => {
       complainantId,
       respondentId,
       simulated: true,
+      disputeDescription: "The other party did not do what we agreed.",
       requestedStatementVersionId: statementVersionId,
       currentStatementVersionId: statementVersionId,
     });
