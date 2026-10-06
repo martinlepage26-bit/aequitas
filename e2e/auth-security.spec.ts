@@ -5,6 +5,14 @@ import fr from "../messages/fr-CA.json";
 import { prisma } from "../src/lib/prisma";
 import { signPayload } from "../src/lib/signedCookie";
 
+// The URL does not change until the WebAuthn route responds and the client
+// navigation commits. CI's first e2e test compiles that route inside the wait
+// (`next dev` has no warm cache). Playwright's default 5s expect timeout then
+// expires while the page is still on sign-in?next=/cases/new; the same test
+// passes for the other locale once the route is compiled. A longer wait still
+// requires the protected URL, so a redirect back to sign-in fails.
+const coldAuthNavigation = { timeout: 20_000 };
+
 for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
   test(`passkey registration, sign-out and discoverable sign-in (${locale})`, async ({ page }) => {
     const cdp = await page.context().newCDPSession(page);
@@ -19,13 +27,13 @@ for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
     await page.locator("#email").fill(email);
     await page.locator("#displayName").fill("Browser passkey test");
     await page.getByRole("button", { name: messages.auth.create, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/cases/new$`));
+    await expect(page).toHaveURL(new RegExp(`/${locale}/cases/new$`), coldAuthNavigation);
     await page.getByRole("button", { name: messages.auth.signOut, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/auth/sign-in$`));
+    await expect(page).toHaveURL(new RegExp(`/${locale}/auth/sign-in$`), coldAuthNavigation);
     expect((await page.context().cookies()).some(cookie => cookie.name === "aequitas_session")).toBe(false);
     await page.locator("#email").fill(email);
     await page.getByRole("button", { name: messages.auth.continue, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/cases$`));
+    await expect(page).toHaveURL(new RegExp(`/${locale}/cases$`), coldAuthNavigation);
     expect(errors).toEqual([]);
   });
 
