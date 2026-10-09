@@ -2,56 +2,49 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
-  PALETTE_IDS,
   THEME_BOOT_SCRIPT,
   contrastRatio,
-  palettes,
   surfaces,
   themeTokenCss,
   type ThemeMode,
 } from "../../src/ui/workbenchTheme";
 
 describe("workbench theme", () => {
-  it("offers four palettes of eight swatches", () => {
-    expect(palettes.map((palette) => palette.id)).toEqual([...PALETTE_IDS]);
-    expect(palettes).toHaveLength(4);
-    for (const palette of palettes) {
-      expect(palette.swatches).toHaveLength(8);
-      expect(new Set(palette.swatches).size).toBe(8);
-    }
-    expect(palettes).toMatchSnapshot();
+  it("seals both modes with one signature colour", () => {
+    expect(surfaces.light.accent).toBe("#7c1e1e");
+    expect(surfaces.dark.accent).toBe("#e7b1a6");
+    expect(surfaces.light.accentText).toBe(surfaces.light.accent);
+    expect(themeTokenCss()).not.toContain("data-palette");
+    expect(surfaces).toMatchSnapshot();
   });
 
-  it("keeps text, controls, and accents at WCAG AA contrast in both modes", () => {
+  it("keeps text, controls, and the signature colour at WCAG AA contrast in both modes", () => {
     for (const mode of ["light", "dark"] as ThemeMode[]) {
       const surface = surfaces[mode];
       for (const background of [surface.bg, surface.panel, surface.raised]) {
         expect(contrastRatio(surface.text, background)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(surface.muted, background)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(surface.danger, background)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(surface.accentText, background)).toBeGreaterThanOrEqual(4.5);
       }
       expect(contrastRatio(surface.noteText, surface.noteBg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(surface.onAccent, surface.accent)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(surface.controlBorder, surface.panel)).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(surface.controlBorder, surface.raised)).toBeGreaterThanOrEqual(3);
       expect(contrastRatio(surface.focus, surface.panel)).toBeGreaterThanOrEqual(3);
-      for (const palette of palettes) {
-        const accent = palette[mode];
-        expect(contrastRatio(accent.onAccent, accent.accent)).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(accent.accentText, surface.panel)).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(accent.accentText, surface.raised)).toBeGreaterThanOrEqual(4.5);
-      }
     }
     expect(surfaces.light.noteText).toBe("#4a3b13");
     expect(surfaces.dark.noteText).toBe(surfaces.light.noteText);
+    expect(surfaces.dark.noteBg).toBe(surfaces.light.noteBg);
   });
 
   it("writes the same tokens the stylesheet serves", () => {
     const css = readFileSync(new URL("../../src/app/theme-tokens.css", import.meta.url), "utf8");
     expect(css).toBe(themeTokenCss());
     expect(css).toContain('[data-theme="dark"]');
-    for (const id of PALETTE_IDS) {
-      if (id === "slate") continue;
-      expect(css).toContain(`[data-palette="${id}"]`);
-    }
+    expect(css).toContain("--radius: 0;");
+    expect(css).not.toContain("data-palette");
+    expect(css).not.toContain("--swatch-");
   });
 
   it("applies a stored theme and follows the system scheme until one is chosen", () => {
@@ -81,16 +74,17 @@ describe("workbench theme", () => {
     expect(attrs["data-theme"]).toBe("light");
 
     storage["aequitas-theme"] = "dark";
-    storage["aequitas-palette"] = "harbour";
+    dark = false;
     listeners[0]?.();
     expect(attrs["data-theme"]).toBe("dark");
-    expect(attrs["data-palette"]).toBe("harbour");
 
+    storage["aequitas-theme"] = "nope";
     dark = true;
+    listeners[0]?.();
+    expect(attrs["data-theme"]).toBe("dark");
+
     storage["aequitas-theme"] = "light";
-    storage["aequitas-palette"] = "nope";
     listeners[0]?.();
     expect(attrs["data-theme"]).toBe("light");
-    expect(attrs["data-palette"]).toBe("harbour");
   });
 });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Icon, Mark } from "./icons";
+import { EvenLine, Icon, Mark, Wordmark } from "./icons";
 import ThemeControls from "./ThemeControls";
 import styles from "./workbench-shell.module.css";
 
@@ -52,7 +52,7 @@ export default function WorkbenchShell({
           <nav className={styles.nav} aria-label={tAuth("account")}>
             <Link className={`${styles.navLink} ${styles.brand}`} href={home} aria-current={pathname === home ? "page" : undefined}>
               <Mark />
-              <span className={styles.navLabel}>{tLanding("title")}</span>
+              <span className={styles.navLabel}><Wordmark>{tLanding("title")}</Wordmark></span>
             </Link>
             <Link className={styles.navLink} href={cases} aria-current={onCases ? "page" : undefined}>
               <Icon name="cases" />
@@ -70,22 +70,14 @@ export default function WorkbenchShell({
                 <span className={styles.navLabel}>{tAuth("invites")}</span>
               </Link>
             )}
-            <div className={styles.navFooter}>
-              {signedIn ? (
-                <form action="/api/auth/sign-out" method="post">
-                  <input type="hidden" name="locale" value={locale} />
-                  <button className={styles.navButton} type="submit">
-                    <Icon name="logout" />
-                    <span className={styles.navLabel}>{tAuth("signOut")}</span>
-                  </button>
-                </form>
-              ) : (
+            {!signedIn && (
+              <div className={styles.navFooter}>
                 <Link className={styles.navLink} href={`/${locale}/auth/sign-in`} aria-current={pathname.startsWith(`/${locale}/auth/sign-in`) ? "page" : undefined}>
                   <Icon name="login" />
                   <span className={styles.navLabel}>{tAuth("signIn")}</span>
                 </Link>
-              )}
-            </div>
+              </div>
+            )}
           </nav>
         </div>
         {open && <button type="button" className={styles.backdrop} aria-label={tChrome("closeNavigation")} onClick={() => setOpenPath(null)} />}
@@ -102,9 +94,20 @@ export default function WorkbenchShell({
               >
                 <Icon name={open ? "close" : "menu"} />
               </button>
-              <p className={styles.wordmark}>{tLanding("title")}</p>
+              <div className={styles.masthead}>
+                <p className={styles.wordmark}><Wordmark>{tLanding("title")}</Wordmark></p>
+                <EvenLine />
+              </div>
             </div>
-            <ThemeControls locale={locale} />
+            <div className={styles.toolbarTools}>
+              <ThemeControls locale={locale} />
+              {signedIn && (
+                <form className={styles.signOut} action="/api/auth/sign-out" method="post">
+                  <input type="hidden" name="locale" value={locale} />
+                  <button type="submit">{tAuth("signOut")}</button>
+                </form>
+              )}
+            </div>
           </header>
           <div id="main-content" className={styles.content} tabIndex={-1}>
             {children}

@@ -16,9 +16,15 @@
   align-items: center;
   min-height: 28px;
   padding: 2px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .workspace a { color: var(--accent-text); }
 .backLink { display: inline-flex; align-items: center; min-height: 44px; }
@@ -26,13 +32,13 @@
   background: #fff3cd;
   color: #4a3b13;
   border: 1px solid #e0c36b;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 8px 16px;
 }
 .section {
-  padding: 16px;
+  padding: 16px 18px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   background: var(--panel);
   scroll-margin-top: 96px;
 }
@@ -45,14 +51,14 @@
   min-height: 44px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--panel);
   color: var(--text);
   text-decoration: none;
 }
 .submissionLink:hover { background: var(--panel-raised); }
 .submissionLink span { color: var(--muted); font-size: 0.875rem; }
-.guidance { color: var(--muted); background: var(--panel-raised); padding: 12px 16px; border-radius: var(--radius-sm); }
+.guidance { color: var(--muted); background: var(--panel-raised); padding: 12px 16px; border-left: 2px solid var(--accent); }
 .form { margin-top: 16px; }
 .form fieldset { border: 0; padding: 0; margin: 0; }
 .formRow { display: grid; gap: 8px; margin-bottom: 16px; }

@@ -456,16 +456,9 @@
     "appearance": "Appearance",
     "light": "Light",
     "dark": "Dark",
-    "palette": "Colour theme",
     "language": "Language",
     "english": "English",
-    "french": "Français",
-    "themes": {
-      "slate": "Slate",
-      "harbour": "Harbour",
-      "ember": "Ember",
-      "iris": "Iris"
-    }
+    "french": "Français"
   },
   "invite": {
     "title": "Activate your Aequitas account",

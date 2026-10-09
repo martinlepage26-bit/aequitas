@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Icon } from "../../components/icons";
+import { EvenLine, Wordmark } from "../../components/icons";
 import styles from "./landing.module.css";
 
 /**
@@ -13,7 +13,6 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations("landing");
   const steps = ["evidence", "review", "consent"] as const;
-  const stepIcons = { evidence: "evidence", review: "review", consent: "consent" } as const;
 
   return (
     <div className={styles.page} lang={locale}>
@@ -22,6 +21,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           <div className={styles.heroCopy}>
             <p className={styles.productLabel}>{t("workspaceLabel")}</p>
             <h1 id="landing-title" className={styles.headline}>{t("tagline")}</h1>
+            <EvenLine />
             <p className={styles.intro}>{t("intro")}</p>
             <div className={styles.actions}>
               <Link className={styles.primaryAction} href={`/${locale}/auth/sign-in`}>
@@ -69,7 +69,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           <ol className={styles.steps}>
             {steps.map((step, index) => (
               <li className={styles.step} key={step}>
-                <span className={styles.stepNumber} aria-hidden="true"><Icon name={stepIcons[step]} />{String(index + 1).padStart(2, "0")}</span>
+                <span className={styles.stepNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <h3>{t(`steps.${step}.title`)}</h3>
                   <p>{t(`steps.${step}.description`)}</p>
@@ -82,7 +82,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
       </main>
 
       <footer className={styles.footer}>
-        <span className={styles.footerBrand}>{t("title")}</span>
+        <span className={styles.footerBrand}><Wordmark>{t("title")}</Wordmark></span>
         <p>{t("footer")}</p>
       </footer>
     </div>

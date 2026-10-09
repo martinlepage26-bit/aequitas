@@ -11,20 +11,26 @@ body {
   color: var(--text);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
 :focus { outline: none; }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 
-h1, h2, h3, h4 { line-height: 1.25; font-weight: 650; letter-spacing: -0.02em; }
-h1 { font-size: clamp(1.5rem, 2.4vw, 1.875rem); margin: 0 0 0.5rem; }
-h2 { font-size: 1.125rem; margin: 0 0 0.75rem; }
-h3, h4 { font-size: 1rem; margin: 0 0 0.5rem; }
+h1, h2, h3, h4 {
+  font-family: var(--font-fraunces), "Iowan Old Style", Palatino, "Palatino Linotype", serif;
+  font-weight: 560;
+  font-variation-settings: "SOFT" 0, "WONK" 0.55, "opsz" 48;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); margin: 0 0 0.6rem; font-variation-settings: "SOFT" 0, "WONK" 0.65, "opsz" 72; }
+h2 { font-size: 1.35rem; margin: 0 0 0.75rem; }
+h3, h4 { font-size: 1.05rem; margin: 0 0 0.5rem; }
 p { margin: 0.5rem 0; }
 
-a { color: var(--accent-text); text-underline-offset: 3px; }
+a { color: var(--accent-text); text-underline-offset: 3px; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
 
 img { max-width: 100%; }
@@ -39,7 +45,7 @@ textarea {
   min-height: 44px;
   padding: 10px 12px;
   border: 1px solid var(--control-border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--panel-raised);
   color: var(--text);
 }
@@ -51,11 +57,18 @@ button {
   max-width: 100%;
   padding: 10px 16px;
   border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--accent);
   color: var(--on-accent);
+  font-weight: 650;
+  letter-spacing: 0.01em;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 86%, var(--text));
 }
 
 button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
@@ -89,13 +102,76 @@ fieldset { min-width: 0; }
   border: 0;
 }
 
+.wordmark {
+  font-family: var(--font-fraunces), "Iowan Old Style", Palatino, serif;
+  font-weight: 560;
+  font-variation-settings: "SOFT" 0, "WONK" 0.7, "opsz" 72;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.wordmark-i {
+  position: relative;
+  display: inline-block;
+}
+
+.wordmark-stem {
+  display: inline-block;
+  clip-path: inset(0.34em 0 0 0);
+}
+
+.wordmark-i::before {
+  content: "";
+  position: absolute;
+  top: 0.02em;
+  left: 50%;
+  width: 0.22em;
+  height: 0.22em;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+.even-line {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 14rem;
+  min-width: 4.5rem;
+  color: var(--text);
+}
+
+.even-line::before,
+.even-line::after {
+  content: "";
+  flex: 1 1 0;
+  height: 1px;
+  background: currentColor;
+}
+
+.even-line > span {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  background: var(--accent);
+}
+
+.kicker {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
 .stack { display: grid; gap: 16px; min-width: 0; }
 .narrow { max-width: 42rem; }
 .panel {
   min-width: 0;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 16px;
 }
 .hint { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.875rem; }
@@ -107,36 +183,39 @@ fieldset { min-width: 0; }
   margin-bottom: 16px;
   padding: 12px 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--panel-raised);
 }
 .button-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.button-row > button { flex: 1 1 0; }
 .button-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   padding: 10px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--accent);
   color: var(--on-accent);
   font-weight: 650;
   text-decoration: none;
 }
+.button-link:hover { background: color-mix(in srgb, var(--accent) 86%, var(--text)); text-decoration: none; }
 .ref { font-family: var(--font-geist-mono), ui-monospace, monospace; font-weight: 650; }
 
 .table-wrap { max-width: 100%; overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .data-table th, .data-table td {
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   text-align: start;
   vertical-align: top;
 }
 .data-table th {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
   font-weight: 650;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .data-table caption { caption-side: top; }
@@ -145,18 +224,33 @@ details {
   margin: 12px 0;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--panel-raised);
 }
 summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 650; }
 blockquote {
   margin: 12px 0;
   padding: 12px 16px;
-  border-left: 3px solid var(--accent);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
   background: var(--panel);
+  font-family: var(--font-fraunces), Palatino, serif;
+  font-style: italic;
+  font-variation-settings: "SOFT" 30, "WONK" 0.4, "opsz" 24;
 }
 article + article { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .even-line > span,
+  .wordmark-i::before {
+    transition: transform 200ms ease;
+  }
+  .even-line:hover > span { transform: scale(1.35); }
+  a:hover .wordmark-i::before,
+  .wordmark:hover .wordmark-i::before {
+    transform: translateX(-50%) scale(1.35);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

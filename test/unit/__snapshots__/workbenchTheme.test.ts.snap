@@ -1,98 +1,38 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`workbench theme > offers four palettes of eight swatches 1`] = `
-[
-  {
-    "dark": {
-      "accent": "#9ebfda",
-      "accentText": "#d5e4f2",
-      "onAccent": "#0e1a28",
-    },
-    "id": "slate",
-    "light": {
-      "accent": "#2f4a6b",
-      "accentText": "#2f4a6b",
-      "onAccent": "#ffffff",
-    },
-    "swatches": [
-      "#1b3a4b",
-      "#2f4a6b",
-      "#4c6e91",
-      "#7fa1c4",
-      "#c4a46a",
-      "#8a5a2b",
-      "#1e6b3c",
-      "#8a2a2a",
-    ],
+exports[`workbench theme > seals both modes with one signature colour 1`] = `
+{
+  "dark": {
+    "accent": "#e7b1a6",
+    "accentText": "#f0c8be",
+    "bg": "#100e0c",
+    "border": "#4a4036",
+    "controlBorder": "#a89886",
+    "danger": "#f0b4b4",
+    "focus": "#f6f1e8",
+    "muted": "#d0c6b8",
+    "noteBg": "#fff3cd",
+    "noteText": "#4a3b13",
+    "onAccent": "#1a120f",
+    "panel": "#1a1714",
+    "raised": "#241f1b",
+    "text": "#f6f1e8",
   },
-  {
-    "dark": {
-      "accent": "#8ed4c8",
-      "accentText": "#b7e4de",
-      "onAccent": "#062624",
-    },
-    "id": "harbour",
-    "light": {
-      "accent": "#0f5c5c",
-      "accentText": "#0c4a4a",
-      "onAccent": "#ffffff",
-    },
-    "swatches": [
-      "#0e3d3d",
-      "#0f5c5c",
-      "#1a7a72",
-      "#3d9b8f",
-      "#e0a106",
-      "#c46b2c",
-      "#1d4e89",
-      "#5c4a72",
-    ],
+  "light": {
+    "accent": "#7c1e1e",
+    "accentText": "#7c1e1e",
+    "bg": "#e7e1d6",
+    "border": "#c4b8a6",
+    "controlBorder": "#6a6156",
+    "danger": "#8a2a2a",
+    "focus": "#1a1612",
+    "muted": "#514a42",
+    "noteBg": "#fff3cd",
+    "noteText": "#4a3b13",
+    "onAccent": "#fff8f4",
+    "panel": "#f7f3eb",
+    "raised": "#fbf8f3",
+    "text": "#1a1612",
   },
-  {
-    "dark": {
-      "accent": "#f0b08a",
-      "accentText": "#f8c9b0",
-      "onAccent": "#2a1008",
-    },
-    "id": "ember",
-    "light": {
-      "accent": "#9a3412",
-      "accentText": "#8a2e10",
-      "onAccent": "#ffffff",
-    },
-    "swatches": [
-      "#4a1d12",
-      "#9a3412",
-      "#c2410c",
-      "#d97706",
-      "#e8b86d",
-      "#3f6212",
-      "#1e3a5f",
-      "#6d28d9",
-    ],
-  },
-  {
-    "dark": {
-      "accent": "#c4b5fd",
-      "accentText": "#d9d6fe",
-      "onAccent": "#1e1b4b",
-    },
-    "id": "iris",
-    "light": {
-      "accent": "#3730a3",
-      "accentText": "#312e81",
-      "onAccent": "#ffffff",
-    },
-    "swatches": [
-      "#1e1b4b",
-      "#3730a3",
-      "#4f46e5",
-      "#7c3aed",
-      "#0f766e",
-      "#b45309",
-      "#be123c",
-      "#64748b",
-    ],
-  },
-]
+}
 `;
