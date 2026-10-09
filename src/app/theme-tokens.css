@@ -1,0 +1,42 @@
+/* Generated from src/ui/workbenchTheme.ts — do not edit by hand. */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e7e1d6;
+  --panel: #f7f3eb;
+  --panel-raised: #fbf8f3;
+  --text: #1a1612;
+  --muted: #514a42;
+  --border: #c4b8a6;
+  --control-border: #6a6156;
+  --danger: #8a2a2a;
+  --focus: #1a1612;
+  --note-text: #4a3b13;
+  --note-bg: #fff3cd;
+  --accent: #7c1e1e;
+  --accent-text: #7c1e1e;
+  --on-accent: #fff8f4;
+  --radius: 0;
+  --radius-sm: 0;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #100e0c;
+  --panel: #1a1714;
+  --panel-raised: #241f1b;
+  --text: #f6f1e8;
+  --muted: #d0c6b8;
+  --border: #4a4036;
+  --control-border: #a89886;
+  --danger: #f0b4b4;
+  --focus: #f6f1e8;
+  --note-text: #4a3b13;
+  --note-bg: #fff3cd;
+  --accent: #e7b1a6;
+  --accent-text: #f0c8be;
+  --on-accent: #1a120f;
+  --radius: 0;
+  --radius-sm: 0;
+}

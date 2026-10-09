@@ -1,0 +1,38 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`workbench theme > seals both modes with one signature colour 1`] = `
+{
+  "dark": {
+    "accent": "#e7b1a6",
+    "accentText": "#f0c8be",
+    "bg": "#100e0c",
+    "border": "#4a4036",
+    "controlBorder": "#a89886",
+    "danger": "#f0b4b4",
+    "focus": "#f6f1e8",
+    "muted": "#d0c6b8",
+    "noteBg": "#fff3cd",
+    "noteText": "#4a3b13",
+    "onAccent": "#1a120f",
+    "panel": "#1a1714",
+    "raised": "#241f1b",
+    "text": "#f6f1e8",
+  },
+  "light": {
+    "accent": "#7c1e1e",
+    "accentText": "#7c1e1e",
+    "bg": "#e7e1d6",
+    "border": "#c4b8a6",
+    "controlBorder": "#6a6156",
+    "danger": "#8a2a2a",
+    "focus": "#1a1612",
+    "muted": "#514a42",
+    "noteBg": "#fff3cd",
+    "noteText": "#4a3b13",
+    "onAccent": "#fff8f4",
+    "panel": "#f7f3eb",
+    "raised": "#fbf8f3",
+    "text": "#1a1612",
+  },
+}
+`;

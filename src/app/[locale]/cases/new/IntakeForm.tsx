@@ -55,99 +55,50 @@ export default function IntakeForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <div
-        role="group"
-        aria-labelledby="consent-statement-heading"
-        style={{ border: "1px solid #ccc", padding: "1rem", marginBottom: "1rem", maxHeight: "12rem", overflowY: "auto" }}
-      >
-        <h2 id="consent-statement-heading" style={{ fontSize: "1rem", marginTop: 0 }}>
-          {t("statementHeading")}
-        </h2>
+      <div role="group" aria-labelledby="consent-statement-heading" className="statement">
+        <h2 id="consent-statement-heading">{t("statementHeading")}</h2>
         <p>{statementBody}</p>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="respondent-email">{t("respondentEmailLabel")}</label>
-        <br />
-        <input
-          id="respondent-email"
-          type="email"
-          required
-          value={respondentEmail}
-          onChange={(e) => setRespondentEmail(e.target.value)}
-          style={{ width: "100%" }}
-        />
+        <input id="respondent-email" type="email" required value={respondentEmail} onChange={(e) => setRespondentEmail(e.target.value)} />
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="respondent-name">{t("respondentNameLabel")}</label>
-        <br />
-        <input
-          id="respondent-name"
-          type="text"
-          value={respondentDisplayName}
-          onChange={(e) => setRespondentDisplayName(e.target.value)}
-          style={{ width: "100%" }}
-        />
-        <p style={{ fontSize: "0.85rem", color: "#555" }}>{t("respondentNameHint")}</p>
+        <input id="respondent-name" type="text" value={respondentDisplayName} onChange={(e) => setRespondentDisplayName(e.target.value)} />
+        <p className="hint">{t("respondentNameHint")}</p>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="category">{t("categoryLabel")}</label>
-        <br />
-        <select id="category" value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: "100%" }}>
+        <select id="category" value={category} onChange={(e) => setCategory(e.target.value)}>
           {categoryOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="dispute-description">{t("disputeDescriptionLabel")}</label>
-        <br />
-        <textarea
-          id="dispute-description"
-          required
-          maxLength={2000}
-          rows={4}
-          value={disputeDescription}
-          aria-describedby="dispute-description-hint"
-          onChange={(e) => setDisputeDescription(e.target.value)}
-          style={{ width: "100%" }}
-        />
-        <p id="dispute-description-hint" style={{ fontSize: "0.85rem", color: "#555" }}>
-          {t("disputeDescriptionHint")}
-        </p>
+        <textarea id="dispute-description" required maxLength={2000} rows={4} value={disputeDescription} aria-describedby="dispute-description-hint" onChange={(e) => setDisputeDescription(e.target.value)} />
+        <p id="dispute-description-hint" className="hint">{t("disputeDescriptionHint")}</p>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="amount-at-stake">{t("amountLabel")}</label>
-        <br />
-        <input
-          id="amount-at-stake"
-          type="number"
-          min={0}
-          step="0.01"
-          inputMode="decimal"
-          value={amountAtStake}
-          aria-describedby="amount-at-stake-hint"
-          onChange={(e) => setAmountAtStake(e.target.value)}
-          style={{ width: "100%" }}
-        />
-        <p id="amount-at-stake-hint" style={{ fontSize: "0.85rem", color: "#555" }}>
-          {t("amountHint")}
-        </p>
+        <input id="amount-at-stake" type="number" min={0} step="0.01" inputMode="decimal" value={amountAtStake} aria-describedby="amount-at-stake-hint" onChange={(e) => setAmountAtStake(e.target.value)} />
+        <p id="amount-at-stake-hint" className="hint">{t("amountHint")}</p>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="simulated">
           <input id="simulated" type="checkbox" checked={simulated} onChange={(e) => setSimulated(e.target.checked)} /> {t("simulatedLabel")}
         </label>
       </div>
 
-      <div style={{ marginBottom: "1rem" }}>
+      <div className="field">
         <label htmlFor="acknowledge">
           <input id="acknowledge" type="checkbox" required checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} />{" "}
           {t("acknowledgeLabel")}
@@ -158,7 +109,7 @@ export default function IntakeForm({
         {status.kind === "busy" ? t("submitting") : t("submitButton")}
       </button>
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "#8A2A2A" }}>
+        <p role="alert" className="alert">
           {status.message}
         </p>
       )}

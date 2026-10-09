@@ -176,8 +176,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         </a>)}
       </nav>
 
-      <section aria-labelledby="authority-heading" style={{ border: "1px solid #ccc", padding: "1rem", marginBottom: "1.5rem" }}>
-        <h2 id="authority-heading" style={{ fontSize: "1rem", marginTop: 0 }}>
+      <section aria-labelledby="authority-heading" className={styles.section}>
+        <h2 id="authority-heading">
           {t("header.roleLabel", { role: roleLabel(authority.roleKey) })}
         </h2>
         {caseRow.state === "CLOSED" ? (
@@ -204,7 +204,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {canWithdraw && <WithdrawButton caseId={caseId} />}
       </section>
 
-      <section aria-labelledby="evidence-heading" className={styles.section}>
+      <section aria-labelledby="evidence-heading" className={`${styles.section} ${styles.tile}`}>
         <h2 id="evidence-heading">{t("evidence.title")}</h2>
         <p>{t("submission.evidenceHelp")}</p>
         <p className={styles.guidance} id="evidence-guidance">{guidance("evidence")}</p>
@@ -233,7 +233,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <EvidenceForm caseId={caseId} disabled={!canSubmitEvidence || !isParty} />
       </section>
 
-      <section aria-labelledby="chronology-heading" className={styles.section}>
+      <section aria-labelledby="chronology-heading" className={`${styles.section} ${styles.tile}`}>
         <h2 id="chronology-heading">{t("chronology.title")}</h2>
         <p>{t("chronology.description")}</p>
         <p className={styles.guidance} id="chronology-guidance">{guidance("chronology")}</p>
@@ -250,7 +250,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <ChronologyForm caseId={caseId} disabled={!canSubmitChronology || !isParty} />
       </section>
 
-      <section aria-labelledby="positions-heading" className={styles.section}>
+      <section aria-labelledby="positions-heading" className={`${styles.section} ${styles.tile}`}>
         <h2 id="positions-heading">{t("positions.title")}</h2>
         <p>{t("submission.positionHelp")}</p>
         <p className={styles.guidance} id="position-guidance">{guidance("position")}</p>
@@ -273,9 +273,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}
 
       {recommendation && (
-        <section aria-labelledby="recommendation-heading" style={{ marginBottom: "1.5rem", marginTop: "1.5rem" }}>
+        <section aria-labelledby="recommendation-heading" className={styles.section}>
           <h2 id="recommendation-heading">{t("recommendation.title")}</h2>
-          <h3 style={{ fontSize: "1rem" }}>
+          <h3>
             {recommendation.status === "ISSUED" ? t("recommendation.issuedHeading") : t("recommendation.draftHeading")}
           </h3>
           <p>
@@ -337,12 +337,12 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       {canCloseCase && <CloseCaseButton caseId={caseId} />}
 
       {caseRow.state === "CLOSED" && (
-        <p style={{ marginTop: "1rem" }}>
+        <p>
           <a href={`/api/cases/${caseId}/export`}>{t("export.link")}</a>
         </p>
       )}
 
-      <section aria-labelledby="timeline-heading" style={{ marginTop: "1.5rem" }}>
+      <section aria-labelledby="timeline-heading" className={styles.section}>
         <h2 id="timeline-heading">{t("timeline.title")}</h2>
         <p>{t("timeline.description")}</p>
         {visibleEvents.length === 0 ? (

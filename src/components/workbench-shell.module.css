@@ -1,0 +1,147 @@
+.shell { min-height: 100vh; background: var(--bg); color: var(--text); }
+.skip {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  transform: translateY(-150%);
+  z-index: 50;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 10px 16px;
+  text-decoration: none;
+}
+.skip:focus { transform: none; }
+.frame { display: flex; min-height: 100vh; min-width: 0; }
+.rail {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+.nav { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 100%; padding: 12px 8px; }
+.navFooter { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+.navLink:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.navLink[aria-current="page"] {
+  background: transparent;
+  box-shadow: inset 2px 0 0 var(--accent);
+  font-weight: 650;
+}
+.brand { color: var(--text); }
+.brand svg { flex: 0 0 auto; }
+.navLabel { white-space: nowrap; overflow: hidden; max-width: 0; opacity: 0; }
+.stage { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 12px 16px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--text);
+  box-shadow: 0 3px 0 var(--bg), 0 4px 0 var(--text);
+}
+.toolbarLead { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 16rem; }
+.masthead { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+.wordmark { margin: 0; font-size: 1.45rem; }
+.menuButton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  background: var(--panel-raised);
+  color: var(--text);
+}
+.toolbarTools { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; min-width: 0; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; min-width: 0; }
+.signOut { margin: 0; }
+.signOut button {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--control-border);
+}
+.signOut button:hover { background: var(--bg); }
+.toolbarField {
+  display: grid;
+  gap: 4px;
+  flex: 0 1 9.5rem;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.toolbarField select { font-size: 0.95rem; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.content { min-width: 0; padding: 16px; }
+.content:focus { outline: none; }
+.backdrop { display: none; }
+
+@media (max-width: 767px) {
+  .menuButton { display: inline-flex; }
+  .rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(260px, calc(100vw - 48px));
+    transform: translateX(-105%);
+    visibility: hidden;
+  }
+  .railOpen { transform: none; visibility: visible; }
+  .railOpen .navLabel { opacity: 1; max-width: 12rem; }
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    padding: 0;
+    min-height: 100%;
+    background: rgb(16 14 12 / 0.46);
+  }
+  .content { padding: 12px; }
+  .toolbar { padding-inline: 12px; }
+}
+
+@media (max-width: 479px) {
+  .masthead :global(.even-line) { display: none; }
+}
+
+@media (min-width: 768px) {
+  .rail { width: 76px; flex: 0 0 76px; overflow: hidden; transition: width 180ms ease; }
+  .frame:has(.rail:hover) .rail,
+  .frame:has(.rail:focus-within) .rail { width: 240px; flex-basis: 240px; }
+  .rail:hover .navLabel,
+  .rail:focus-within .navLabel { opacity: 1; max-width: 12rem; }
+  .content { padding: 28px 32px 48px; }
+  .toolbar { padding-inline: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail, .navLabel { transition: none; }
+}

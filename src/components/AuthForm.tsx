@@ -5,13 +5,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Mark, Wordmark } from "./icons";
 import { usePasskeyFlow } from "./usePasskeyFlow";
 import styles from "../app/auth/sign-in/sign-in.module.css";
-
-const display = Fraunces({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-display" });
-const body = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["500"], variable: "--font-mono" });
 
 export default function AuthForm({ returnTo }: { returnTo: string }) {
   const router = useRouter();
@@ -48,10 +44,10 @@ export default function AuthForm({ returnTo }: { returnTo: string }) {
     }
   }
   return (
-    <main className={`${styles.page} ${display.variable} ${body.variable} ${mono.variable}`}>
+    <main className={styles.page}>
       <div className={styles.frame}>
         <div className={styles.mark}>
-          <Link href={`/${locale}`} className={styles.wordmark}>Aequitas</Link>
+          <Link href={`/${locale}`} className={styles.wordmark}><Mark /><Wordmark>Aequitas</Wordmark></Link>
           <span className={styles.tagline}>{t("tagline")}</span>
           <Link href={`/${locale === "fr-CA" ? "en-CA" : "fr-CA"}/auth/sign-in?next=${encodeURIComponent(returnTo.replace(`/${locale}/`, `/${locale === "fr-CA" ? "en-CA" : "fr-CA"}/`))}`}>{t("otherLanguage")}</Link>
         </div>

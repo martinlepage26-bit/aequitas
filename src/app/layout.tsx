@@ -1,5 +1,6 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { THEME_BOOT_SCRIPT } from "../ui/workbenchTheme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +11,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
 export async function generateMetadata() {
@@ -23,14 +30,16 @@ export async function generateMetadata() {
   };
 }
 
-export default async function RootLayout({ children }) {
-  const locale = (await headers()).get("x-aequitas-locale") === "en-CA" ? "en-CA" : "fr-CA";
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headerList = await headers();
+  const locale = headerList.get("x-aequitas-locale") === "en-CA" ? "en-CA" : "fr-CA";
+  const nonce = headerList.get("x-nonce") ?? undefined;
   return (
-    <html
-      lang={locale}
-      className={`${geistSans.variable} ${geistMono.variable}`}
-    >
-      <body>{children}</body>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable}`} suppressHydrationWarning>
+      <body>
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }
