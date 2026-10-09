@@ -1,17 +1,25 @@
 import { randomUUID } from "node:crypto";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import en from "../messages/en-CA.json";
 import fr from "../messages/fr-CA.json";
 import { prisma } from "../src/lib/prisma";
 import { signPayload } from "../src/lib/signedCookie";
 
-// The URL does not change until the WebAuthn route responds and the client
-// navigation commits. CI's first e2e test compiles that route inside the wait
-// (`next dev` has no warm cache). Playwright's default 5s expect timeout then
-// expires while the page is still on sign-in?next=/cases/new; the same test
-// passes for the other locale once the route is compiled. A longer wait still
-// requires the protected URL, so a redirect back to sign-in fails.
-const coldAuthNavigation = { timeout: 20_000 };
+// The sign-in document's client scripts are async. Playwright's URL and load
+// checks resolve before React commits AuthForm, while Continue is already in
+// the server HTML as a native submit button. A click in that gap is a GET of
+// this same page — the inputs have no name, so WebAuthn never starts — and
+// the URL then stays on sign-in for the whole assertion. Registration does
+// not hit it: #displayName is rendered only after the Register click is
+// handled. The other locale does not hit it either, once the chunks are
+// cached. Waiting for the hydrated field keeps the URL assertion intact.
+async function waitForPasskeyForm(page: Page) {
+  await page.locator("#email").waitFor();
+  await page.waitForFunction(() => {
+    const input = document.querySelector("#email");
+    return !!input && Object.keys(input).some((key) => key.startsWith("__reactFiber$"));
+  });
+}
 
 for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
   test(`passkey registration, sign-out and discoverable sign-in (${locale})`, async ({ page }) => {
@@ -23,17 +31,19 @@ for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
     await page.goto(`/${locale}/cases/new`);
     await expect(page).toHaveURL(new RegExp(`/${locale}/auth/sign-in\\?next=`));
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await waitForPasskeyForm(page);
     await page.getByRole("button", { name: messages.auth.register, exact: true }).click();
     await page.locator("#email").fill(email);
     await page.locator("#displayName").fill("Browser passkey test");
     await page.getByRole("button", { name: messages.auth.create, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/cases/new$`), coldAuthNavigation);
+    await expect(page).toHaveURL(new RegExp(`/${locale}/cases/new$`));
     await page.getByRole("button", { name: messages.auth.signOut, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/auth/sign-in$`), coldAuthNavigation);
+    await expect(page).toHaveURL(new RegExp(`/${locale}/auth/sign-in$`));
     expect((await page.context().cookies()).some(cookie => cookie.name === "aequitas_session")).toBe(false);
+    await waitForPasskeyForm(page);
     await page.locator("#email").fill(email);
     await page.getByRole("button", { name: messages.auth.continue, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/cases$`), coldAuthNavigation);
+    await expect(page).toHaveURL(new RegExp(`/${locale}/cases$`));
     expect(errors).toEqual([]);
   });
 
@@ -44,6 +54,7 @@ for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
       await route.abort();
     });
     await page.goto(`/${locale}/auth/sign-in`);
+    await waitForPasskeyForm(page);
     await page.locator("#email").fill("device-test@example.com");
     await page.getByRole("button", { name: messages.auth.continue, exact: true }).click();
     await expect(page.getByRole("button", { name: messages.auth.cancel, exact: true })).toBeVisible();
