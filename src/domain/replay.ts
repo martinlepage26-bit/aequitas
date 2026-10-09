@@ -74,6 +74,14 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "EVIDENCE_ACCESSED":
         // A download audit. It does not move the case.
         break;
+      case "SOURCE_RECORDED":
+      case "CLAIM_RECORDED":
+      case "CLAIM_UPDATED":
+      case "CLAIM_EVIDENCE_LINKED":
+      case "CLAIM_RELATIONSHIP_RECORDED":
+      case "REVIEW_RECORDED":
+        // Phase 1 traceable-core writes. They do not move Case.state.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

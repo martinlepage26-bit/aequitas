@@ -74,6 +74,29 @@
 .chronology p, .recordText { white-space: pre-wrap; }
 .section ul, .section ol { margin: 8px 0; padding-left: 1.1rem; }
 .section li { padding: 6px 0; }
+.claim { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.claimMeta { margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
+.claimType {
+  color: var(--accent-text);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.provenance {
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: var(--panel-raised);
+  border-left: 2px solid var(--accent);
+}
+.provenance summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--accent-text);
+}
+.provenance h3 { margin: 12px 0 8px; font-size: 1rem; }
 
 @media (min-width: 960px) {
   .workspace { grid-template-columns: 1fr 1fr; }

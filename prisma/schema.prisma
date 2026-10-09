@@ -100,6 +100,12 @@ enum EventType {
   PARTY_NOTIFIED
   NOTE_ADDED
   ACCESS_STAFF_GRANTED
+  SOURCE_RECORDED
+  CLAIM_RECORDED
+  CLAIM_UPDATED
+  CLAIM_EVIDENCE_LINKED
+  CLAIM_RELATIONSHIP_RECORDED
+  REVIEW_RECORDED
 }
 
 model User {
@@ -125,6 +131,12 @@ model User {
   coiDeclarations       CoiDeclaration[]
   exportsGenerated      ExportBundle[]
   notifications         Notification[]
+  sourcesCreated            Source[]            @relation("SourceCreatedBy")
+  claimsCreated             Claim[]             @relation("ClaimCreatedBy")
+  claimLinksCreated         ClaimEvidenceLink[] @relation("ClaimLinkCreatedBy")
+  claimRelationshipsCreated ClaimRelationship[] @relation("ClaimRelationshipCreatedBy")
+  reviewsAuthored           ReviewTrail[]       @relation("ReviewTrailReviewer")
+  reviewsCreated            ReviewTrail[]       @relation("ReviewTrailCreatedBy")
 }
 
 model WebAuthnCredential {
@@ -187,6 +199,10 @@ model Case {
   events              Event[]
   exportBundles       ExportBundle[]
   notifications       Notification[]
+  sources             Source[]
+  claims              Claim[]
+  claimRelationships  ClaimRelationship[]
+  reviews             ReviewTrail[]
 }
 
 model EvidenceItem {
@@ -208,6 +224,7 @@ model EvidenceItem {
 
   case        Case @relation(fields: [caseId], references: [id])
   submittedBy User @relation(fields: [submittedById], references: [id])
+  citedBySources Source[]
 }
 
 model PositionStatement {
@@ -343,4 +360,202 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id])
   case Case @relation(fields: [caseId], references: [id])
+}
+
+// Phase 1 traceable core. Additive on the dispute case model above.
+// A claim without a verbatim excerpt is stored, but presentation forces
+// status NEEDS_EVIDENCE. Impact statements are never treated as factual claims.
+
+enum ClaimType {
+  FACTUAL
+  CAUSAL
+  MORAL
+  IDENTITY
+  POLICY
+  IMPACT_STATEMENT
+}
+
+enum ClaimConfidence {
+  ESTABLISHED
+  PROBABLE
+  DISPUTED
+  UNKNOWN
+}
+
+enum ClaimStatus {
+  OPEN
+  NEEDS_EVIDENCE
+  DISPUTED
+  MERGED
+  SUPERSEDED
+  WITHDRAWN
+}
+
+enum SourceKind {
+  DOCUMENT
+  MESSAGE
+  TESTIMONY
+  POLICY
+  RECORD
+  URL
+  EVIDENCE_ITEM
+  STATUTE
+}
+
+enum SourceVisibility {
+  CASE
+  RESTRICTED
+  REDACTED
+}
+
+enum ClaimLinkPredicate {
+  ORIGINATES_FROM
+  SUPPORTS
+  CONTRADICTS
+  QUALIFIES
+}
+
+enum ClaimRelationPredicate {
+  SUPPORTS
+  CONTRADICTS
+  QUALIFIES
+  INTERPRETS
+  EXPERIENCED_BY
+  OCCURRED_BEFORE
+  ALLEGED_TO_HAVE_CONTRIBUTED_TO
+  CONSISTENT_WITH
+  AMPLIFIED_BY
+  GOVERNED_BY
+  REQUIRES_REVIEW
+  UNRESOLVED_WITH
+  PROPOSES_REPAIR_FOR
+  CONTESTED_BY
+}
+
+enum ReviewAction {
+  NOTED
+  EDITED
+  APPROVED
+  REJECTED
+  OVERRULED_CONTESTATION
+}
+
+model Source {
+  id             String           @id @default(uuid())
+  caseId         String
+  kind           SourceKind
+  title          String
+  origin         String?
+  obtainedVia    String?
+  language       String           @default("fr-CA")
+  sensitive      Boolean          @default(false)
+  visibility     SourceVisibility @default(CASE)
+  contentRef     String?
+  citation       String?
+  legalFramework String?
+  evidenceItemId String?
+  publishedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  createdById    String
+  deletedAt      DateTime?
+  deletionReason String?
+
+  case          Case                @relation(fields: [caseId], references: [id])
+  createdBy     User                @relation("SourceCreatedBy", fields: [createdById], references: [id])
+  evidenceItem  EvidenceItem?       @relation(fields: [evidenceItemId], references: [id])
+  evidenceLinks ClaimEvidenceLink[]
+  relationships ClaimRelationship[]
+
+  @@index([caseId, createdAt])
+}
+
+model Claim {
+  id                      String          @id @default(uuid())
+  caseId                  String
+  claimType               ClaimType
+  text                    String
+  confidence              ClaimConfidence @default(UNKNOWN)
+  confidenceRationale     String?
+  status                  ClaimStatus     @default(NEEDS_EVIDENCE)
+  mergedIntoId            String?
+  locale                  String          @default("fr-CA")
+  doNotSummarizeAsSettled Boolean         @default(false)
+  createdAt               DateTime        @default(now())
+  createdById             String
+  deletedAt               DateTime?
+  deletionReason          String?
+
+  case              Case                @relation(fields: [caseId], references: [id])
+  createdBy         User                @relation("ClaimCreatedBy", fields: [createdById], references: [id])
+  mergedInto        Claim?              @relation("ClaimMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom        Claim[]             @relation("ClaimMerge")
+  evidenceLinks     ClaimEvidenceLink[]
+  relationshipsFrom ClaimRelationship[] @relation("RelationshipFrom")
+  relationshipsTo   ClaimRelationship[] @relation("RelationshipTo")
+  reviews           ReviewTrail[]
+
+  @@index([caseId, createdAt])
+}
+
+model ClaimEvidenceLink {
+  id             String             @id @default(uuid())
+  claimId        String
+  sourceId       String
+  predicate      ClaimLinkPredicate
+  excerpt        String
+  rationale      String?
+  createdAt      DateTime           @default(now())
+  createdById    String
+  deletedAt      DateTime?
+  deletionReason String?
+
+  claim     Claim  @relation(fields: [claimId], references: [id])
+  source    Source @relation(fields: [sourceId], references: [id])
+  createdBy User   @relation("ClaimLinkCreatedBy", fields: [createdById], references: [id])
+
+  @@index([claimId])
+  @@index([sourceId])
+}
+
+model ClaimRelationship {
+  id             String                 @id @default(uuid())
+  caseId         String
+  fromClaimId    String
+  toClaimId      String
+  predicate      ClaimRelationPredicate
+  evidenceId     String?
+  rationale      String?
+  createdAt      DateTime               @default(now())
+  createdById    String
+  deletedAt      DateTime?
+  deletionReason String?
+
+  case      Case    @relation(fields: [caseId], references: [id])
+  fromClaim Claim   @relation("RelationshipFrom", fields: [fromClaimId], references: [id])
+  toClaim   Claim   @relation("RelationshipTo", fields: [toClaimId], references: [id])
+  evidence  Source? @relation(fields: [evidenceId], references: [id])
+  createdBy User    @relation("ClaimRelationshipCreatedBy", fields: [createdById], references: [id])
+
+  @@index([caseId, createdAt])
+}
+
+model ReviewTrail {
+  id          String       @id @default(uuid())
+  caseId      String
+  claimId     String?
+  // Nullable until synthesis_versions exists. Phase 1 does not approve a synthesis.
+  synthesisId String?
+  reviewerId  String
+  action      ReviewAction
+  rationale   String?
+  snapshot    Json?
+  createdAt   DateTime     @default(now())
+  createdById String
+
+  case      Case   @relation(fields: [caseId], references: [id])
+  claim     Claim? @relation(fields: [claimId], references: [id])
+  reviewer  User   @relation("ReviewTrailReviewer", fields: [reviewerId], references: [id])
+  createdBy User   @relation("ReviewTrailCreatedBy", fields: [createdById], references: [id])
+
+  @@index([caseId, createdAt])
 }
