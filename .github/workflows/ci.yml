@@ -82,8 +82,7 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
       # M2's own "Done when" criterion (Section 19): "M2 E2E segment passes
-      # in both locales." playwright.config.ts starts its own `next dev`
-      # (no dev server is already running in a fresh CI job, so there's
-      # nothing for it to conflict with — see DECISIONS.md's M2 note on
-      # Next.js 16 allowing only one `next dev` per project directory).
+      # in both locales." The build above is what this step serves:
+      # playwright.config.ts starts `next start` when CI is set, so the
+      # suite does not pay for on-demand compilation inside the first test.
       - run: npm run test:e2e
