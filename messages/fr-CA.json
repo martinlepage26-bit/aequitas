@@ -440,7 +440,32 @@
     "startNew": "Ouvrir un nouveau dossier",
     "unclaimed": "Non attribué",
     "otherParty": "Avec {name}",
-    "viewLink": "Voir"
+    "viewLink": "Voir",
+    "filterLabel": "Afficher",
+    "filterAll": "Tous les dossiers",
+    "filterEmpty": "Aucun dossier ne correspond à ce filtre.",
+    "columns": {
+      "reference": "Référence",
+      "state": "État",
+      "party": "Partie"
+    }
+  },
+  "chrome": {
+    "openNavigation": "Ouvrir la navigation",
+    "closeNavigation": "Fermer la navigation",
+    "appearance": "Apparence",
+    "light": "Clair",
+    "dark": "Sombre",
+    "palette": "Thème de couleur",
+    "language": "Langue",
+    "english": "English",
+    "french": "Français",
+    "themes": {
+      "slate": "Ardoise",
+      "harbour": "Havre",
+      "ember": "Braise",
+      "iris": "Iris"
+    }
   },
   "invite": {
     "title": "Activer votre compte Aequitas",

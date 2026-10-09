@@ -41,7 +41,7 @@ export default function WithdrawButton({ caseId }: { caseId: string }) {
         {status.kind === "busy" ? t("withdrawing") : t("withdrawButton")}
       </button>
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "#8A2A2A" }}>
+        <p role="alert" className="alert">
           {status.message}
         </p>
       )}

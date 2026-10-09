@@ -52,7 +52,7 @@ export default function OpenIntakeButton({ caseId }: { caseId: string }) {
         {status.kind === "busy" ? t("opening") : t("openButton")}
       </button>
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "#8A2A2A" }}>
+        <p role="alert" className="alert">
           {status.message}
         </p>
       )}

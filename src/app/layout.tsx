@@ -1,5 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import Script from "next/script";
+import { THEME_BOOT_SCRIPT } from "../ui/workbenchTheme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,14 +25,14 @@ export async function generateMetadata() {
   };
 }
 
-export default async function RootLayout({ children }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = (await headers()).get("x-aequitas-locale") === "en-CA" ? "en-CA" : "fr-CA";
   return (
-    <html
-      lang={locale}
-      className={`${geistSans.variable} ${geistMono.variable}`}
-    >
-      <body>{children}</body>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <body>
+        <Script id="aequitas-theme-boot" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        {children}
+      </body>
     </html>
   );
 }

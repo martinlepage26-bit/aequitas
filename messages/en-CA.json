@@ -440,7 +440,32 @@
     "startNew": "Start a new case",
     "unclaimed": "Unclaimed",
     "otherParty": "With {name}",
-    "viewLink": "View"
+    "viewLink": "View",
+    "filterLabel": "Show",
+    "filterAll": "All cases",
+    "filterEmpty": "No cases match this filter.",
+    "columns": {
+      "reference": "Reference",
+      "state": "State",
+      "party": "Party"
+    }
+  },
+  "chrome": {
+    "openNavigation": "Open navigation",
+    "closeNavigation": "Close navigation",
+    "appearance": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "palette": "Colour theme",
+    "language": "Language",
+    "english": "English",
+    "french": "Français",
+    "themes": {
+      "slate": "Slate",
+      "harbour": "Harbour",
+      "ember": "Ember",
+      "iris": "Iris"
+    }
   },
   "invite": {
     "title": "Activate your Aequitas account",

@@ -32,12 +32,14 @@ export default async function NewCasePage({ params }: { params: Promise<{ locale
   }));
 
   return (
-    <main style={{ maxWidth: "40rem", margin: "2rem auto", padding: "0 1rem", fontFamily: "system-ui, sans-serif" }}>
+    <main className="stack narrow">
       <h1>{t("title")}</h1>
       {!currentStatement ? (
-        <p role="alert">{t("noStatement", { locale: complainant.locale })}</p>
+        <p className="panel alert" role="alert">{t("noStatement", { locale: complainant.locale })}</p>
       ) : (
-        <IntakeForm statementVersionId={currentStatement.id} statementBody={currentStatement.body} categoryOptions={categoryOptions} />
+        <div className="panel">
+          <IntakeForm statementVersionId={currentStatement.id} statementBody={currentStatement.body} categoryOptions={categoryOptions} />
+        </div>
       )}
     </main>
   );

@@ -65,7 +65,7 @@ export default function IssueRecommendationForm({ recommendationId }: { recommen
         {status.kind === "busy" ? t("issuing") : t("issueButton")}
       </button>
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "#8A2A2A" }}>
+        <p role="alert" className="alert">
           {status.message}
         </p>
       )}

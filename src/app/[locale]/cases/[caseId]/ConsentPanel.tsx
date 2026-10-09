@@ -47,11 +47,9 @@ export default function ConsentPanel({
   }
 
   return (
-    <section aria-labelledby="consent-heading" style={{ border: "1px solid #ccc", padding: "1rem", marginBottom: "1.5rem" }}>
-      <h2 id="consent-heading" style={{ fontSize: "1rem", marginTop: 0 }}>
-        {t("title")}
-      </h2>
-      <div aria-live="polite" role="status" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+    <section aria-labelledby="consent-heading" className="panel">
+      <h2 id="consent-heading">{t("title")}</h2>
+      <div aria-live="polite" role="status" className="visually-hidden">
         {announcement}
       </div>
 
@@ -64,13 +62,11 @@ export default function ConsentPanel({
         </>
       ) : (
         <>
-          <div role="group" aria-labelledby="consent-statement-heading" style={{ maxHeight: "10rem", overflowY: "auto", marginBottom: "1rem" }}>
-            <h3 id="consent-statement-heading" style={{ fontSize: "0.95rem" }}>
-              {t("statementHeading")}
-            </h3>
+          <div role="group" aria-labelledby="consent-statement-heading" className="statement">
+            <h3 id="consent-statement-heading">{t("statementHeading")}</h3>
             <p>{statementBody}</p>
           </div>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div className="button-row">
             <button type="button" id="give-consent" onClick={() => act("give")} disabled={status.kind === "busy"}>
               {t("giveButton")}
             </button>
@@ -81,7 +77,7 @@ export default function ConsentPanel({
         </>
       )}
       {status.kind === "error" && (
-        <p role="alert" style={{ color: "#8A2A2A" }}>
+        <p role="alert" className="alert">
           {status.message}
         </p>
       )}

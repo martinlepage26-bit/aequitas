@@ -3,11 +3,12 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { routing } from "../../i18n/routing";
-import AccountNav from "../../components/AccountNav";
+import { getSession } from "../../lib/session";
+import WorkbenchShell from "../../components/WorkbenchShell";
 
 /**
  * Nested layout, deliberately without <html>/<body> — those stay owned by
- * the true root layout (src/app/layout.js) so the M0-era demo page
+ * the true root layout (src/app/layout.tsx) so the M0-era demo page
  * (src/app/page.js, outside [locale]) keeps working unmodified. See
  * DECISIONS.md's M2 note on why /[locale] and the old root aren't merged.
  */
@@ -27,6 +28,13 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
   const messages = await getMessages();
+  const session = await getSession();
 
-  return <NextIntlClientProvider messages={messages}><AccountNav locale={locale} />{children}</NextIntlClientProvider>;
+  return (
+    <NextIntlClientProvider messages={messages}>
+      <WorkbenchShell locale={locale} signedIn={Boolean(session)} isAdmin={session?.globalRole === "ADMIN"} isComplainant={session?.globalRole === "COMPLAINANT"}>
+        {children}
+      </WorkbenchShell>
+    </NextIntlClientProvider>
+  );
 }

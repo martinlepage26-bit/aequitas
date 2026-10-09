@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { routing } from "../../i18n/routing";
+import { Icon } from "../../components/icons";
 import styles from "./landing.module.css";
 
 /**
@@ -12,27 +12,13 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("landing");
-  const otherLocale = routing.locales.find((l) => l !== locale) ?? routing.defaultLocale;
   const steps = ["evidence", "review", "consent"] as const;
+  const stepIcons = { evidence: "evidence", review: "review", consent: "consent" } as const;
 
   return (
     <div className={styles.page} lang={locale}>
-      <a className={styles.skipLink} href="#landing-content">{t("skipToContent")}</a>
-
-      <header className={styles.header}>
-        <Link className={styles.wordmark} href={`/${locale}`} aria-label={t("title")}>
-          {t("title")}
-        </Link>
-        <nav className={styles.navigation} aria-label={t("navigationLabel")}>
-          <Link className={styles.casesLink} href={`/${locale}/cases`}>{t("myCases")}</Link>
-          <Link className={styles.languageLink} href={`/${otherLocale}`} hrefLang={otherLocale} lang={otherLocale}>
-            {t("otherLocale")}
-          </Link>
-        </nav>
-      </header>
-
       <main id="landing-content" className={styles.content}>
-        <section className={styles.hero} aria-labelledby="landing-title">
+        <section className={`${styles.hero} ${styles.panel}`} aria-labelledby="landing-title">
           <div className={styles.heroCopy}>
             <p className={styles.productLabel}>{t("workspaceLabel")}</p>
             <h1 id="landing-title" className={styles.headline}>{t("tagline")}</h1>
@@ -62,7 +48,8 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           </figure>
         </section>
 
-        <section className={styles.submissions} aria-labelledby="submissions-title">
+        <div className={styles.lower}>
+        <section className={`${styles.submissions} ${styles.panel}`} aria-labelledby="submissions-title">
           <h2 id="submissions-title">{t("submissions.title")}</h2>
           <p>{t("submissions.path")}</p>
           <dl className={styles.submissionGuide}>
@@ -74,7 +61,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           <p className={styles.submissionNote}>{t("submissions.note")}</p>
         </section>
 
-        <section className={styles.process} aria-labelledby="process-title">
+        <section className={`${styles.process} ${styles.panel}`} aria-labelledby="process-title">
           <div className={styles.processIntroduction}>
             <h2 id="process-title">{t("processTitle")}</h2>
             <p>{t("lead")}</p>
@@ -82,7 +69,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
           <ol className={styles.steps}>
             {steps.map((step, index) => (
               <li className={styles.step} key={step}>
-                <span className={styles.stepNumber} aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <span className={styles.stepNumber} aria-hidden="true"><Icon name={stepIcons[step]} />{String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <h3>{t(`steps.${step}.title`)}</h3>
                   <p>{t(`steps.${step}.description`)}</p>
@@ -91,6 +78,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
             ))}
           </ol>
         </section>
+        </div>
       </main>
 
       <footer className={styles.footer}>

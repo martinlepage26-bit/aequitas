@@ -1,311 +1,44 @@
-.page {
-  --ink: #16233d;
-  --ink-soft: #384863;
-  --paper: #f3f1ea;
-  --paper-card: #fbfaf6;
-  --brass: #8a6a34;
-  --brass-strong: #6e5427;
-  --verdigris: #375d54;
-  --verdigris-strong: #2a4842;
-  --rule: #d9d3c3;
-  --muted: #6c6656;
-  --danger: #8c3a2b;
-  --danger-bg: #f5e9e5;
-  --success-bg: #ecf1ea;
-
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1.25rem;
-  background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(140, 106, 52, 0.07), transparent 60%),
-    var(--paper);
-  color: var(--ink);
-  font-family: var(--font-body);
-}
-
-.frame {
-  width: 100%;
-  max-width: 27rem;
-}
-
-.mark {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.wordmark {
-  text-decoration: none;
-  font-family: var(--font-display);
-  font-size: 2.25rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-
-.tagline {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
+.page { color: var(--text); }
+.frame { width: 100%; max-width: 32rem; margin: 0 auto; }
+.mark { display: grid; gap: 6px; margin-bottom: 16px; }
+.wordmark { color: var(--text); font-weight: 700; letter-spacing: -0.03em; text-decoration: none; font-size: 1.25rem; }
+.tagline { color: var(--muted); }
 .card {
-  background: var(--paper-card);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(22, 35, 61, 0.04), 0 12px 32px -16px rgba(22, 35, 61, 0.18);
-  padding: 1.75rem 1.75rem 2rem;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
 }
-
-.tabs {
-  display: flex;
-  gap: 1.5rem;
-  border-bottom: 1px solid var(--rule);
-  margin-bottom: 1.5rem;
-}
-
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tab {
-  appearance: none;
-  background: none;
-  border: none;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--muted);
-  padding: 0 0 0.75rem;
-  margin-bottom: -1px;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
+  min-height: 44px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
 }
-
-.tab:hover {
-  color: var(--ink);
-}
-
-.tabActive {
-  color: var(--ink);
-  border-bottom-color: var(--brass);
-}
-
-.tab:focus-visible,
-.beamNode:focus-visible,
-.input:focus-visible,
-.submit:focus-visible {
-  outline: 2px solid var(--brass);
-  outline-offset: 2px;
-}
-
-/* Balance-beam role selector — the product's one structural idea made
-   visible: two disputing parties either side of a neutral center. The beam
-   tilts toward whichever side is selected and stays level for the manager. */
-.beamField {
-  margin-bottom: 1.6rem;
-}
-
-.beamLabel {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.9rem;
-}
-
-.beam {
-  position: relative;
-  padding-top: 0.6rem;
-}
-
-.beamTrack {
-  position: relative;
-  height: 2rem;
-}
-
-.beamBar {
-  position: absolute;
-  top: 50%;
-  left: 6%;
-  right: 6%;
-  height: 2px;
-  background: var(--rule);
-  transform-origin: 50% 50%;
-  transform: rotate(0deg);
-  transition: transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
-}
-
-.beam[data-role="COMPLAINANT"] .beamBar {
-  transform: rotate(-3.5deg);
-  background: linear-gradient(90deg, var(--brass), var(--rule) 65%);
-}
-
-.beam[data-role="RESPONDENT"] .beamBar {
-  transform: rotate(3.5deg);
-  background: linear-gradient(90deg, var(--rule) 35%, var(--verdigris));
-}
-
-.fulcrum {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink);
-  transform: translate(-50%, -50%);
-}
-
-.beamNodes {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
-}
-
+.tabActive { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.beamField { display: grid; gap: 8px; }
+.beamLabel { font-weight: 650; }
+.beamTrack, .beamBar, .fulcrum { display: none; }
+.beamNodes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .beamNode {
-  appearance: none;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: none;
-  border-radius: 3px;
-  padding: 0.3rem 0.4rem;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--muted);
-  text-align: center;
-  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text);
 }
-
-.beamNode:hover {
-  color: var(--ink);
-}
-
-.beamNodeLeft[aria-checked="true"] {
-  color: var(--brass-strong);
-  font-weight: 600;
-}
-
-.beamNodeRight[aria-checked="true"] {
-  color: var(--verdigris-strong);
-  font-weight: 600;
-}
-
-.beamNodeCenter[aria-checked="true"] {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.field {
-  margin-bottom: 1.1rem;
-}
-
-.label {
-  display: block;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-  margin-bottom: 0.35rem;
-}
-
-.input {
-  width: 100%;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  padding: 0.55rem 0.7rem;
-}
-
-.input:focus {
-  border-color: var(--brass);
-}
-
-.submit {
-  width: 100%;
-  appearance: none;
-  cursor: pointer;
-  background: var(--ink);
-  color: var(--paper-card);
-  border: none;
-  border-radius: 3px;
-  font-family: var(--font-body);
-  font-size: 0.92rem;
-  font-weight: 600;
-  padding: 0.75rem 1rem;
-  margin-top: 0.3rem;
-  transition: background 0.15s ease;
-}
-
-.submit:hover:not(:disabled) {
-  background: var(--brass-strong);
-}
-
-.submit:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.passkeyNote {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin-top: 1.1rem;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: var(--muted);
-}
-
-.passkeyNote svg {
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-  color: var(--brass);
-}
-
-.status {
-  margin-top: 1.1rem;
-  padding: 0.6rem 0.75rem;
-  font-family: var(--font-body);
-  font-size: 0.85rem;
-  border-left: 2px solid var(--rule);
-}
-
-.cancel { display: block; margin: .75rem auto 0; padding: .5rem 1rem; background: transparent; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; color: var(--ink); }
-
-.statusError {
-  border-left-color: var(--danger);
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-.statusSuccess {
-  border-left-color: var(--verdigris);
-  background: var(--success-bg);
-  color: var(--verdigris-strong);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .beamBar {
-    transition: none;
-  }
-}
-
-@media (max-width: 420px) {
-  .card {
-    padding: 1.4rem 1.25rem 1.6rem;
-  }
-  .wordmark {
-    font-size: 1.9rem;
-  }
-}
+.beamNode[aria-checked="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.field { display: grid; gap: 6px; }
+.label { font-weight: 650; }
+.input { width: 100%; }
+.submit, .cancel { width: 100%; }
+.cancel { background: transparent; color: var(--text); border-color: var(--control-border); }
+.passkeyNote { margin: 0; color: var(--muted); font-size: 0.875rem; }
+.status { margin: 0; }
+.statusError { color: var(--danger); }
+.card h1 { margin-top: 0; }
+.card a { font-weight: 650; }

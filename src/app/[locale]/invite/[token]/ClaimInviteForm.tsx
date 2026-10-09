@@ -45,7 +45,7 @@ export default function ClaimInviteForm({ token, locale }: { token: string; loca
       </button>
       {busy && <button type="button" onClick={flow.cancel}>{t("cancel")}</button>}
       {error && (
-        <p role="alert" style={{ color: "#9b1c1c" }}>
+        <p role="alert" className="alert">
           {error}
         </p>
       )}

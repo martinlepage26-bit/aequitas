@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSession } from "../../../lib/session";
 import { prisma } from "../../../lib/prisma";
+import CaseTable from "./CaseTable";
 
 /**
  * The list/landing page for every role — see auth/sign-in/page.tsx's
@@ -37,36 +38,27 @@ export default async function CaseListPage({ params }: { params: Promise<{ local
             orderBy: { createdAt: "desc" },
           });
 
+  const rows = cases.map((c) => {
+    const otherPartyName = session.globalRole === "COMPLAINANT" ? c.respondent.displayName : c.complainant.displayName;
+    return {
+      id: c.id,
+      referenceNumber: c.referenceNumber,
+      state: c.state,
+      stateLabel: tState(c.state),
+      detail: session.globalRole === "CASE_MANAGER" && c.caseManagerId === null ? t("unclaimed") : t("otherParty", { name: otherPartyName }),
+      href: `/${locale}/cases/${c.id}`,
+    };
+  });
+
   return (
-    <main style={{ maxWidth: "40rem", margin: "2rem auto", padding: "0 1rem", fontFamily: "system-ui, sans-serif" }}>
+    <main className="stack">
       <h1>{t("title")}</h1>
       {session.globalRole === "COMPLAINANT" && (
         <p>
-          <a href={`/${locale}/cases/new`}>{t("startNew")}</a>
+          <a className="button-link" href={`/${locale}/cases/new`}>{t("startNew")}</a>
         </p>
       )}
-
-      {cases.length === 0 ? (
-        <p>{t("empty")}</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {cases.map((c) => {
-            const otherPartyName = session.globalRole === "COMPLAINANT" ? c.respondent.displayName : c.complainant.displayName;
-            return (
-              <li key={c.id} style={{ borderBottom: "1px solid #e2e8f0", padding: "0.75rem 0" }}>
-                <strong>{c.referenceNumber}</strong> — {tState(c.state)}
-                <br />
-                {session.globalRole === "CASE_MANAGER" && c.caseManagerId === null ? (
-                  <span>{t("unclaimed")} · </span>
-                ) : (
-                  <span>{t("otherParty", { name: otherPartyName })} · </span>
-                )}
-                <a href={`/${locale}/cases/${c.id}`}>{t("viewLink")}</a>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {rows.length === 0 ? <p className="panel">{t("empty")}</p> : <CaseTable rows={rows} />}
     </main>
   );
 }

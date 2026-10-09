@@ -105,7 +105,7 @@ export default function ReviewDraftForm({ caseId, recommendationId, explanation 
         <p><label htmlFor="review-reason">{t("reason")}</label><br /><textarea id="review-reason" required maxLength={8000} value={reason} onChange={e => setReason(e.target.value)} style={{ width: "100%" }} /></p>
         <button type="submit" disabled={!changed || !reason.trim()}>{busy ? t("saving") : t("save")}</button>
       </fieldset>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert" className="alert">{error}</p>}
     </form>
   </details>;
 }
