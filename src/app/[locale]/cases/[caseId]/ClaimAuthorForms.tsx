@@ -79,8 +79,9 @@ function SourceForm({ caseId, locale, evidenceItems, t, refresh }: { caseId: str
   const [legalFramework, setLegalFramework] = useState("");
   const [evidenceItemId, setEvidenceItemId] = useState("");
   const [visibility, setVisibility] = useState("CASE");
+  const [body, setBody] = useState("");
   const saver = useSaver(`/api/cases/${caseId}/sources`, () => ({
-    kind, title, origin, citation, legalFramework, visibility, language: locale,
+    kind, title, origin, citation, legalFramework, visibility, language: locale, body,
     evidenceItemId: evidenceItemId || null,
   }), refresh);
   return (
@@ -115,6 +116,11 @@ function SourceForm({ caseId, locale, evidenceItems, t, refresh }: { caseId: str
             <option value="">{t("form.evidenceNone")}</option>
             {evidenceItems.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
+        </div>
+        <div className={styles.formRow}>
+          <label htmlFor="claim-source-body">{t("form.sourceBody")}</label>
+          <textarea id="claim-source-body" maxLength={20000} value={body} onChange={(event) => setBody(event.target.value)} />
+          <p className={styles.hint}>{t("form.sourceBodyHint")}</p>
         </div>
         <div className={styles.formRow}>
           <label htmlFor="claim-source-visibility">{t("form.visibility")}</label>

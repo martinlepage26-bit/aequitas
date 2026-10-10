@@ -49,7 +49,7 @@ describe("phase 1 migration applies on a database built from current main", () =
     await client.connect();
     try {
       const migrationsDir = path.join(process.cwd(), "prisma/migrations");
-      const prior = readdirSync(migrationsDir).filter((name) => name !== "migration_lock.toml" && name !== PHASE1).sort();
+      const prior = readdirSync(migrationsDir).filter((name) => name !== "migration_lock.toml" && name < PHASE1).sort();
       expect(prior.length).toBeGreaterThan(0);
       for (const directory of prior) {
         const sql = readFileSync(path.join(migrationsDir, directory, "migration.sql"), "utf8");

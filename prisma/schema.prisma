@@ -106,6 +106,18 @@ enum EventType {
   CLAIM_EVIDENCE_LINKED
   CLAIM_RELATIONSHIP_RECORDED
   REVIEW_RECORDED
+  ASSUMPTION_RECORDED
+  ASSUMPTION_ACKNOWLEDGED
+  ASSUMPTION_CHALLENGED
+  ASSUMPTION_REVISED
+  ASSUMPTION_ADDED_MID_CASE
+  PIPELINE_RETURNED
+  PROPOSAL_RECORDED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  CONTEXT_FACTOR_RECORDED
+  SYNTHESIS_RECORDED
+  SYNTHESIS_REJECTED
 }
 
 model User {
@@ -137,6 +149,11 @@ model User {
   claimRelationshipsCreated ClaimRelationship[] @relation("ClaimRelationshipCreatedBy")
   reviewsAuthored           ReviewTrail[]       @relation("ReviewTrailReviewer")
   reviewsCreated            ReviewTrail[]       @relation("ReviewTrailCreatedBy")
+  assumptionsCreated        Assumption[]        @relation("AssumptionCreatedBy")
+  assumptionsAcknowledged   Assumption[]        @relation("AssumptionAcknowledgedBy")
+  proposalsReviewed         PipelineProposal[]  @relation("ProposalReviewedBy")
+  contextFactorsCreated     ContextFactor[]     @relation("ContextFactorCreatedBy")
+  synthesesCreated          SynthesisVersion[]  @relation("SynthesisCreatedBy")
 }
 
 model WebAuthnCredential {
@@ -203,6 +220,11 @@ model Case {
   claims              Claim[]
   claimRelationships  ClaimRelationship[]
   reviews             ReviewTrail[]
+  assumptions         Assumption[]
+  pipeline            CasePipeline?
+  proposals           PipelineProposal[]
+  contextFactors      ContextFactor[]
+  syntheses           SynthesisVersion[]
 }
 
 model EvidenceItem {
@@ -453,6 +475,8 @@ model Source {
   contentRef     String?
   citation       String?
   legalFramework String?
+  // Optional full text. A pipeline excerpt is kept only when it is a verbatim substring of this body.
+  body           String?
   evidenceItemId String?
   publishedAt    DateTime?
   createdAt      DateTime         @default(now())
@@ -543,7 +567,7 @@ model ReviewTrail {
   id          String       @id @default(uuid())
   caseId      String
   claimId     String?
-  // Nullable until synthesis_versions exists. Phase 1 does not approve a synthesis.
+  // Nullable. Phase 3 approves a synthesis; Phase 2 only records one after validation.
   synthesisId String?
   reviewerId  String
   action      ReviewAction
@@ -554,8 +578,143 @@ model ReviewTrail {
 
   case      Case   @relation(fields: [caseId], references: [id])
   claim     Claim? @relation(fields: [claimId], references: [id])
-  reviewer  User   @relation("ReviewTrailReviewer", fields: [reviewerId], references: [id])
-  createdBy User   @relation("ReviewTrailCreatedBy", fields: [createdById], references: [id])
+  reviewer   User               @relation("ReviewTrailReviewer", fields: [reviewerId], references: [id])
+  createdBy  User               @relation("ReviewTrailCreatedBy", fields: [createdById], references: [id])
+  synthesis  SynthesisVersion?  @relation(fields: [synthesisId], references: [id])
 
+  @@index([caseId, createdAt])
+}
+
+enum AssumptionOrigin {
+  CASE_FRAMING
+  PARTY_STATEMENT
+  ANALYST_NOTE
+  MID_CASE
+}
+
+enum AssumptionStatus {
+  PROPOSED
+  ACKNOWLEDGED
+  CHALLENGED
+  REVISED
+}
+
+enum PipelineStageName {
+  EPOCHE
+  CLAIM_DECOMPOSITION
+  CONTEXT_MAPPING
+  SYNTHESIS
+}
+
+enum ProposalKind {
+  CLAIM
+  CONTEXT_FACTOR
+}
+
+enum ProposalStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+}
+
+enum ContextFactorType {
+  POLICY_VS_PRACTICE
+  INTERFACES_VS_DEPENDENCIES
+  AUTHORITY_VS_IMPLEMENTATION
+}
+
+enum GapDiagnosis {
+  ADAPTIVE
+  PROTECTIVE
+  EVASIVE
+  FRAUDULENT
+  NO_GAP_FOUND
+}
+
+model Assumption {
+  id               String            @id @default(uuid())
+  caseId           String
+  text             String
+  origin           AssumptionOrigin
+  status           AssumptionStatus  @default(PROPOSED)
+  createdById      String
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+  createdAt        DateTime          @default(now())
+  deletedAt        DateTime?
+
+  case           Case  @relation(fields: [caseId], references: [id])
+  createdBy      User  @relation("AssumptionCreatedBy", fields: [createdById], references: [id])
+  acknowledgedBy User? @relation("AssumptionAcknowledgedBy", fields: [acknowledgedById], references: [id])
+
+  @@index([caseId, createdAt])
+}
+
+model CasePipeline {
+  caseId    String            @id
+  stage     PipelineStageName @default(EPOCHE)
+  updatedAt DateTime          @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id])
+}
+
+model PipelineProposal {
+  id                String         @id @default(uuid())
+  caseId            String
+  kind              ProposalKind
+  status            ProposalStatus @default(PROPOSED)
+  payload           Json
+  modelId           String
+  promptVersion     String
+  createdAt         DateTime       @default(now())
+  reviewedById      String?
+  reviewedAt        DateTime?
+  acceptedClaimId   String?
+
+  case          Case           @relation(fields: [caseId], references: [id])
+  reviewedBy    User?          @relation("ProposalReviewedBy", fields: [reviewedById], references: [id])
+  contextFactor ContextFactor?
+
+  @@index([caseId, createdAt])
+}
+
+model ContextFactor {
+  id          String            @id @default(uuid())
+  caseId      String
+  factorType  ContextFactorType
+  description String
+  gapMap      Json
+  diagnosis   GapDiagnosis
+  evidenceId  String?
+  proposalId  String?           @unique
+  createdById String
+  createdAt   DateTime          @default(now())
+  deletedAt   DateTime?
+
+  case      Case              @relation(fields: [caseId], references: [id])
+  createdBy User              @relation("ContextFactorCreatedBy", fields: [createdById], references: [id])
+  proposal  PipelineProposal? @relation(fields: [proposalId], references: [id])
+
+  @@index([caseId, createdAt])
+}
+
+model SynthesisVersion {
+  id           String   @id @default(uuid())
+  caseId       String
+  version      Int
+  sections     Json
+  sentenceMap  Json
+  diagE        String
+  diagP        String
+  diagC        String
+  modelId      String?
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  case      Case          @relation(fields: [caseId], references: [id])
+  createdBy User          @relation("SynthesisCreatedBy", fields: [createdById], references: [id])
+  reviews   ReviewTrail[]
+
+  @@unique([caseId, version])
   @@index([caseId, createdAt])
 }
