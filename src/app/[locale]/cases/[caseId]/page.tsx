@@ -22,6 +22,8 @@ import ConsentPanel from "./ConsentPanel";
 import WithdrawButton from "./WithdrawButton";
 import CloseCaseButton from "./CloseCaseButton";
 import ChronologyForm from "./ChronologyForm";
+import ClaimsPanel from "./ClaimsPanel";
+import { readClaimGraph } from "../../../../domain/claimWrites";
 import { formatChronologyDate } from "../../../../domain/chronology";
 import { submissionAvailability, type SubmissionKind } from "../../../../domain/submissionView";
 import styles from "./workspace.module.css";
@@ -136,6 +138,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const submissions = ["evidence", "chronology", "position"] as const;
   const guidance = (kind: SubmissionKind) => t(`submission.availability.${submissionAvailability(kind, caseRow.state, isParty)}`);
   const target = (kind: SubmissionKind) => kind === "position" ? "positions-heading" : `${kind}-heading`;
+  const claimGraph = await readClaimGraph(caseId, session);
+  if (!claimGraph) notFound();
 
   return (
     <main className={styles.workspace}>
@@ -268,6 +272,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         )}
         <PositionForm caseId={caseId} disabled={!canSubmitPosition || !isParty} />
       </section>
+
+      <ClaimsPanel caseId={caseId} locale={locale} graph={claimGraph} />
 
       {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}
