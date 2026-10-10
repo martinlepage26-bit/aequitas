@@ -57,6 +57,7 @@ export const sourceInputSchema = z.object({
   visibility: z.enum(["CASE", "RESTRICTED", "REDACTED"]).optional(),
   citation: optionalText(500),
   legalFramework: optionalText(300),
+  body: optionalText(20000),
   evidenceItemId: z.string().uuid().optional().nullable(),
   rationale: optionalText(2000),
 });
@@ -159,6 +160,7 @@ export async function recordSource(input: ActorInput & z.infer<typeof sourceInpu
           visibility: parsed.data.visibility ?? "CASE",
           citation: blankToNull(parsed.data.citation),
           legalFramework: blankToNull(parsed.data.legalFramework),
+          body: blankToNull(parsed.data.body),
           evidenceItemId: parsed.data.evidenceItemId ?? null,
           createdById: input.actorId,
         },
@@ -174,6 +176,7 @@ export async function recordSource(input: ActorInput & z.infer<typeof sourceInpu
           evidenceItemId: source.evidenceItemId,
           citation: source.citation,
           legalFramework: source.legalFramework,
+          hasBody: Boolean(source.body?.trim()),
           rationale: blankToNull(parsed.data.rationale),
         },
       });

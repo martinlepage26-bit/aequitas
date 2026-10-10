@@ -15,7 +15,8 @@
     "check:i18n-parity": "node scripts/check-i18n-parity.mjs",
     "check:forbidden-terms": "node scripts/check-forbidden-terms.mjs",
     "test:e2e": "playwright test",
-    "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e",
+    "test:e2e:pipeline": "playwright test -c playwright.phase2.config.ts",
+    "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e && npm run test:e2e:pipeline",
     "smoke:core-ai": "tsx scripts/smoke-core-ai.ts",
     "seed:demo": "tsx prisma/seed-demo.ts"
   },

@@ -86,3 +86,4 @@ jobs:
       # playwright.config.ts starts `next start` when CI is set, so the
       # suite does not pay for on-demand compilation inside the first test.
       - run: npm run test:e2e
+      - run: npm run test:e2e:pipeline

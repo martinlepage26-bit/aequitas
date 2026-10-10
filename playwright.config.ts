@@ -27,6 +27,7 @@ process.env.WEBAUTHN_ORIGIN = `http://localhost:${testPort}`;
  */
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: /phase2-pipeline\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   reporter: "list",

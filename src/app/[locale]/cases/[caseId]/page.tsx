@@ -23,6 +23,10 @@ import WithdrawButton from "./WithdrawButton";
 import CloseCaseButton from "./CloseCaseButton";
 import ChronologyForm from "./ChronologyForm";
 import ClaimsPanel from "./ClaimsPanel";
+import PipelinePanel from "./PipelinePanel";
+import { freeModelConfigured } from "../../../../domain/pipeline/provider";
+import { pipelineEnabled } from "../../../../domain/pipeline/flag";
+import { readPipeline } from "../../../../domain/pipeline/writes";
 import { readClaimGraph } from "../../../../domain/claimWrites";
 import { formatChronologyDate } from "../../../../domain/chronology";
 import { submissionAvailability, type SubmissionKind } from "../../../../domain/submissionView";
@@ -140,6 +144,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const target = (kind: SubmissionKind) => kind === "position" ? "positions-heading" : `${kind}-heading`;
   const claimGraph = await readClaimGraph(caseId, session);
   if (!claimGraph) notFound();
+  const pipelineView = pipelineEnabled() ? await readPipeline(caseId, session) : null;
 
   return (
     <main className={styles.workspace}>
@@ -274,6 +279,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       </section>
 
       <ClaimsPanel caseId={caseId} locale={locale} graph={claimGraph} />
+
+      {pipelineEnabled() && pipelineView && (
+        <PipelinePanel caseId={caseId} view={pipelineView} modelConfigured={freeModelConfigured()} />
+      )}
 
       {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}

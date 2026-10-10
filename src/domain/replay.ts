@@ -82,6 +82,20 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "REVIEW_RECORDED":
         // Phase 1 traceable-core writes. They do not move Case.state.
         break;
+      case "ASSUMPTION_RECORDED":
+      case "ASSUMPTION_ACKNOWLEDGED":
+      case "ASSUMPTION_CHALLENGED":
+      case "ASSUMPTION_REVISED":
+      case "ASSUMPTION_ADDED_MID_CASE":
+      case "PIPELINE_RETURNED":
+      case "PROPOSAL_RECORDED":
+      case "PROPOSAL_ACCEPTED":
+      case "PROPOSAL_REJECTED":
+      case "CONTEXT_FACTOR_RECORDED":
+      case "SYNTHESIS_RECORDED":
+      case "SYNTHESIS_REJECTED":
+        // Phase 2 pipeline writes. A return is an audit event. It does not move Case.state.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

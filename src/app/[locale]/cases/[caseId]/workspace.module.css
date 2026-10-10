@@ -97,6 +97,8 @@
   color: var(--accent-text);
 }
 .provenance h3 { margin: 12px 0 8px; font-size: 1rem; }
+.flags { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 8px 0; padding: 0; }
+.flag { border: 1px solid var(--border); padding: 8px 12px; background: var(--panel-raised); }
 
 @media (min-width: 960px) {
   .workspace { grid-template-columns: 1fr 1fr; }
