@@ -715,7 +715,7 @@ function proposalText(kind: string, payload: unknown): { text: string; excerpt: 
   return { text: typeof record.description === "string" ? record.description : "", excerpt: null };
 }
 
-export async function readPipeline(caseId: string, session: { userId: string; globalRole: GlobalRole }): Promise<PipelineView | null> {
+export async function readPipeline(caseId: string, session: { userId: string; globalRole: GlobalRole; isApprover?: boolean }): Promise<PipelineView | null> {
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
   const access: CaseReadAccess | null = caseReadAccess(caseRow, session);

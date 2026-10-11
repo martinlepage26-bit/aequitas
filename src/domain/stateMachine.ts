@@ -185,7 +185,7 @@ export const TRANSITIONS: TransitionDef[] = [
     from: ["ISSUED"],
     to: DERIVED,
     actorRoles: ["COMPLAINANT", "RESPONDENT"],
-    guards: ["isCaseParty", "consentBindsToCurrentRecommendationVersion", "statementVersionIsCurrent"],
+    guards: ["isCaseParty", "consentBindsToCurrentRecommendationVersion", "statementVersionIsCurrent", "resolutionNotBlocked"],
     events: ["CONSENT_GIVEN"],
   },
   {

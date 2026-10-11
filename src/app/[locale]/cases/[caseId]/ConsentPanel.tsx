@@ -24,6 +24,7 @@ export default function ConsentPanel({
   ownConsentState: "NOT_GIVEN" | "GIVEN" | "DECLINED" | "REVOKED";
 }) {
   const t = useTranslations("workspace.consent");
+  const tResolution = useTranslations("workspace.resolution");
   const router = useRouter();
   const [status, setStatus] = useState<{ kind: "idle" | "busy" | "error"; message?: string }>({ kind: "idle" });
   const [announcement, setAnnouncement] = useState("");
@@ -37,8 +38,10 @@ export default function ConsentPanel({
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setStatus({ kind: "error", message: data.message || t("error") });
-      setAnnouncement(data.message || t("error"));
+      // Phase 3 resolution guards come back as 409 with a code; show the localized text.
+      const text = data.code === "OPEN_CONTESTATION" || data.code === "APPROVAL_REQUIRED" ? tResolution(`code.${data.code}`) : data.message || t("error");
+      setStatus({ kind: "error", message: text });
+      setAnnouncement(text);
       return;
     }
     setStatus({ kind: "idle" });

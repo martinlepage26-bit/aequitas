@@ -61,6 +61,10 @@ async function seedIssuedCase(): Promise<{ caseId: string; recommendationId: str
   });
   if (!created.ok) throw new Error("setup: createCase failed");
   const caseId = created.data.caseId;
+  // Phase 3: these tests cover the consent-only path that cases opened before
+  // the phase 3 migration keep (P3-D1). The approver path is covered in
+  // contestation-approval.test.ts.
+  await prisma.case.update({ where: { id: caseId }, data: { consentOnlyResolution: true } });
 
   const submitted = await submitCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId });
   if (!submitted.ok) throw new Error("setup: submitCase failed");

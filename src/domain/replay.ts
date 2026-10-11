@@ -96,6 +96,13 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "SYNTHESIS_REJECTED":
         // Phase 2 pipeline writes. A return is an audit event. It does not move Case.state.
         break;
+      case "CONTESTATION_OPENED":
+      case "CONTESTATION_RESPONDED":
+      case "CONTESTATION_OVERRULED":
+      case "CONTESTATION_WITHDRAWN":
+      case "RESOLUTION_APPROVED":
+        // Phase 3. Contestation and sign-off gate consent; they do not move Case.state.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

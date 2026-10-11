@@ -7,7 +7,7 @@
  * data a guard needs and passes it in as a plain argument.
  */
 
-export type GuardResult = { ok: true } | { ok: false; reason: string };
+export type GuardResult = { ok: true } | { ok: false; reason: string; code?: string };
 
 const OK: GuardResult = { ok: true };
 function fail(reason: string): GuardResult {
@@ -186,6 +186,18 @@ export function exportBundleGeneratedAndHashed(ctx: { exportSha256: string | nul
  * resolve here. Looked up by name so the mutation pipeline (and the
  * exhaustive unit test) can drive guards generically from the table.
  */
+// --- give_consent: phase 3 resolution guards ----------------------------
+
+/**
+ * Phase 3: an open contestation, or a missing approver sign-off on a case
+ * that is not consent-only, blocks the consent that would resolve it.
+ * The blocker list is computed by src/domain/resolution.ts.
+ */
+export function resolutionNotBlocked(ctx: { blockers: Array<{ code: string; reason: string }> }): GuardResult {
+  const first = ctx.blockers[0];
+  return first ? { ok: false, reason: first.reason, code: first.code } : OK;
+}
+
 export const GUARD_REGISTRY: Record<string, (ctx: any) => GuardResult> = {
   authenticated,
   statementVersionsCurrent,
@@ -211,4 +223,5 @@ export const GUARD_REGISTRY: Record<string, (ctx: any) => GuardResult> = {
   newVersionNumber,
   priorRecommendationSuperseded,
   exportBundleGeneratedAndHashed,
+  resolutionNotBlocked,
 };

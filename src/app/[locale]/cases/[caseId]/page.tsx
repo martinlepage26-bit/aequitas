@@ -24,6 +24,8 @@ import CloseCaseButton from "./CloseCaseButton";
 import ChronologyForm from "./ChronologyForm";
 import ClaimsPanel from "./ClaimsPanel";
 import PipelinePanel from "./PipelinePanel";
+import ResolutionPanel, { type ContestTargetOption } from "./ResolutionPanel";
+import { readResolutionView } from "../../../../domain/resolution";
 import { freeModelConfigured } from "../../../../domain/pipeline/provider";
 import { pipelineEnabled } from "../../../../domain/pipeline/flag";
 import { readPipeline } from "../../../../domain/pipeline/writes";
@@ -61,7 +63,11 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   // exists. H2: a case manager other than the assigned one reaches this page
   // only while the case is OPEN and unclaimed, to self-claim via open_intake
   // (see src/domain/caseAccess.ts).
-  const access = caseReadAccess(caseRow, session);
+  // Phase 3: an approver (User.isApprover) gets a party-level read of cases
+  // they do not own, so they can sign off or overrule.
+  const viewerFlags = await prisma.user.findUnique({ where: { id: session.userId }, select: { isApprover: true } });
+  const viewer = { ...session, isApprover: viewerFlags?.isApprover ?? false };
+  const access = caseReadAccess(caseRow, viewer);
   if (!access) notFound();
   await recordStaffAccess(caseId, session, "workspace");
 
@@ -142,9 +148,18 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const submissions = ["evidence", "chronology", "position"] as const;
   const guidance = (kind: SubmissionKind) => t(`submission.availability.${submissionAvailability(kind, caseRow.state, isParty)}`);
   const target = (kind: SubmissionKind) => kind === "position" ? "positions-heading" : `${kind}-heading`;
-  const claimGraph = await readClaimGraph(caseId, session);
+  const claimGraph = await readClaimGraph(caseId, viewer);
+  const resolutionView = caseRow.state === "DRAFT" ? null : await readResolutionView(caseId, viewer);
   if (!claimGraph) notFound();
-  const pipelineView = pipelineEnabled() ? await readPipeline(caseId, session) : null;
+  const contestTargets: ContestTargetOption[] = [
+    ...(recommendation && recommendation.status === "ISSUED" ? [{ type: "RECOMMENDATION" as const, id: recommendation.id, label: t("resolution.target.RECOMMENDATION") }] : []),
+    ...claimGraph.claimOptions.map((claim) => ({
+      type: "CLAIM" as const,
+      id: claim.id,
+      label: t("resolution.targetClaim", { text: claim.text.length > 80 ? `${claim.text.slice(0, 77)}...` : claim.text }),
+    })),
+  ];
+  const pipelineView = pipelineEnabled() ? await readPipeline(caseId, viewer) : null;
 
   return (
     <main className={styles.workspace}>
@@ -338,6 +353,16 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           {canIssueRecommendation && recommendation.status === "DRAFT" && recommendation.explanation.conflict_knowledge && <ReviewDraftForm key={`review-${recommendation.id}`} caseId={caseId} recommendationId={recommendation.id} explanation={recommendation.explanation} />}
           {canIssueRecommendation && recommendation.status === "DRAFT" && <IssueRecommendationForm key={`issue-${recommendation.id}`} recommendationId={recommendation.id} />}
         </section>
+      )}
+
+      {resolutionView && (
+        <ResolutionPanel
+          caseId={caseId}
+          view={resolutionView}
+          viewerId={session.userId}
+          targets={contestTargets}
+          sectionClassName={styles.section}
+        />
       )}
 
       {(canGiveOrDeclineConsent || canRevokeConsent) && currentStatement && (

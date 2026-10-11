@@ -34,7 +34,7 @@ export function claimWritePermission(input: {
   if (input.access === "party") {
     return { ok: false, step: "authorize-role", reason: "Only the case manager assigned to this case can author claims." };
   }
-  if (input.access === "claimable") {
+  if (input.access === "claimable" || input.access === "approver") {
     return { ok: false, step: "authorize-role", reason: "Only the case manager assigned to this case can author claims." };
   }
   if (input.access === "assigned-manager" && input.globalRole === "CASE_MANAGER") return { ok: true };
@@ -42,7 +42,7 @@ export function claimWritePermission(input: {
 }
 
 export function claimReadPermission(access: CaseReadAccess | null): boolean {
-  return access === "party" || access === "assigned-manager" || access === "admin" || access === "claimable";
+  return access === "party" || access === "assigned-manager" || access === "admin" || access === "claimable" || access === "approver";
 }
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().nullable();
@@ -474,7 +474,7 @@ function iso(value: Date): string {
 
 export async function readClaimGraph(
   caseId: string,
-  viewer: { userId: string; globalRole: GlobalRole },
+  viewer: { userId: string; globalRole: GlobalRole; isApprover?: boolean },
 ): Promise<ClaimGraph | null> {
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
