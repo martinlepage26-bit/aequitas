@@ -18,6 +18,7 @@ import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
 import { deriveGiveConsentState } from "./consent";
+import { BLOCKER_REASONS, loadResolutionBlockers, type ResolutionBlocker } from "./resolution";
 import {
   NONE,
   SYSTEM,
@@ -46,7 +47,7 @@ import {
 
 export type MutationOutcome<T> =
   | { ok: true; data: T }
-  | { ok: false; step: "authorize-role" | "authorize-state" | "guard" | "not-found"; reason: string };
+  | { ok: false; step: "authorize-role" | "authorize-state" | "guard" | "not-found"; reason: string; code?: string };
 
 /**
  * Section 16: "RBAC failures return 404, not 403, for non-assigned cases" —
@@ -122,7 +123,7 @@ async function safeScan(buffer: Buffer): Promise<{ ok: true; scan: ScanResult } 
 export function mutationFailureResponse(outcome: MutationOutcome<WriteResult>): Response | null {
   if (outcome.ok) return null;
   const status = outcome.step === "authorize-role" ? 403 : outcome.step === "not-found" ? 404 : 409;
-  return Response.json({ message: outcome.reason }, { status });
+  return Response.json({ message: outcome.reason, ...(outcome.code ? { code: outcome.code } : {}) }, { status });
 }
 
 export async function runMutation(input: RunMutationInput): Promise<MutationOutcome<WriteResult>> {
@@ -146,7 +147,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     const result = guardFn(input.guardContexts[guardName]);
     if (!result.ok) {
       const step = CASE_ACCESS_GUARDS.has(guardName) ? "not-found" : "guard";
-      return { ok: false, step, reason: result.reason };
+      return { ok: false, step, reason: result.reason, ...(result.code ? { code: result.code } : {}) };
     }
   }
 
@@ -185,11 +186,17 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
   } catch (error) {
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
+    if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
     throw error;
   }
 }
 
 class StaleDraftError extends Error {}
+class ResolutionBlockedError extends Error {
+  constructor(readonly blocker: ResolutionBlocker) {
+    super(blocker);
+  }
+}
 class StaleSubmissionError extends Error {}
 
 // --- create_case: the first concrete mutation built on the pipeline,
@@ -1013,6 +1020,7 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
   }
   const recommendationId = caseRow.currentRecommendationId;
   const actorLocale = input.actorId === caseRow.complainantId ? caseRow.complainant.locale : caseRow.respondent.locale;
+  const blockers = await loadResolutionBlockers(prisma, input.caseId);
 
   return runMutation({
     trigger: "give_consent",
@@ -1029,8 +1037,14 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
         requestedVersionId: input.statementVersionId,
         currentVersionId: input.currentStatementVersionId,
       },
+      resolutionNotBlocked: { blockers: blockers.map((code) => ({ code, reason: BLOCKER_REASONS[code] })) },
     },
     write: async (tx) => {
+      // Re-check under the case row lock: a contestation opened between the
+      // guard and this transaction must still block the consent.
+      await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
+      const lockedBlockers = await loadResolutionBlockers(tx, input.caseId);
+      if (lockedBlockers.length > 0) throw new ResolutionBlockedError(lockedBlockers[0]);
       const givenAt = new Date();
       const existing = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: input.actorId } });
       if (existing) {
