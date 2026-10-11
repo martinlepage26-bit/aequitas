@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import type { PipelineView } from "../../../../domain/pipeline/writes";
-import { AddAssumptionForm, AssembleButton, AssumptionButtons, ProposalActions, ReturnForm } from "./PipelineForms";
+import { AddAssumptionForm, AssembleButton, AssumptionButtons, ProposalActions, ReturnForm, RunStepButton } from "./PipelineForms";
 import styles from "./workspace.module.css";
 
 export default async function PipelinePanel({
@@ -51,6 +51,13 @@ export default async function PipelinePanel({
       <h2 id="proposals-heading">{t("proposalsTitle")}</h2>
       <p>{t("proposalsDescription")}</p>
       {!modelConfigured && <p className={styles.hint}>{t("modelOff")}</p>}
+      {modelConfigured && view.canAuthor && (
+        <div data-pipeline-run-controls>
+          <RunStepButton caseId={caseId} step="assumptions" label={t("runAssumptions")} failed={t("runFailed")} />
+          <RunStepButton caseId={caseId} step="claims" label={t("runClaims")} failed={t("runFailed")} />
+          <RunStepButton caseId={caseId} step="context" label={t("runContext")} failed={t("runFailed")} />
+        </div>
+      )}
       {waiting.length === 0 ? (
         <p>{t("emptyProposals")}</p>
       ) : (

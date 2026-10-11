@@ -381,6 +381,10 @@
       "returnButton": "Consigner le retour",
       "assemble": "Assembler la synthèse à partir des énoncés acceptés",
       "modelOff": "Le modèle gratuit n'est pas configuré, donc aucune nouvelle proposition n'est demandée.",
+      "runAssumptions": "Extraire les hypothèses du cadrage du dossier",
+      "runClaims": "Proposer des énoncés à partir du texte des sources",
+      "runContext": "Proposer des facteurs de contexte à partir des énoncés acceptés",
+      "runFailed": "Aucune proposition n'a été consignée.",
       "kind": {
         "CLAIM": "Proposition d'énoncé",
         "CONTEXT_FACTOR": "Proposition de contexte"

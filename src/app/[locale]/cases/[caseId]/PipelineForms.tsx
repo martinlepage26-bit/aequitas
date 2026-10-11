@@ -188,3 +188,47 @@ export function AssembleButton({ caseId, label }: { caseId: string; label: strin
     </p>
   );
 }
+
+export function RunStepButton({
+  caseId,
+  step,
+  label,
+  failed,
+}: {
+  caseId: string;
+  step: "claims" | "context" | "assumptions";
+  label: string;
+  failed: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <p>
+      <button
+        type="button"
+        disabled={busy}
+        data-pipeline-run={step}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          const response = await fetch(`/api/cases/${caseId}/pipeline/run`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ step }),
+          });
+          setBusy(false);
+          if (response.ok) {
+            router.refresh();
+            return;
+          }
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          setError(payload?.message ?? failed);
+        }}
+      >
+        {label}
+      </button>
+      {error && <span role="alert" className={styles.hint}> {failed} {error}</span>}
+    </p>
+  );
+}
