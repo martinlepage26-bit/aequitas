@@ -381,6 +381,10 @@
       "returnButton": "Record the return",
       "assemble": "Assemble synthesis from accepted claims",
       "modelOff": "The free model is not configured, so new proposals are not requested.",
+      "runAssumptions": "Extract assumptions from the case framing",
+      "runClaims": "Propose claims from the source text",
+      "runContext": "Propose context factors from accepted claims",
+      "runFailed": "No proposal was recorded.",
       "kind": {
         "CLAIM": "Claim proposal",
         "CONTEXT_FACTOR": "Context proposal"
