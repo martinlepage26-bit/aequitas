@@ -70,3 +70,12 @@ Rollback at any point before step 7: `docker compose -p aeq-prod down`. After st
 
 ## Dry-run and test results, 2026-10-12
 See Air's report to Jade (also appended below).
+
+### Results (2026-10-12, 9:40 to 9:55 PM ET)
+- Containers healthy: `aeq-prod-app` (127.0.0.1:18310), `aeq-prod-postgres` (127.0.0.1:18311), `aeq-prod-clamav` (127.0.0.1:18312).
+- `/api/health` returned `{"status":"ok","release":"253e7739772feb97a83af38676e6302b38a05bc3"}`, which equals `git rev-parse HEAD` at deploy time.
+- Image digests: app `sha256:85ec359d…`, postgres:18 (ECR) `sha256:74935e72…` (repo digest), node:22-bookworm-slim (ECR) `sha256:c3de60bf…`, clamav `sha256:78810772…`.
+- Smoke tests: `/fr-CA/auth/sign-in` and `/en-CA/auth/sign-in` returned 200 (title "Aequitas — espace de résolution"). The app's own `scanBuffer(EICAR)` returned `{"clean":false,"signature":"Eicar-Test-Signature"}`. Pipeline flag is `AEQUITAS_PIPELINE_ENABLED=true`, provider `gemini`, the same as Railway.
+- Vitest: **722/722 pass**. 717 passed in the build image. The other 5 failed there only because of the environment (no pdftotext in the build stage, no MinIO), and all 9 tests in those 4 files pass in the runtime image with a throwaway MinIO. Playwright e2e wasn't run.
+- **Data dry-run (with a stand-in dump):** Railway Postgres has no public TCP proxy, and `railway ssh` needs an SSH key registered on Martin's Railway account. Both are Railway changes, so neither was done, and **no live dump was taken**. The dry-run instead used Martin's existing Railway production dump `~/Backups/aequitas/aequitas-prod-20261011-145516-pre-phase3.dump` (Oct 11, 2:55 PM ET), copied to `~/aequitas-prod/dumps/` (chmod 600, sha256 `2bc18b45…`). It restored cleanly into postgres 18. Row counts after the restore matched the dump table for table (25 tables: Case 1, Event 1, User 7, WebAuthnCredential 7, ConsentStatementVersion 2, _prisma_migrations 9, the rest 0). `migrate status` showed 1 pending migration (phase 3, `20261011180000_contestation_approval`, which is expected for a pre-phase-3 dump). `migrate deploy` then left the schema up to date. verify:events OK (1 case). 0 evidence items.
+- Backup and restore round trip: `backup.sh` → `verify-restore.sh` came back up to date, with the same counts, verify:events OK.
