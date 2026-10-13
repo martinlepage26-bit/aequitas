@@ -10,7 +10,7 @@ d="$BACKUP_ROOT/daily/$ts"; mkdir -p "$d"
 docker exec aeq-prod-postgres pg_dump -U aequitas -d aequitas -Fc > "$d/aequitas.dump"
 docker run --rm -v aeq-prod-evidence:/data:ro public.ecr.aws/docker/library/postgres:18 tar -C /data -cf - . > "$d/evidence.tar"
 (cd "$d" && sha256sum aequitas.dump evidence.tar > SHA256SUMS)
-[ "$(date +%u)" = 7 ] && cp -a "$d" "$BACKUP_ROOT/weekly/$ts"
-ls -1dt "$BACKUP_ROOT"/daily/*/  | tail -n +15 | xargs -r rm -rf
-ls -1dt "$BACKUP_ROOT"/weekly/*/ | tail -n +9  | xargs -r rm -rf
+if [ "$(date +%u)" = 7 ]; then cp -a "$d" "$BACKUP_ROOT/weekly/$ts"; fi
+{ ls -1dt "$BACKUP_ROOT"/daily/*/ 2>/dev/null || true; } | tail -n +15 | xargs -r rm -rf
+{ ls -1dt "$BACKUP_ROOT"/weekly/*/ 2>/dev/null || true; } | tail -n +9  | xargs -r rm -rf
 echo "backup ok: $d"
