@@ -1,0 +1,88 @@
+# Aequitas parallel production stack on CT920 (workspace-mtl00).
+# Compose project: aeq-prod. Every name is prefixed aeq-prod- so nothing
+# collides with the dev stack (aequitas-postgres/minio/clamav) or any other
+# container on the host. All published ports are loopback-only.
+name: aeq-prod
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  app:
+    container_name: aeq-prod-app
+    image: aeq-prod-app:${RELEASE_SHA:-unknown}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        RELEASE_SHA: ${RELEASE_SHA:-}
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RELEASE_SHA: ${RELEASE_SHA:-}
+      STORAGE_LOCAL_DIR: /data/evidence
+      CLAMAV_HOST: aeq-prod-clamav
+      CLAMAV_PORT: "3310"
+    depends_on:
+      postgres: { condition: service_healthy }
+      clamav: { condition: service_healthy }
+    ports: ["127.0.0.1:18310:3000"]
+    volumes: ["aeq-prod-evidence:/data"]
+    mem_limit: 1g
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging: *logging
+    networks: [aeq-prod-net]
+
+  postgres:
+    container_name: aeq-prod-postgres
+    # Same major as Railway (postgres-ssl:18). ECR Public mirror.
+    image: public.ecr.aws/docker/library/postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aequitas
+      POSTGRES_DB: aequitas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    ports: ["127.0.0.1:18311:5432"]
+    # postgres:18 images keep data under /var/lib/postgresql/18/docker.
+    volumes: ["aeq-prod-pgdata:/var/lib/postgresql"]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aequitas -d aequitas"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+    networks: [aeq-prod-net]
+
+  clamav:
+    container_name: aeq-prod-clamav
+    # Already present on CT920 (pinned digest, same as the dev compose); no pull.
+    image: clamav/clamav@sha256:78810772a92b4a9168115bc6b2e0ffd702640893b9577f8c3d0432762d2655c4
+    restart: unless-stopped
+    ports: ["127.0.0.1:18312:3310"]
+    volumes: ["aeq-prod-clamav-db:/var/lib/clamav"]
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 120s
+    logging: *logging
+    networks: [aeq-prod-net]
+
+volumes:
+  aeq-prod-pgdata: { name: aeq-prod-pgdata }
+  aeq-prod-evidence: { name: aeq-prod-evidence }
+  aeq-prod-clamav-db: { name: aeq-prod-clamav-db }
+
+networks:
+  aeq-prod-net: { name: aeq-prod-net }

@@ -21,6 +21,7 @@ beforeEach(() => {
   mocks.queryRaw.mockResolvedValue([{ "?column?": 1 }]);
   vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "");
   vi.stubEnv("RELEASE_COMMIT", "");
+  vi.stubEnv("RELEASE_SHA", "");
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -43,6 +44,30 @@ describe("/api/health release", () => {
     expect((await release()).body.release).toBe(fallback);
     vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "   ");
     expect((await release()).body.release).toBe(fallback);
+  });
+  it("reports the deploy-set RELEASE_SHA on hosts without Railway (CT920)", async () => {
+    for (const built of [sha(), sha()]) {
+      vi.stubEnv("RELEASE_SHA", built);
+      expect(await release()).toEqual({ status: 200, body: { status: "ok", release: built } });
+    }
+  });
+  it("prefers Railway's commit over RELEASE_SHA, and RELEASE_SHA over a static RELEASE_COMMIT", async () => {
+    const deployed = sha(), built = sha();
+    vi.stubEnv("RELEASE_COMMIT", STALE);
+    vi.stubEnv("RELEASE_SHA", built);
+    expect((await release()).body.release).toBe(built);
+    vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", deployed);
+    expect((await release()).body.release).toBe(deployed);
+    vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "");
+    vi.stubEnv("RELEASE_SHA", "  ");
+    expect((await release()).body.release).toBe(STALE);
+  });
+  it("keeps commit hashes out of the CT920 deploy files", () => {
+    for (const file of ["Dockerfile", "deploy/ct920/compose.yaml", "deploy/ct920/deploy.sh"]) {
+      const code = readFileSync(path.resolve(import.meta.dirname, "../..", file), "utf8")
+        .replace(/sha256:[0-9a-f]{64}/g, "").replace(/#.*$/gm, "");
+      expect(code, file).not.toMatch(/\b[0-9a-f]{7,40}\b/);
+    }
   });
   it("says unknown instead of guessing", async () => {
     expect((await release()).body.release).toBe("unknown");
