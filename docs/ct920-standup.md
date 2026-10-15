@@ -48,7 +48,11 @@ On CT920, `deploy.sh` sets `RELEASE_SHA` from `git rev-parse HEAD`, and it's bak
 ## Backups (`deploy/ct920/backup.sh`)
 Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, written to `~/aequitas-prod/backups/{daily,weekly}`. It keeps 14 daily and 8 weekly copies (Sunday). Proposed cron (not installed until cutover, to avoid backing up a dry-run copy):
 `15 3 * * * ~/aequitas-prod/src/deploy/ct920/backup.sh >> ~/aequitas-prod/backups/backup.log 2>&1`
-**Off-box target pending:** `penguin-backups` NFS needs root/infra-owner (Dan). The alternative is a second copy to Martin's Mac over NetBird.
+`backup-offbox.sh` takes the local backup and copies it through Martin's pinned
+`mtl-00-pve` SSH route to the separate `penguin-backups` NFS store, then verifies
+`SHA256SUMS` there. Its first live-data run passed on 2026-10-15. Schedule this
+wrapper at cutover instead of `backup.sh`; the old proposed cron above is not
+installed. Off-box retention needs periodic review.
 Restore test: `verify-restore.sh <dump> [evidence.tar]`.
 
 ## Data migration dry-run (`deploy/ct920/verify-restore.sh`)
@@ -79,3 +83,38 @@ See Air's report to Jade (also appended below).
 - Vitest: **722/722 pass**. 717 passed in the build image. The other 5 failed there only because of the environment (no pdftotext in the build stage, no MinIO), and all 9 tests in those 4 files pass in the runtime image with a throwaway MinIO. Playwright e2e wasn't run.
 - **Data dry-run (with a stand-in dump):** Railway Postgres has no public TCP proxy, and `railway ssh` needs an SSH key registered on Martin's Railway account. Both are Railway changes, so neither was done, and **no live dump was taken**. The dry-run instead used Martin's existing Railway production dump `~/Backups/aequitas/aequitas-prod-20261011-145516-pre-phase3.dump` (Oct 11, 2:55 PM ET), copied to `~/aequitas-prod/dumps/` (chmod 600, sha256 `2bc18b45…`). It restored cleanly into postgres 18. Row counts after the restore matched the dump table for table (25 tables: Case 1, Event 1, User 7, WebAuthnCredential 7, ConsentStatementVersion 2, _prisma_migrations 9, the rest 0). `migrate status` showed 1 pending migration (phase 3, `20261011180000_contestation_approval`, which is expected for a pre-phase-3 dump). `migrate deploy` then left the schema up to date. verify:events OK (1 case). 0 evidence items.
 - Backup and restore round trip: `backup.sh` → `verify-restore.sh` came back up to date, with the same counts, verify:events OK.
+
+## Cloudflare cutover preparation, 2026-10-15
+
+The app image at release `52d42354d6035b65627c811c810b6eb3f0d7313d` is
+healthy on CT920. A fresh Railway snapshot restored successfully into the
+parallel CT920 stack: 2 simulated cases, 11 users, 7 passkey credentials,
+no pending migrations, `verify:events` OK for both cases and 0 evidence-file
+problems. The source evidence directory had 7 files; all were copied. A later
+application-consistent CT920 backup was copied to `penguin-backups` and its
+checksums verified. Railway remains live, so this is a rehearsal snapshot, not
+the final write-frozen transfer.
+
+Cloudflare tunnel `aeq-prod` (`4ccb301b-0927-41a9-96f4-6aadf270bb72`) is
+connected from CT920 to `127.0.0.1:18310`. Its ingress config is
+`~/.cloudflared/aeq-prod-config.yml`; the user service is
+`aeq-prod-tunnel.service`. No public DNS route has been created. The existing
+`aequitas.pharos-ai.ca` telecom site remains on CT930.
+
+Martin selected `aequitas.app.pharos-ai.ca` for the case app. This is a nested
+hostname beyond standard Cloudflare Universal SSL coverage for a full zone;
+certificate choice is pending. CT920's private `.env` has the selected
+`APP_URL` and WebAuthn origin/RP ID, and must be updated if the hostname changes.
+
+Six existing accounts hold the 7 Railway-origin passkeys. Those credentials
+cannot authenticate at a different WebAuthn RP ID. Existing-user identity
+verification and re-enrollment must be decided and tested before public routing.
+The current invite flow refuses users who already have credentials. The
+`RESEND_API_KEY` is available in Railway but remains blank on CT920 until the
+cutover; the migration must copy it privately before email delivery tests.
+
+The final cutover still requires Martin's explicit approval under this runbook:
+freeze Railway writes, take a final database/evidence transfer, restore and
+verify, configure the final hostname and email key, publish the Cloudflare DNS
+route, smoke test authenticated flows and backups, and preserve Railway as a
+rollback source until a separate shutdown decision.

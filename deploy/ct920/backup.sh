@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Nightly app-consistent backup: pg_dump -Fc + evidence tar.
 # Retention: 14 daily, 8 weekly (Sunday copies). Target: $BACKUP_ROOT on CT920.
-# Off-box copy (penguin-backups NFS or Martin's Mac over NetBird) is PENDING.
+# Use backup-offbox.sh for a verified copy to penguin-backups NFS.
 set -euo pipefail
 BACKUP_ROOT="${BACKUP_ROOT:-$HOME/aequitas-prod/backups}"
 ts="$(date +%Y%m%d-%H%M)"; umask 077
