@@ -1,0 +1,19 @@
+{
+  "name": "aequitas-ct920-edge",
+  "main": "./src/worker.js",
+  "compatibility_date": "2026-10-15",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "aequitas.app.pharos-ai.ca",
+      "custom_domain": true
+    }
+  ],
+  "vpc_services": [
+    {
+      "binding": "AEQUITAS_ORIGIN",
+      "service_id": "01a141f1-99f4-7d20-8693-a5e26e23c32b",
+      "remote": true
+    }
+  ]
+}

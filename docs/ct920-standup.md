@@ -47,12 +47,11 @@ On CT920, `deploy.sh` sets `RELEASE_SHA` from `git rev-parse HEAD`, and it's bak
 
 ## Backups (`deploy/ct920/backup.sh`)
 Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, written to `~/aequitas-prod/backups/{daily,weekly}`. It keeps 14 daily and 8 weekly copies (Sunday). Proposed cron (not installed until cutover, to avoid backing up a dry-run copy):
-`15 3 * * * ~/aequitas-prod/src/deploy/ct920/backup.sh >> ~/aequitas-prod/backups/backup.log 2>&1`
+`15 3 * * * ~/aequitas-prod/src/deploy/ct920/backup-offbox.sh >> ~/aequitas-prod/backups/backup.log 2>&1`
 `backup-offbox.sh` takes the local backup and copies it through Martin's pinned
 `mtl-00-pve` SSH route to the separate `penguin-backups` NFS store, then verifies
-`SHA256SUMS` there. Its first live-data run passed on 2026-10-15. Schedule this
-wrapper at cutover instead of `backup.sh`; the old proposed cron above is not
-installed. Off-box retention needs periodic review.
+`SHA256SUMS` there. Its first live-data run passed on 2026-10-15. The proposed
+cron above is not installed until cutover. Off-box retention needs periodic review.
 Restore test: `verify-restore.sh <dump> [evidence.tar]`.
 
 ## Data migration dry-run (`deploy/ct920/verify-restore.sh`)
@@ -61,13 +60,13 @@ Dumps live in `~/aequitas-prod/dumps/` (chmod 600).
 
 ## Gated cutover runbook. REQUIRES MARTIN'S EXPLICIT OK, routed through Metal with Argus checking
 1. Pre-checks: Earth/Metal PASS on the draft PR, `deploy.sh` healthy on the final SHA, AQ-D4 decided, off-box backup target working, and a test restore passing.
-2. Create a Cloudflare Tunnel `aeq-prod` (new config `~/.cloudflared/aeq-prod-config.yml`; existing tunnels untouched) with hostname `aequitas.pharos-ai.ca → http://127.0.0.1:18310`. Optionally put it behind Cloudflare Access during smoke tests.
+2. Use Cloudflare Tunnel `aeq-prod` and the private Workers VPC Service to reach `127.0.0.1:18310`. The Worker custom domain is `aequitas.app.pharos-ai.ca`; it provisions the nested hostname certificate. Existing tunnels and the telecom site remain untouched.
 3. Announce the window. **Write freeze on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK).
 4. Final `pg_dump -Fc` from Railway, plus a copy of `/data/evidence`, onto CT920.
 5. Run `verify-restore.sh final.dump evidence.tar`. Pass means no pending migrations, row counts equal to Railway, verify:events OK and 0 evidence problems.
 6. Set `RESEND_API_KEY` and confirm `APP_URL`/`WEBAUTHN_*` match the chosen hostname, then `./deploy.sh`.
-7. Switch the link users get to the new hostname. Smoke test: sign-in, evidence upload (ClamAV), a pipeline run, `/api/health`.
-8. Install the backup cron. Railway stays untouched as the rollback for 14 days.
+7. Deploy the Worker custom domain and switch the link users get to the new hostname. Smoke test: sign-in, evidence upload (ClamAV), a pipeline run, `/api/health`.
+8. Install the `backup-offbox.sh` cron. Railway stays available as the rollback for 14 days.
 9. **Railway shutdown requires Martin's separate explicit OK**, after the rollback window and a final Railway dump.
 
 Rollback at any point before step 7: `docker compose -p aeq-prod down`. After step 7: point the link back to Railway and unfreeze.
@@ -103,18 +102,29 @@ connected from CT920 to `127.0.0.1:18310`. Its ingress config is
 
 Martin selected `aequitas.app.pharos-ai.ca` for the case app. This is a nested
 hostname beyond standard Cloudflare Universal SSL coverage for a full zone;
-certificate choice is pending. CT920's private `.env` has the selected
-`APP_URL` and WebAuthn origin/RP ID, and must be updated if the hostname changes.
+the zone's Free plan rejected a direct Advanced Certificate order. The
+replacement route is a Cloudflare Worker custom domain, which issues an edge
+certificate for this exact hostname without the paid Advanced Certificate
+Manager add-on. The Worker uses private VPC Service
+`01a141f1-99f4-7d20-8693-a5e26e23c32b` through the existing tunnel to
+CT920's loopback app; no separate public tunnel DNS name is required. Its
+versioned source/config is `deploy/cloudflare/`. A remote Wrangler preview
+returned 200 for health, both locale pages and passkey options through the
+private VPC binding. The custom domain has not been deployed yet and DNS is
+still absent. CT920's private `.env` has the selected `APP_URL` and WebAuthn
+origin/RP ID.
 
 Six existing accounts hold the 7 Railway-origin passkeys. Those credentials
 cannot authenticate at a different WebAuthn RP ID. Existing-user identity
-verification and re-enrollment must be decided and tested before public routing.
-The current invite flow refuses users who already have credentials. The
+verification and re-enrollment are required before those users can sign in.
+`scripts/reissue-passkey-for-move.ts` provides an operator-assisted reset and
+single-use invite after identity verification; it must never be run based on
+email possession alone. The
 `RESEND_API_KEY` is available in Railway but remains blank on CT920 until the
 cutover; the migration must copy it privately before email delivery tests.
 
-The final cutover still requires Martin's explicit approval under this runbook:
-freeze Railway writes, take a final database/evidence transfer, restore and
-verify, configure the final hostname and email key, publish the Cloudflare DNS
-route, smoke test authenticated flows and backups, and preserve Railway as a
-rollback source until a separate shutdown decision.
+Martin said "go" after reviewing the cutover status on 2026-10-15. The final
+sequence is to freeze Railway writes, take a final database/evidence transfer,
+restore and verify, configure the email key, deploy the Worker custom domain,
+smoke test authenticated flows and backups, and preserve Railway as a rollback
+source until a separate shutdown decision.
