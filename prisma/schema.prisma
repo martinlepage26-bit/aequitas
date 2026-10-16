@@ -72,6 +72,7 @@ enum RecommendationStatus {
 
 enum EventType {
   CASE_CREATED
+  CASE_DETAILS_UPDATED
   CASE_SUBMITTED
   CASE_ASSIGNED
   COI_DECLARED

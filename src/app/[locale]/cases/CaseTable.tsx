@@ -49,7 +49,7 @@ export default function CaseTable({ rows }: { rows: CaseRow[] }) {
                   <td className="ref">{row.referenceNumber}</td>
                   <td>{row.stateLabel}</td>
                   <td>{row.detail}</td>
-                  <td><a href={row.href}>{t("viewLink")}</a></td>
+                  <td><a href={row.href}>{t(row.state === "DRAFT" ? "resumeLink" : "viewLink")}</a></td>
                 </tr>
               ))}
             </tbody>

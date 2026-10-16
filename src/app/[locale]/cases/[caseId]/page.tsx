@@ -9,9 +9,12 @@ import { prisma } from "../../../../lib/prisma";
 import { getAuthorityView, type AuthorityActionKey, type AuthorityRoleKey, type CaseProgress } from "../../../../domain/authorityView";
 import { filterEventsForRole } from "../../../../domain/eventTimeline";
 import { caseReadAccess } from "../../../../domain/caseAccess";
+import { caseDetailsEditable } from "../../../../domain/caseDetails";
 import type { ExplanationRecord } from "../../../../domain/explanationRecord";
 import type { GlobalRole } from "../../../../generated/prisma";
-import { resolveRoleTerm } from "../../../../i18n/categoryGlossary";
+import { DISPUTE_CATEGORIES, resolveCategoryLabel, resolveRoleTerm } from "../../../../i18n/categoryGlossary";
+import CaseDetailsEditor from "./CaseDetailsEditor";
+import RespondentInviteButton from "./RespondentInviteButton";
 import EvidenceForm from "./EvidenceForm";
 import PositionForm from "./PositionForm";
 import CloseIntakeButton from "./CloseIntakeButton";
@@ -44,7 +47,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     where: { id: caseId },
     include: {
       complainant: { select: { id: true, displayName: true } },
-      respondent: { select: { id: true, displayName: true } },
+      respondent: { select: { id: true, displayName: true, email: true } },
       caseManager: { select: { id: true, displayName: true } },
       evidenceItems: { orderBy: { createdAt: "asc" }, include: { submittedBy: { select: { displayName: true } } } },
       positionStatements: { orderBy: [{ partyId: "asc" }, { version: "asc" }], include: { party: { select: { displayName: true } } } },
@@ -147,6 +150,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const eventActorRoleById = new Map(eventActors.map((a) => [a.id, a.globalRole]));
   const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
   const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
+  const canEditDetails = session.globalRole === "COMPLAINANT" && session.userId === caseRow.complainantId && caseDetailsEditable(caseRow.state);
+  const detailsRevision = canEditDetails ? await prisma.event.findFirst({ where: { caseId, type: "CASE_DETAILS_UPDATED" }, orderBy: { seq: "desc" }, select: { id: true } }) : null;
+  const canManageInvite = canEditDetails && (caseRow.state === "OPEN" || caseRow.state === "EVIDENCE_INTAKE");
+  const [respondentPasskeys, sentInvitation] = canManageInvite ? await Promise.all([
+    prisma.webAuthnCredential.count({ where: { userId: caseRow.respondentId } }),
+    prisma.invitation.findFirst({ where: { userId: caseRow.respondentId, revokedAt: null, claimedAt: null, expiresAt: { gt: new Date() }, emailedAt: { not: null } }, select: { id: true } }),
+  ]) : [0, null];
   const partyRole = (userId: string): GlobalRole | null =>
     userId === caseRow.complainantId ? "COMPLAINANT" : userId === caseRow.respondentId ? "RESPONDENT" : null;
   const sourceRoleLabel = (role: GlobalRole) => t(`role.${role === "CASE_MANAGER" ? "caseManager" : role.toLowerCase()}` as Parameters<typeof t>[0]);
@@ -190,6 +200,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       <section aria-labelledby="dispute-heading" className={`${styles.section} ${styles.originRecord}`} data-origin="COMPLAINANT">
         <h2 id="dispute-heading">{t("dispute.title")}</h2>
         <p className={styles.originMeta}><span className={styles.originLabel}>{sourceRoleLabel("COMPLAINANT")}</span>{t("attribution.by", { name: caseRow.complainant.displayName })}</p>
+        <p>{t("edit.respondentSummary", { name: caseRow.respondent.displayName, email: caseRow.respondent.email })}</p>
+        <p>{t("edit.categorySummary", { category: resolveCategoryLabel(caseRow.category, locale) })}</p>
         {caseRow.disputeDescription ? (
           <p className={styles.recordText}>{caseRow.disputeDescription}</p>
         ) : (
@@ -202,7 +214,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
             })}
           </p>
         )}
+        {canEditDetails && <CaseDetailsEditor key={detailsRevision?.id ?? "initial"} caseId={caseId} revision={detailsRevision?.id ?? null} category={caseRow.category} categoryOptions={DISPUTE_CATEGORIES.map(value => ({ value, label: resolveCategoryLabel(value, locale) }))} disputeDescription={caseRow.disputeDescription ?? ""} amountAtStakeCents={caseRow.amountAtStakeCents} respondentEmail={caseRow.respondent.email} respondentDisplayName={caseRow.respondent.displayName} simulated={caseRow.simulated} />}
       </section>
+
+      {canManageInvite && (respondentPasskeys > 0 ? <p>{t("inviteRespondent.active")}</p> : <RespondentInviteButton key={caseRow.respondentId} caseId={caseId} email={caseRow.respondent.email} name={caseRow.respondent.displayName} alreadySent={Boolean(sentInvitation)} />)}
 
       <h2 id="submission-heading">{t("submission.title")}</h2>
       <p>{t("submission.description")}</p>

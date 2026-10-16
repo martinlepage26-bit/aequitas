@@ -20,8 +20,8 @@
     "amountHint": "A rough figure is enough. Leave this blank if you do not know.",
     "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
     "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
-    "submitButton": "Create case",
-    "submitting": "Creating…",
+    "submitButton": "Save draft",
+    "submitting": "Saving draft…",
     "error": "The case could not be created."
   },
   "workspace": {
@@ -35,6 +35,37 @@
       "title": "The dispute",
       "amount": "Approximate amount at stake: {amount}",
       "missing": "No dispute description was recorded."
+    },
+    "edit": {
+      "respondentSummary": "Respondent: {name} ({email})",
+      "categorySummary": "Category: {category}",
+      "editButton": "Edit dossier details",
+      "title": "Edit dossier details",
+      "hint": "Save corrections before sending. The original details remain in the case activity record. An activated respondent account cannot be replaced here.",
+      "respondentName": "Respondent's name",
+      "respondentEmail": "Respondent's email",
+      "category": "Dispute category",
+      "description": "Dispute description",
+      "amount": "Approximate amount at stake (CAD, optional)",
+      "simulated": "This is a simulated training dossier",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "saved": "Changes saved.",
+      "error": "The changes could not be saved."
+    },
+    "inviteRespondent": {
+      "title": "Invite the respondent",
+      "description": "Send an account activation link to {name} at {email} after checking the address above.",
+      "openConfirm": "Send invitation…",
+      "confirmTitle": "Confirm the recipient",
+      "confirmBody": "A one-use passkey activation link will be emailed to {email}. Check this address before sending.",
+      "send": "Confirm and send invitation",
+      "sending": "Sending…",
+      "cancel": "Cancel",
+      "sent": "An activation invitation was sent to this address. It expires after 72 hours.",
+      "active": "The respondent has already activated an Aequitas account.",
+      "error": "The invitation could not be sent. Check the address and try again."
     },
     "state": {
       "DRAFT": "Draft",
@@ -82,7 +113,11 @@
       "closedNotice": "This case is closed; no further action is possible."
     },
     "draft": {
-      "submitButton": "Submit this case",
+      "submitButton": "Review and send dossier…",
+      "confirmTitle": "Confirm dossier submission",
+      "confirmBody": "Your saved dossier will be sent for manager review. You can still correct initial details during evidence intake; submitted evidence keeps its version history. The respondent invitation is sent separately to the address you confirm on this page.",
+      "confirmSend": "Confirm and send dossier",
+      "cancel": "Cancel",
       "submitting": "Submitting…",
       "error": "The case could not be submitted."
     },
@@ -433,6 +468,7 @@
       "by": "by {name}",
       "event": {
         "CASE_CREATED": "Case created",
+        "CASE_DETAILS_UPDATED": "Dossier details corrected",
         "CASE_SUBMITTED": "Case submitted",
         "CASE_ASSIGNED": "Case assigned to a case manager",
         "COI_DECLARED": "Conflict-of-interest declaration recorded",
@@ -719,6 +755,7 @@
     "unclaimed": "Unclaimed",
     "otherParty": "With {name}",
     "viewLink": "View",
+    "resumeLink": "Resume draft",
     "filterLabel": "Show",
     "filterAll": "All cases",
     "filterEmpty": "No cases match this filter.",

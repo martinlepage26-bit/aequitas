@@ -20,8 +20,8 @@
     "amountHint": "Un ordre de grandeur suffit. Laissez vide si vous ne le savez pas.",
     "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
     "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",
-    "submitButton": "Créer le dossier",
-    "submitting": "Création en cours…",
+    "submitButton": "Enregistrer le brouillon",
+    "submitting": "Enregistrement…",
     "error": "Le dossier n'a pas pu être créé."
   },
   "workspace": {
@@ -35,6 +35,37 @@
       "title": "Le différend",
       "amount": "Montant approximatif en jeu : {amount}",
       "missing": "Aucune description du différend n'a été enregistrée."
+    },
+    "edit": {
+      "respondentSummary": "Partie intimée : {name} ({email})",
+      "categorySummary": "Catégorie : {category}",
+      "editButton": "Modifier les renseignements du dossier",
+      "title": "Modifier les renseignements du dossier",
+      "hint": "Enregistrez les corrections avant l'envoi. Les renseignements précédents restent dans le journal du dossier. Un compte déjà activé ne peut pas être remplacé ici.",
+      "respondentName": "Nom de la partie intimée",
+      "respondentEmail": "Courriel de la partie intimée",
+      "category": "Catégorie du différend",
+      "description": "Description du différend",
+      "amount": "Montant approximatif en jeu (CAD, facultatif)",
+      "simulated": "Il s'agit d'un dossier simulé pour l'apprentissage",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "saved": "Modifications enregistrées.",
+      "error": "Les modifications n'ont pas pu être enregistrées."
+    },
+    "inviteRespondent": {
+      "title": "Inviter la partie intimée",
+      "description": "Envoyer un lien d'activation à {name}, à l'adresse {email}, après avoir vérifié le courriel ci-dessus.",
+      "openConfirm": "Envoyer une invitation…",
+      "confirmTitle": "Confirmer la destinataire ou le destinataire",
+      "confirmBody": "Un lien d'activation à usage unique sera envoyé à {email}. Vérifiez cette adresse avant l'envoi.",
+      "send": "Confirmer et envoyer l'invitation",
+      "sending": "Envoi en cours…",
+      "cancel": "Annuler",
+      "sent": "Une invitation d'activation a été envoyée à cette adresse. Elle expire après 72 heures.",
+      "active": "La partie intimée a déjà activé un compte Aequitas.",
+      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez."
     },
     "state": {
       "DRAFT": "Brouillon",
@@ -82,7 +113,11 @@
       "closedNotice": "Ce dossier est clos; aucune autre action n'est possible."
     },
     "draft": {
-      "submitButton": "Soumettre ce dossier",
+      "submitButton": "Vérifier et envoyer le dossier…",
+      "confirmTitle": "Confirmer l'envoi du dossier",
+      "confirmBody": "Votre dossier enregistré sera transmis à une gestionnaire ou à un gestionnaire. Les renseignements initiaux pourront encore être corrigés pendant la collecte des preuves; les preuves soumises conservent leurs versions. L'invitation à la partie intimée est envoyée séparément, à l'adresse que vous confirmez sur cette page.",
+      "confirmSend": "Confirmer et envoyer le dossier",
+      "cancel": "Annuler",
       "submitting": "Soumission en cours…",
       "error": "Le dossier n'a pas pu être soumis."
     },
@@ -433,6 +468,7 @@
       "by": "par {name}",
       "event": {
         "CASE_CREATED": "Dossier créé",
+        "CASE_DETAILS_UPDATED": "Renseignements du dossier corrigés",
         "CASE_SUBMITTED": "Dossier soumis",
         "CASE_ASSIGNED": "Dossier assigné à un gestionnaire de dossier",
         "COI_DECLARED": "Déclaration de conflit d'intérêts enregistrée",
@@ -719,6 +755,7 @@
     "unclaimed": "Non attribué",
     "otherParty": "Avec {name}",
     "viewLink": "Voir",
+    "resumeLink": "Reprendre le brouillon",
     "filterLabel": "Afficher",
     "filterAll": "Tous les dossiers",
     "filterEmpty": "Aucun dossier ne correspond à ce filtre.",

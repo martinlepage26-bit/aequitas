@@ -62,6 +62,14 @@
 .form { margin-top: 16px; }
 .form fieldset { border: 0; padding: 0; margin: 0; }
 .formRow { display: grid; gap: 8px; margin-bottom: 16px; }
+.editor { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.editor form { max-width: 42rem; }
+.editor h3 { margin-top: 0; }
+.editor .hint { margin-bottom: 16px; }
+.editActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.confirmBox { max-width: 42rem; padding: 12px 16px; border: 1px solid var(--accent); background: var(--panel-raised); }
+.workspace .secondaryButton { background: transparent; color: var(--accent-text); border-color: var(--accent); }
+.workspace .secondaryButton:hover { background: var(--panel-raised); }
 .workspace :is(input, select, textarea) { color: var(--text); background: var(--panel-raised); }
 .workspace button { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .workspace button:disabled { background: var(--panel-raised); color: var(--muted); border-color: var(--border); }
