@@ -1,6 +1,15 @@
-// Identity tokens for Aequitas. One sealing-wax accent on case-file paper
-// (light) and warm night (dark). Hex values here are the source of truth;
+// Identity tokens for Aequitas. The #a39e5c olive seed and three 90-degree
+// hue rotations define the tetrad. Light and dark UI colours keep those hues
+// while changing lightness for readable text and controls.
+// Hex values here are the source of truth;
 // src/app/theme-tokens.css is generated from themeTokenCss().
+
+export const tetradicSeedColors = {
+  olive: "#a39e5c",
+  teal: "#5ca37b",
+  indigo: "#5c61a3",
+  berry: "#a35c84",
+} as const;
 
 export const THEME_STORAGE_KEY = "aequitas-theme";
 
@@ -18,6 +27,7 @@ export interface ModeTokens {
   focus: string;
   noteText: string;
   noteBg: string;
+  noteBorder: string;
   accent: string;
   accentText: string;
   onAccent: string;
@@ -25,44 +35,46 @@ export interface ModeTokens {
 
 export const surfaces: Record<ThemeMode, ModeTokens> = {
   light: {
-    bg: "#e7e1d6",
-    panel: "#f7f3eb",
-    raised: "#fbf8f3",
-    text: "#1a1612",
-    muted: "#514a42",
-    border: "#c4b8a6",
-    controlBorder: "#6a6156",
-    danger: "#8a2a2a",
-    focus: "#1a1612",
-    noteText: "#4a3b13",
-    noteBg: "#fff3cd",
-    accent: "#7c1e1e",
-    accentText: "#7c1e1e",
-    onAccent: "#fff8f4",
+    bg: "#f3f4eb",
+    panel: "#fffef7",
+    raised: "#f9faf1",
+    text: "#1d211b",
+    muted: "#4d574d",
+    border: "#c9cfbf",
+    controlBorder: "#65705e",
+    danger: "#8f2b3a",
+    focus: "#5d5b2e",
+    noteText: "#4a4b22",
+    noteBg: "#efedcf",
+    noteBorder: tetradicSeedColors.olive,
+    accent: "#5d5b2e",
+    accentText: "#5d5b2e",
+    onAccent: "#fffef7",
   },
   dark: {
-    bg: "#100e0c",
-    panel: "#1a1714",
-    raised: "#241f1b",
-    text: "#f6f1e8",
-    muted: "#d0c6b8",
-    border: "#4a4036",
-    controlBorder: "#a89886",
-    danger: "#f0b4b4",
-    focus: "#f6f1e8",
-    noteText: "#4a3b13",
-    noteBg: "#fff3cd",
-    accent: "#e7b1a6",
-    accentText: "#f0c8be",
-    onAccent: "#1a120f",
+    bg: "#101712",
+    panel: "#172119",
+    raised: "#202c22",
+    text: "#f1f5eb",
+    muted: "#c2d0be",
+    border: "#425345",
+    controlBorder: "#9eae9b",
+    danger: "#ffb4bd",
+    focus: "#c8c37c",
+    noteText: "#e5e3b3",
+    noteBg: "#30351f",
+    noteBorder: tetradicSeedColors.olive,
+    accent: "#c8c37c",
+    accentText: "#c8c37c",
+    onAccent: "#142017",
   },
 };
 
 // Stable source colours. These identify who supplied a record even when a
 // different role is viewing it; they are separate from the viewer's accent.
 export const roleColors: Record<ThemeMode, Record<"complainant" | "respondent" | "manager" | "admin", string>> = {
-  light: { complainant: "#7c1e1e", respondent: "#214c6b", manager: "#29583d", admin: "#76542c" },
-  dark: { complainant: "#e7b1a6", respondent: "#9bcce9", manager: "#a4d4ae", admin: "#e5c38e" },
+  light: { complainant: "#713353", respondent: "#343e80", manager: "#286e4c", admin: "#5d5b2e" },
+  dark: { complainant: "#e8a8ca", respondent: "#b5b9ed", manager: "#a9dfb9", admin: "#c8c37c" },
 };
 
 function decls(mode: ThemeMode): Record<string, string> {
@@ -80,6 +92,8 @@ function decls(mode: ThemeMode): Record<string, string> {
     "--focus": s.focus,
     "--note-text": s.noteText,
     "--note-bg": s.noteBg,
+    "--note-border": s.noteBorder,
+    "--brand-seed": tetradicSeedColors.olive,
     "--accent": s.accent,
     "--accent-text": s.accentText,
     "--on-accent": s.onAccent,

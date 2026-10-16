@@ -127,7 +127,7 @@ fieldset { min-width: 0; }
   left: 50%;
   width: 0.22em;
   height: 0.22em;
-  background: var(--accent);
+  background: var(--brand-seed);
   transform: translateX(-50%);
 }
 
@@ -152,7 +152,7 @@ fieldset { min-width: 0; }
   width: 7px;
   height: 7px;
   flex: 0 0 7px;
-  background: var(--accent);
+  background: var(--brand-seed);
 }
 
 .kicker {

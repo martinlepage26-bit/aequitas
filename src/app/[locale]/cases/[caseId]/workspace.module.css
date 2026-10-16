@@ -29,9 +29,9 @@
 .workspace a { color: var(--accent-text); }
 .backLink { display: inline-flex; align-items: center; min-height: 44px; }
 .simulatedNote {
-  background: #fff3cd;
-  color: #4a3b13;
-  border: 1px solid #e0c36b;
+  background: var(--note-bg);
+  color: var(--note-text);
+  border: 1px solid var(--note-border);
   border-radius: 0;
   padding: 8px 16px;
 }

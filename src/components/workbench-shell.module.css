@@ -1,12 +1,8 @@
 .shell { min-height: 100vh; background: var(--bg); color: var(--text); }
-.roleComplainant { --accent: var(--role-complainant); --accent-text: var(--role-complainant); --on-accent: #fff8f4; }
-.roleRespondent { --accent: var(--role-respondent); --accent-text: var(--role-respondent); --on-accent: #f7fbff; }
-.roleManager { --accent: var(--role-manager); --accent-text: var(--role-manager); --on-accent: #f7fcf7; }
-.roleAdmin { --accent: var(--role-admin); --accent-text: var(--role-admin); --on-accent: #fffaf2; }
-:global(html[data-theme="dark"]) .roleComplainant { --on-accent: #1a120f; }
-:global(html[data-theme="dark"]) .roleRespondent { --on-accent: #102333; }
-:global(html[data-theme="dark"]) .roleManager { --on-accent: #13261a; }
-:global(html[data-theme="dark"]) .roleAdmin { --on-accent: #2c2113; }
+.roleComplainant { --accent: var(--role-complainant); --accent-text: var(--role-complainant); }
+.roleRespondent { --accent: var(--role-respondent); --accent-text: var(--role-respondent); }
+.roleManager { --accent: var(--role-manager); --accent-text: var(--role-manager); }
+.roleAdmin { --accent: var(--role-admin); --accent-text: var(--role-admin); }
 .roleComplainant .rail, .roleRespondent .rail, .roleManager .rail, .roleAdmin .rail {
   box-shadow: inset 4px 0 0 var(--accent);
 }
@@ -148,7 +144,7 @@
     border: 0;
     padding: 0;
     min-height: 100%;
-    background: rgb(16 14 12 / 0.46);
+    background: rgb(16 23 18 / 0.54);
   }
   .content { padding: 12px; }
   .toolbar { padding-inline: 12px; }
