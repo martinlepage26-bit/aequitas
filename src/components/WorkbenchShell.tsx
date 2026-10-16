@@ -12,10 +12,12 @@ import styles from "./workbench-shell.module.css";
 export default function WorkbenchShell({
   locale,
   role,
+  displayName,
   children,
 }: {
   locale: string;
   role: GlobalRole | null;
+  displayName: string | null;
   children: ReactNode;
 }) {
   const tAuth = useTranslations("auth");
@@ -106,7 +108,10 @@ export default function WorkbenchShell({
               <div className={styles.masthead}>
                 <p className={styles.wordmark}><Wordmark>{tLanding("title")}</Wordmark></p>
                 <EvenLine />
-                {roleLabel && <span className={styles.roleBadge}>{roleLabel}</span>}
+                {signedIn && roleLabel && displayName && <div className={styles.profileIdentity} role="group" aria-label={`${displayName}, ${roleLabel}`}>
+                  <span className={styles.profileName} title={displayName}>{displayName}</span>
+                  <span className={styles.roleBadge}>{roleLabel}</span>
+                </div>}
               </div>
             </div>
             <div className={styles.toolbarTools}>
