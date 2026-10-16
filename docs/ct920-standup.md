@@ -1,8 +1,11 @@
-# Aequitas on CT920: parallel stand-up (aeq-prod)
+# Aequitas on CT920: production runbook (aeq-prod)
 
 Stood up 2026-10-12, 9:40 PM ET, by Air on Martin's voice order (relayed by Jade).
-**Status: running in parallel. Railway is still production.** Nothing public points here:
-no DNS record, no tunnel hostname, ports bound to loopback only.
+**Status as of 2026-10-16 UTC: CT920 serves production at
+`https://aequitas.app.pharos-ai.ca`.** Railway's app deployment is stopped and
+its GitHub source disconnected. Railway Postgres and ClamAV remain available
+for the agreed rollback window; do not shut them down without Martin's
+separate approval.
 
 ## What runs
 
@@ -25,8 +28,8 @@ Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-a
 `src/deploy/ct920/.env` (chmod 600, owner martin, gitignored by `.env*`):
 - **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
 - **Copied from Railway as-is:** `GEMINI_*`, `ANTHROPIC_*`, `AEQUITAS_PIPELINE_ENABLED=true`, `AEQUITAS_PIPELINE_PROVIDER=gemini` (the same flag state as Railway), `AEQUITAS_OCR_LANGUAGES`, locales, `EMAIL_FROM`/`REPLY_TO`, `HASH_CHAIN_GENESIS`, `IP_HASH_SALT`. The last two have to match Railway, otherwise the hash chain and IP hashes won't verify.
-- **`RESEND_API_KEY` is blank on purpose** during the parallel run, so a copy of production data can never email real parties. It gets set at cutover.
-- **WebAuthn and APP_URL** use the placeholder `https://aequitas.pharos-ai.ca` (D2 pattern, not created). **Decision AQ-D4:** passkeys registered on `aequitas-production-5a0c.up.railway.app` won't work on any other origin. Users re-register, unless Martin first puts a custom domain on Railway and carries it over.
+- **`RESEND_API_KEY`** was copied privately at cutover and is present in the running CT920 app. Do not print or commit it.
+- **WebAuthn and APP_URL** use `https://aequitas.app.pharos-ai.ca`. **Decision AQ-D4:** passkeys registered on `aequitas-production-5a0c.up.railway.app` cannot authenticate at the new RP ID. Verify each existing user's identity before using `scripts/reissue-passkey-for-move.ts` to issue a new invitation.
 
 ## Start, stop, deploy, rollback
 ```bash
@@ -46,12 +49,12 @@ From the Mac: `ssh -L 18310:127.0.0.1:18310 mtl-00`, then open http://127.0.0.1:
 On CT920, `deploy.sh` sets `RELEASE_SHA` from `git rev-parse HEAD`, and it's baked in as a build arg and set as the runtime env. Tests fail on any hardcoded hash in `release.ts`, the health route, the Dockerfile, the compose file and `deploy.sh`.
 
 ## Backups (`deploy/ct920/backup.sh`)
-Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, written to `~/aequitas-prod/backups/{daily,weekly}`. It keeps 14 daily and 8 weekly copies (Sunday). Proposed cron (not installed until cutover, to avoid backing up a dry-run copy):
+Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, written to `~/aequitas-prod/backups/{daily,weekly}`. It keeps 14 daily and 8 weekly copies (Sunday). Installed cron:
 `15 3 * * * ~/aequitas-prod/src/deploy/ct920/backup-offbox.sh >> ~/aequitas-prod/backups/backup.log 2>&1`
 `backup-offbox.sh` takes the local backup and copies it through Martin's pinned
 `mtl-00-pve` SSH route to the separate `penguin-backups` NFS store, then verifies
-`SHA256SUMS` there. Its first live-data run passed on 2026-10-15. The proposed
-cron above is not installed until cutover. Off-box retention needs periodic review.
+`SHA256SUMS` there. A final-data run passed on 2026-10-15 at 23:56 UTC.
+Off-box retention needs periodic review.
 Restore test: `verify-restore.sh <dump> [evidence.tar]`.
 
 ## Data migration dry-run (`deploy/ct920/verify-restore.sh`)
@@ -69,7 +72,10 @@ Dumps live in `~/aequitas-prod/dumps/` (chmod 600).
 8. Install the `backup-offbox.sh` cron. Railway stays available as the rollback for 14 days.
 9. **Railway shutdown requires Martin's separate explicit OK**, after the rollback window and a final Railway dump.
 
-Rollback at any point before step 7: `docker compose -p aeq-prod down`. After step 7: point the link back to Railway and unfreeze.
+Rollback after step 7 requires deliberate reconciliation of any new CT920
+writes, reconnecting Railway's GitHub source, redeploying its app, and directing
+users to the Railway URL. Do not simply switch traffic to the frozen Railway
+database if CT920 has accepted new writes.
 
 ## Dry-run and test results, 2026-10-12
 See Air's report to Jade (also appended below).
@@ -128,3 +134,35 @@ sequence is to freeze Railway writes, take a final database/evidence transfer,
 restore and verify, configure the email key, deploy the Worker custom domain,
 smoke test authenticated flows and backups, and preserve Railway as a rollback
 source until a separate shutdown decision.
+
+## Production cutover result, 2026-10-15/16 UTC
+
+- Railway app deployment was stopped directly after `railway service scale
+  us-west2=0` unexpectedly redeployed one replica. Its service now has zero
+  running replicas; the old Railway health URL returns 404. The GitHub source
+  was disconnected to prevent a later push from restarting it. Railway
+  Postgres and ClamAV were left running for rollback.
+- Final source dump: `/home/martin/aequitas-prod/dumps/final-20261015/railway-final.dump`
+  (SHA-256 `cd0f6f87090d2ba161cb3d6cf687e3c8fc9d422c896c777e4403f7de52140263`).
+  Source evidence tar: `evidence.tar` in that directory (SHA-256
+  `16a6591615999769aee20a8547aa2eb4e3354c58c9518c9d484d7b9bd32f268b`).
+  The Railway source and CT920 restore both counted 2 cases, 11 users, 7
+  WebAuthn credentials, 3 events, and 0 indexed evidence items. The source
+  evidence directory's 7 other files were also transferred.
+- `verify-restore.sh` passed: 10/10 migrations current, all event chains and
+  projections verified, and 0 evidence hash problems. CT920 release
+  `2160eaf564f5e3594bcafcd792b5bb752ff26ae6` is healthy. The final-data
+  local and off-box backup at `20261015-2356` passed checksum checks.
+- Cloudflare Worker `aequitas-ct920-edge` version
+  `f213a75c-ec81-4335-ad9b-f99644fe3adc` serves the custom domain through
+  the private VPC Service and tunnel. Its exact-host certificate is active.
+  Public health, root, English page, French sign-in page, and passkey-options
+  requests returned 200; the options response used the selected RP ID and
+  issued a Secure, HttpOnly cookie. The separate telecom site at
+  `aequitas.pharos-ai.ca/telecom/` still returned 200. The tunnel user service
+  is enabled on boot; daily off-box backup cron is installed for 03:15 UTC.
+- **Authentication follow-up:** six existing users hold the seven
+  Railway-origin passkeys and must complete identity-verified enrollment on
+  the new hostname. No real account has been reset or invited yet. An
+  authenticated evidence upload or pipeline run cannot be verified until an
+  authorized user completes that enrollment.
