@@ -71,6 +71,7 @@ export default function AuthForm({ returnTo }: { returnTo: string }) {
             {flow.busy && <button type="button" className={styles.cancel} onClick={flow.cancel}>{t("cancel")}</button>}
           </form>
           <p className={styles.passkeyNote}>{t("passkeyNote")}</p>
+          {mode === "sign-in" && <p className={styles.recoveryLink}><Link href={`/${locale}/auth/recover`}>{t("recoverAccess")}</Link></p>}
           {error && <p role="alert" className={`${styles.status} ${styles.statusError}`}>{error}</p>}
         </div>
       </div>

@@ -44,7 +44,7 @@ describe("workbench theme", () => {
     const css = readFileSync(new URL("../../src/app/theme-tokens.css", import.meta.url), "utf8");
     expect(css).toBe(themeTokenCss());
     expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain("--radius: 0;");
+    expect(css).toContain("--radius: 14px;");
     expect(css).not.toContain("data-palette");
     expect(css).not.toContain("--swatch-");
   });

@@ -31,6 +31,22 @@
       "legend": "Colours by source",
       "by": "Source: {name}"
     },
+    "journey": {
+      "eyebrow": "Case pathway",
+      "title": "A shared record, step by step",
+      "current": "Now: {stage}",
+      "withdrawn": "This case was withdrawn",
+      "stages": {
+        "dossier": "Dossier",
+        "evidence": "Evidence",
+        "positions": "Both positions",
+        "review": "Manager review",
+        "resolution": "Resolution"
+      },
+      "balanceLabel": "The two parties have equal standing in this process",
+      "sharedRecord": "Shared record",
+      "balanceNote": "Colour identifies who contributed information. It does not rate the evidence or predict an outcome."
+    },
     "dispute": {
       "title": "The dispute",
       "amount": "Approximate amount at stake: {amount}",
@@ -465,6 +481,8 @@
       "title": "Case activity",
       "description": "An automatic log of actions taken in Aequitas. These timestamps record submissions and case progress, not when events in the dispute happened.",
       "empty": "No events yet.",
+      "count": "{count} activity items",
+      "filters": { "label": "Filter case activity by source", "all": "Everyone" },
       "by": "by {name}",
       "event": {
         "CASE_CREATED": "Case created",
@@ -758,6 +776,7 @@
     "resumeLink": "Resume draft",
     "filterLabel": "Show",
     "filterAll": "All cases",
+    "showing": "Showing {count} cases",
     "filterEmpty": "No cases match this filter.",
     "columns": {
       "reference": "Reference",
@@ -857,10 +876,28 @@
     "cancelled": "Sign-in was cancelled or timed out. You can try again.",
     "failed": "Unable to sign in. Check your email and use a passkey registered for this account, or contact your administrator.",
     "passkeyNote": "No password to remember. Your device confirms it is you.",
+    "recoverAccess": "Lost your passkey? Recover access",
     "account": "Account navigation",
     "cases": "Cases",
     "invites": "Invitations",
     "signOut": "Sign out"
+  },
+  "recovery": {
+    "title": "Recover access",
+    "requestDescription": "Enter your account email. If it belongs to an Aequitas account, we’ll send a link to create a new passkey.",
+    "email": "Account email",
+    "sendLink": "Send recovery link",
+    "sending": "Sending…",
+    "requested": "If this address belongs to an account, a recovery link is on its way. Check your inbox and spam folder.",
+    "requestError": "We couldn’t request a link right now. Please try again later.",
+    "backToSignIn": "Back to sign in",
+    "replaceTitle": "Create a new passkey",
+    "replaceDescription": "Confirm on your device to replace your old passkeys. Other signed-in devices will need to sign in again.",
+    "replacePasskey": "Replace my passkey",
+    "replacing": "Waiting for your device…",
+    "cancel": "Cancel",
+    "claimError": "We couldn’t verify the new passkey. Try again or request a new recovery link.",
+    "invalid": "This recovery link is invalid, expired, or already used. Request a new one from the sign-in page."
   },
   "adminInvites": {
     "title": "Manage invitations",

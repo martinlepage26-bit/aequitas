@@ -1,6 +1,7 @@
 import type { DisputeCategory } from "../generated/prisma";
 import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
+import { RECOVERY_TTL_MINUTES } from "./accountRecovery";
 
 /** Queued when a complainant submits a case and a case manager should see it. */
 export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
@@ -35,6 +36,18 @@ export async function sendInvitationEmail(input: { email: string; locale: string
     : `You have been invited to Aequitas. Create your passkey using this link, valid for 72 hours:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`, `invitation/${input.invitationId}`);
   try { await prisma.invitation.update({ where: { id: input.invitationId }, data: { emailedAt: new Date() } }); }
   catch { console.error("Invitation email accepted; delivery timestamp could not be persisted."); }
+  return "accepted" as const;
+}
+
+export async function sendAccountRecoveryEmail(input: { email: string; locale: string; token: string; recoveryId: string }) {
+  if (!emailConfigured()) return "not_configured" as const;
+  const french = input.locale === "fr-CA";
+  const link = appUrl(`/${french ? "fr-CA" : "en-CA"}/auth/recover/${encodeURIComponent(input.token)}`);
+  await sendEmail(input.email, french ? "Récupérer votre accès Aequitas" : "Recover your Aequitas access", french
+    ? `Une demande de récupération de votre accès Aequitas a été reçue. Pour créer une nouvelle clé d’accès, ouvrez ce lien à usage unique dans les ${RECOVERY_TTL_MINUTES} prochaines minutes :\n\n${link}\n\nSi vous n’avez pas demandé cette récupération, ignorez ce message. Votre clé d’accès actuelle reste valide tant que la récupération n’est pas terminée.`
+    : `A request to recover your Aequitas access was received. To create a new passkey, open this single-use link within ${RECOVERY_TTL_MINUTES} minutes:\n\n${link}\n\nIf you did not request this, ignore this message. Your current passkey remains valid until recovery is completed.`, `recovery/${input.recoveryId}`);
+  try { await prisma.accountRecovery.update({ where: { id: input.recoveryId }, data: { emailedAt: new Date() } }); }
+  catch { console.error("Recovery email accepted; delivery timestamp could not be persisted."); }
   return "accepted" as const;
 }
 

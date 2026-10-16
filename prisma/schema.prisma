@@ -134,10 +134,12 @@ model User {
   globalRole  GlobalRole
   // Phase 3: approver capability (P3-D2). Granted by scripts/grant-approver.ts.
   isApprover  Boolean  @default(false)
+  sessionVersion Int   @default(0)
   createdAt   DateTime @default(now())
 
   credentials WebAuthnCredential[]
   invitations Invitation[]
+  recoveries  AccountRecovery[]
 
   casesAsComplainant    Case[] @relation("CaseComplainant")
   casesAsRespondent     Case[] @relation("CaseRespondent")
@@ -190,6 +192,20 @@ model Invitation {
   emailedAt   DateTime?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AccountRecovery {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }

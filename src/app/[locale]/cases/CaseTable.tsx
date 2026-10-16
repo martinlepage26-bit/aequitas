@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import styles from "./case-list.module.css";
 
 export interface CaseRow {
   id: string;
@@ -23,38 +24,21 @@ export default function CaseTable({ rows }: { rows: CaseRow[] }) {
   const visible = state === "ALL" ? rows : rows.filter((row) => row.state === state);
 
   return (
-    <div className="panel stack">
-      <label className="field" htmlFor="case-state-filter" style={{ maxWidth: "16rem", marginBottom: 0 }}>
-        <span>{t("filterLabel")}</span>
-        <select id="case-state-filter" value={state} onChange={(event) => setState(event.target.value)}>
-          <option value="ALL">{t("filterAll")}</option>
-          {options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-      </label>
+    <div className={styles.list}>
+      <div className={styles.filters} role="group" aria-label={t("filterLabel")}>
+        <button type="button" aria-pressed={state === "ALL"} onClick={() => setState("ALL")}>{t("filterAll")}</button>
+        {options.map(([value, label]) => <button key={value} type="button" aria-pressed={state === value} onClick={() => setState(value)}>{label}<span>{rows.filter(row => row.state === value).length}</span></button>)}
+      </div>
+      <p className={styles.count} aria-live="polite">{t("showing", { count: visible.length })}</p>
       {visible.length === 0 ? <p>{t("filterEmpty")}</p> : (
-        <div className="table-wrap">
-          <table className="data-table">
-            <caption className="visually-hidden">{t("title")}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t("columns.reference")}</th>
-                <th scope="col">{t("columns.state")}</th>
-                <th scope="col">{t("columns.party")}</th>
-                <th scope="col">{t("viewLink")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((row) => (
-                <tr key={row.id}>
-                  <td className="ref">{row.referenceNumber}</td>
-                  <td>{row.stateLabel}</td>
-                  <td>{row.detail}</td>
-                  <td><a href={row.href}>{t(row.state === "DRAFT" ? "resumeLink" : "viewLink")}</a></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className={styles.cards}>{visible.map((row) => <li key={row.id}>
+          <a className={styles.card} href={row.href}>
+            <span className={styles.caseIcon} aria-hidden="true"><span /></span>
+            <span className={styles.cardBody}><strong className="ref">{row.referenceNumber}</strong><span>{row.detail}</span></span>
+            <span className={styles.state}><i aria-hidden="true" />{row.stateLabel}</span>
+            <span className={styles.action}>{t(row.state === "DRAFT" ? "resumeLink" : "viewLink")} <span aria-hidden="true">→</span></span>
+          </a>
+        </li>)}</ul>
       )}
     </div>
   );

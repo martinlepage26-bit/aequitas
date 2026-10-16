@@ -21,19 +21,21 @@
   display: grid;
   gap: 16px;
   padding: 22px;
-  border: 1px solid var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   background: var(--panel);
-  box-shadow: 6px 6px 0 var(--bg), 7px 7px 0 var(--text);
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.08);
 }
 .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .tab {
   min-height: 44px;
   border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
   background: var(--panel-raised);
   color: var(--text);
   font-weight: 650;
 }
-.tab + .tab { border-left: 0; }
+.tab + .tab { border-left: 1px solid var(--control-border); }
 .tabActive { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .tabActive + .tab { border-left: 1px solid var(--control-border); }
 .beamField { display: grid; gap: 8px; }
@@ -70,11 +72,12 @@
 .beamNode {
   min-height: 44px;
   border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
   background: var(--panel-raised);
   color: var(--text);
   font-weight: 650;
 }
-.beamNodeRight { border-left: 0; }
+.beamNodeRight { border-left: 1px solid var(--control-border); }
 .beamNode[aria-checked="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .beamNode[aria-checked="true"] + .beamNode { border-left: 1px solid var(--control-border); }
 .field { display: grid; gap: 6px; }
@@ -87,9 +90,11 @@
 .status { margin: 0; }
 .statusError { color: var(--danger); }
 .card h1 { margin-top: 0; }
+.card form { display: grid; gap: 12px; }
+.card form .field { margin: 0; }
 .card a { font-weight: 650; }
 
 @media (max-width: 520px) {
   .frame { margin-top: 12px; }
-  .card { box-shadow: 4px 4px 0 var(--bg), 5px 5px 0 var(--text); padding: 16px; }
+  .card { box-shadow: 0 12px 32px rgb(0 0 0 / 0.07); padding: 16px; }
 }

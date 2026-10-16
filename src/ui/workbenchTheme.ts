@@ -101,8 +101,8 @@ function decls(mode: ThemeMode): Record<string, string> {
     "--role-respondent": roleColors[mode].respondent,
     "--role-manager": roleColors[mode].manager,
     "--role-admin": roleColors[mode].admin,
-    "--radius": "0",
-    "--radius-sm": "0",
+    "--radius": "14px",
+    "--radius-sm": "9px",
   };
 }
 

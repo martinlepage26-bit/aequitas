@@ -3,9 +3,6 @@
 .roleRespondent { --accent: var(--role-respondent); --accent-text: var(--role-respondent); }
 .roleManager { --accent: var(--role-manager); --accent-text: var(--role-manager); }
 .roleAdmin { --accent: var(--role-admin); --accent-text: var(--role-admin); }
-.roleComplainant .rail, .roleRespondent .rail, .roleManager .rail, .roleAdmin .rail {
-  box-shadow: inset 4px 0 0 var(--accent);
-}
 .skip {
   position: absolute;
   left: 12px;
@@ -36,7 +33,7 @@
   min-height: 44px;
   padding: 8px 12px;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -47,8 +44,8 @@
 }
 .navLink:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
 .navLink[aria-current="page"] {
-  background: transparent;
-  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--accent-text);
   font-weight: 650;
 }
 .brand { color: var(--text); }
@@ -66,11 +63,8 @@
   gap: 12px 20px;
   padding: 12px 16px 14px;
   background: var(--panel);
-  border-bottom: 1px solid var(--text);
-  box-shadow: 0 3px 0 var(--bg), 0 4px 0 var(--text);
-}
-.roleComplainant .toolbar, .roleRespondent .toolbar, .roleManager .toolbar, .roleAdmin .toolbar {
-  border-top: 4px solid var(--accent);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.04);
 }
 .toolbarLead { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 16rem; }
 .masthead { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
@@ -80,6 +74,7 @@
   align-items: center;
   min-height: 32px;
   padding: 4px 10px;
+  border-radius: 999px;
   background: var(--accent);
   color: var(--on-accent);
   font-size: 0.75rem;
@@ -95,6 +90,7 @@
   height: 44px;
   padding: 0;
   border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
   background: var(--panel-raised);
   color: var(--text);
 }

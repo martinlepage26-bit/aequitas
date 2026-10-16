@@ -23,8 +23,8 @@
   --role-respondent: #343e80;
   --role-manager: #286e4c;
   --role-admin: #5d5b2e;
-  --radius: 0;
-  --radius-sm: 0;
+  --radius: 14px;
+  --radius-sm: 9px;
 }
 
 :root[data-theme="dark"] {
@@ -49,6 +49,6 @@
   --role-respondent: #b5b9ed;
   --role-manager: #a9dfb9;
   --role-admin: #c8c37c;
-  --radius: 0;
-  --radius-sm: 0;
+  --radius: 14px;
+  --radius-sm: 9px;
 }

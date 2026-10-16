@@ -37,6 +37,8 @@ import { readClaimGraph } from "../../../../domain/claimWrites";
 import { formatChronologyDate } from "../../../../domain/chronology";
 import { submissionAvailability, type SubmissionKind } from "../../../../domain/submissionView";
 import styles from "./workspace.module.css";
+import CaseJourney from "./CaseJourney";
+import CaseActivity from "./CaseActivity";
 
 export default async function CaseWorkspacePage({ params }: { params: Promise<{ locale: string; caseId: string }> }) {
   const { caseId, locale } = await params;
@@ -148,7 +150,6 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     : [];
   const eventActorNameById = new Map(eventActors.map((a) => [a.id, a.displayName]));
   const eventActorRoleById = new Map(eventActors.map((a) => [a.id, a.globalRole]));
-  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
   const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
   const canEditDetails = session.globalRole === "COMPLAINANT" && session.userId === caseRow.complainantId && caseDetailsEditable(caseRow.state);
   const detailsRevision = canEditDetails ? await prisma.event.findFirst({ where: { caseId, type: "CASE_DETAILS_UPDATED" }, orderBy: { seq: "desc" }, select: { id: true } }) : null;
@@ -196,6 +197,15 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           </span>
         ))}
       </div>
+      <div className={styles.balance} aria-label={t("journey.balanceLabel")}>
+        <div className={styles.balanceParty} data-origin="COMPLAINANT"><span className={styles.balanceDot} aria-hidden="true" />{sourceRoleLabel("COMPLAINANT")}</div>
+        <span className={styles.balanceLine} aria-hidden="true" />
+        <div className={styles.balanceCenter}><span aria-hidden="true">↔</span>{t("journey.sharedRecord")}</div>
+        <span className={styles.balanceLine} aria-hidden="true" />
+        <div className={styles.balanceParty} data-origin="RESPONDENT"><span className={styles.balanceDot} aria-hidden="true" />{sourceRoleLabel("RESPONDENT")}</div>
+        <p>{t("journey.balanceNote")}</p>
+      </div>
+      <CaseJourney state={caseRow.state} />
 
       <section aria-labelledby="dispute-heading" className={`${styles.section} ${styles.originRecord}`} data-origin="COMPLAINANT">
         <h2 id="dispute-heading">{t("dispute.title")}</h2>
@@ -415,25 +425,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         </p>
       )}
 
-      <section aria-labelledby="timeline-heading" className={styles.section}>
-        <h2 id="timeline-heading">{t("timeline.title")}</h2>
-        <p>{t("timeline.description")}</p>
-        {visibleEvents.length === 0 ? (
-          <p>{t("timeline.empty")}</p>
-        ) : (
-          <ol style={{ paddingLeft: "1.25rem" }}>
-            {visibleEvents.map((e) => (
-              <li key={e.id} className={styles.originRecord} data-origin={eventActorRoleById.get(e.actorId)}>
-                {eventActorRoleById.get(e.actorId) && <span className={styles.originLabel}>{sourceRoleLabel(eventActorRoleById.get(e.actorId)!)}</span>}{" "}
-                <time dateTime={e.createdAt.toISOString()}>{dateFormatter.format(e.createdAt)}</time>
-                {" — "}
-                {t(`timeline.event.${e.type}`)}
-                {eventActorNameById.get(e.actorId) && <> {t("timeline.by", { name: eventActorNameById.get(e.actorId)! })}</>}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <CaseActivity locale={locale} events={visibleEvents.map((event) => ({
+        id: event.id,
+        type: event.type,
+        createdAt: event.createdAt.toISOString(),
+        actorRole: (eventActorRoleById.get(event.actorId) ?? null) as "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER" | "ADMIN" | null,
+        actorName: eventActorNameById.get(event.actorId) ?? null,
+      }))} />
     </main>
   );
 }
