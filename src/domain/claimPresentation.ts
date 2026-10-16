@@ -72,6 +72,7 @@ export interface SourceRecord {
   legalFramework: string | null;
   evidenceItemId: string | null;
   evidenceTitle: string | null;
+  evidenceSubmittedById?: string | null;
   visibility: "CASE" | "RESTRICTED" | "REDACTED";
   language: string;
   origin: string | null;
@@ -97,6 +98,7 @@ export interface PresentedLink {
   citation: string | null;
   legalFramework: string | null;
   evidenceTitle: string | null;
+  evidenceSubmittedById?: string | null;
   language: string;
   origin: string | null;
   createdAt: string;
@@ -201,6 +203,7 @@ export function buildClaimsView(input: {
             citation: source?.citation ?? null,
             legalFramework: source?.legalFramework ?? null,
             evidenceTitle: source?.evidenceTitle ?? null,
+            ...(source?.evidenceSubmittedById ? { evidenceSubmittedById: source.evidenceSubmittedById } : {}),
             language: source?.language ?? "",
             origin: source?.origin ?? null,
             createdAt: link.createdAt,

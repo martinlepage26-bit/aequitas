@@ -74,6 +74,32 @@
 .chronology p, .recordText { white-space: pre-wrap; }
 .section ul, .section ol { margin: 8px 0; padding-left: 1.1rem; }
 .section li { padding: 6px 0; }
+.originRecord {
+  --origin-accent: var(--border);
+  border-left: 4px solid var(--origin-accent);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--origin-accent) 8%, var(--panel));
+}
+.originRecord[data-origin="COMPLAINANT"] { --origin-accent: var(--role-complainant); }
+.originRecord[data-origin="RESPONDENT"] { --origin-accent: var(--role-respondent); }
+.originRecord[data-origin="CASE_MANAGER"] { --origin-accent: var(--role-manager); }
+.originRecord[data-origin="ADMIN"] { --origin-accent: var(--role-admin); }
+.originMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
+.originLabel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 1px solid var(--origin-accent);
+  color: var(--origin-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.originLegend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.originLegend .originRecord { padding: 4px 8px; }
+.originLegend .originLabel { border: 0; padding: 0; }
+.chronology .originRecord { padding-left: 12px; }
 .claim { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .claimMeta { margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
 .claimType {

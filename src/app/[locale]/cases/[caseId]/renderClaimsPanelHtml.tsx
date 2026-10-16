@@ -8,6 +8,8 @@ export function renderClaimsPanelHtml(props: {
   view: ClaimsView;
   authors: Array<{ id: string; displayName: string }>;
   copy: ClaimsCopy;
+  complainantId: string;
+  respondentId: string;
 }): string {
   return renderToStaticMarkup(<ClaimsList {...props} />);
 }

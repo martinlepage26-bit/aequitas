@@ -58,6 +58,13 @@ export const surfaces: Record<ThemeMode, ModeTokens> = {
   },
 };
 
+// Stable source colours. These identify who supplied a record even when a
+// different role is viewing it; they are separate from the viewer's accent.
+export const roleColors: Record<ThemeMode, Record<"complainant" | "respondent" | "manager" | "admin", string>> = {
+  light: { complainant: "#7c1e1e", respondent: "#214c6b", manager: "#29583d", admin: "#76542c" },
+  dark: { complainant: "#e7b1a6", respondent: "#9bcce9", manager: "#a4d4ae", admin: "#e5c38e" },
+};
+
 function decls(mode: ThemeMode): Record<string, string> {
   const s = surfaces[mode];
   return {
@@ -76,6 +83,10 @@ function decls(mode: ThemeMode): Record<string, string> {
     "--accent": s.accent,
     "--accent-text": s.accentText,
     "--on-accent": s.onAccent,
+    "--role-complainant": roleColors[mode].complainant,
+    "--role-respondent": roleColors[mode].respondent,
+    "--role-manager": roleColors[mode].manager,
+    "--role-admin": roleColors[mode].admin,
     "--radius": "0",
     "--radius-sm": "0",
   };

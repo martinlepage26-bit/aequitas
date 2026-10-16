@@ -94,6 +94,11 @@ function copyFor(messages: typeof en): ClaimsCopy {
     impactNotice: claims.impactNotice,
     relationshipsTitle: claims.relationshipsTitle,
     noRelationships: claims.noRelationships,
+    role: {
+      complainant: messages.workspace.role.complainant,
+      respondent: messages.workspace.role.respondent,
+      manager: messages.workspace.role.caseManager,
+    },
     type: claims.type,
     confidence: claims.confidence,
     status: claims.status,
@@ -270,7 +275,7 @@ describe("traceable core writes", () => {
     const manager = await prisma.user.findUniqueOrThrow({ where: { id: managerId } });
 
     for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
-      const html = renderClaimsPanelHtml({ locale, view: graph.view, authors: [{ id: managerId, displayName: manager.displayName }], copy: copyFor(messages) });
+      const html = renderClaimsPanelHtml({ locale, view: graph.view, authors: [{ id: managerId, displayName: manager.displayName }], copy: copyFor(messages), complainantId, respondentId });
       expect(html).toContain(`data-claims-locale="${locale}"`);
       expect(html).toContain(messages.workspace.claims.why);
       const ids = renderedClaimIds(html);

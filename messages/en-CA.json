@@ -27,6 +27,10 @@
   "workspace": {
     "title": "Case workspace",
     "caseReference": "Case {reference}",
+    "attribution": {
+      "legend": "Colours by source",
+      "by": "Source: {name}"
+    },
     "dispute": {
       "title": "The dispute",
       "amount": "Approximate amount at stake: {amount}",

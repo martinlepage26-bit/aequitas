@@ -10,6 +10,7 @@ import { getAuthorityView, type AuthorityActionKey, type AuthorityRoleKey, type 
 import { filterEventsForRole } from "../../../../domain/eventTimeline";
 import { caseReadAccess } from "../../../../domain/caseAccess";
 import type { ExplanationRecord } from "../../../../domain/explanationRecord";
+import type { GlobalRole } from "../../../../generated/prisma";
 import { resolveRoleTerm } from "../../../../i18n/categoryGlossary";
 import EvidenceForm from "./EvidenceForm";
 import PositionForm from "./PositionForm";
@@ -140,11 +141,15 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const visibleEvents = filterEventsForRole(caseRow.events, session.globalRole, access === "assigned-manager");
   const eventActorIds = [...new Set(visibleEvents.map((e) => e.actorId))];
   const eventActors = eventActorIds.length
-    ? await prisma.user.findMany({ where: { id: { in: eventActorIds } }, select: { id: true, displayName: true } })
+    ? await prisma.user.findMany({ where: { id: { in: eventActorIds } }, select: { id: true, displayName: true, globalRole: true } })
     : [];
   const eventActorNameById = new Map(eventActors.map((a) => [a.id, a.displayName]));
+  const eventActorRoleById = new Map(eventActors.map((a) => [a.id, a.globalRole]));
   const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
   const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
+  const partyRole = (userId: string): GlobalRole | null =>
+    userId === caseRow.complainantId ? "COMPLAINANT" : userId === caseRow.respondentId ? "RESPONDENT" : null;
+  const sourceRoleLabel = (role: GlobalRole) => t(`role.${role === "CASE_MANAGER" ? "caseManager" : role.toLowerCase()}` as Parameters<typeof t>[0]);
   const submissions = ["evidence", "chronology", "position"] as const;
   const guidance = (kind: SubmissionKind) => t(`submission.availability.${submissionAvailability(kind, caseRow.state, isParty)}`);
   const target = (kind: SubmissionKind) => kind === "position" ? "positions-heading" : `${kind}-heading`;
@@ -174,9 +179,17 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       <p>
         <strong>{t(`state.${caseRow.state}`)}</strong>
       </p>
+      <div className={styles.originLegend} role="group" aria-label={t("attribution.legend")}>
+        {(["COMPLAINANT", "RESPONDENT", "CASE_MANAGER"] as const).map((role) => (
+          <span key={role} className={styles.originRecord} data-origin={role}>
+            <span className={styles.originLabel}>{sourceRoleLabel(role)}</span>
+          </span>
+        ))}
+      </div>
 
-      <section aria-labelledby="dispute-heading" className={styles.section}>
+      <section aria-labelledby="dispute-heading" className={`${styles.section} ${styles.originRecord}`} data-origin="COMPLAINANT">
         <h2 id="dispute-heading">{t("dispute.title")}</h2>
+        <p className={styles.originMeta}><span className={styles.originLabel}>{sourceRoleLabel("COMPLAINANT")}</span>{t("attribution.by", { name: caseRow.complainant.displayName })}</p>
         {caseRow.disputeDescription ? (
           <p className={styles.recordText}>{caseRow.disputeDescription}</p>
         ) : (
@@ -239,7 +252,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
             {caseRow.evidenceItems
               .filter((e) => e.scanStatus !== "REJECTED" || e.submittedById === session.userId)
               .map((e) => (
-                <li key={e.id} id={`evidence-${e.id}`}>
+                <li key={e.id} id={`evidence-${e.id}`} className={styles.originRecord} data-origin={partyRole(e.submittedById) ?? undefined}>
+                  {partyRole(e.submittedById) && <span className={styles.originLabel}>{sourceRoleLabel(partyRole(e.submittedById)!)}</span>}{" "}
                   <strong>{e.title}</strong> ({t(`evidence.kind.${e.kind}`)}) — {t("evidence.submittedBy", { name: e.submittedBy.displayName })}
                   {" — "}
                   {t(`evidence.scanStatus.${e.scanStatus}`)}
@@ -262,9 +276,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <p>{t("chronology.description")}</p>
         <p className={styles.guidance} id="chronology-guidance">{guidance("chronology")}</p>
         {caseRow.chronologyEntries.length === 0 ? <p>{t("chronology.empty")}</p> : <ol className={styles.chronology}>
-          {caseRow.chronologyEntries.map(entry => <li key={entry.id} id={`chronology-${entry.id}`}>
+          {caseRow.chronologyEntries.map(entry => <li key={entry.id} id={`chronology-${entry.id}`} className={styles.originRecord} data-origin={partyRole(entry.submittedById) ?? undefined}>
             <time dateTime={entry.occurredOn.toISOString().slice(0, 10)}>{formatChronologyDate(entry.occurredOn, locale)}</time>
             <div>
+              {partyRole(entry.submittedById) && <p className={styles.originMeta}><span className={styles.originLabel}>{sourceRoleLabel(partyRole(entry.submittedById)!)}</span>{t("attribution.by", { name: entry.submittedBy.displayName })}</p>}
               <h3 lang={entry.locale}>{entry.title}</h3>
               <p lang={entry.locale}>{entry.description}</p>
               <p className={styles.hint}>{t("chronology.reportedBy", { name: entry.submittedBy.displayName })}</p>
@@ -283,7 +298,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         ) : (
           <ul>
             {caseRow.positionStatements.map((p) => (
-              <li key={p.id}>
+              <li key={p.id} className={styles.originRecord} data-origin={partyRole(p.partyId) ?? undefined}>
+                {partyRole(p.partyId) && <span className={styles.originLabel}>{sourceRoleLabel(partyRole(p.partyId)!)}</span>}{" "}
                 <strong>{p.party.displayName}</strong> — {t("positions.version", { version: p.version })}
                 <p className={styles.recordText}>{p.body}</p>
               </li>
@@ -293,7 +309,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <PositionForm caseId={caseId} disabled={!canSubmitPosition || !isParty} />
       </section>
 
-      <ClaimsPanel caseId={caseId} locale={locale} graph={claimGraph} />
+      <ClaimsPanel caseId={caseId} locale={locale} graph={claimGraph} complainantId={caseRow.complainantId} respondentId={caseRow.respondentId} />
 
       {pipelineEnabled() && pipelineView && (
         <PipelinePanel caseId={caseId} view={pipelineView} modelConfigured={freeModelConfigured()} />
@@ -360,6 +376,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           caseId={caseId}
           view={resolutionView}
           viewerId={session.userId}
+          complainantId={caseRow.complainantId}
+          respondentId={caseRow.respondentId}
           targets={contestTargets}
           sectionClassName={styles.section}
         />
@@ -390,7 +408,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         ) : (
           <ol style={{ paddingLeft: "1.25rem" }}>
             {visibleEvents.map((e) => (
-              <li key={e.id}>
+              <li key={e.id} className={styles.originRecord} data-origin={eventActorRoleById.get(e.actorId)}>
+                {eventActorRoleById.get(e.actorId) && <span className={styles.originLabel}>{sourceRoleLabel(eventActorRoleById.get(e.actorId)!)}</span>}{" "}
                 <time dateTime={e.createdAt.toISOString()}>{dateFormatter.format(e.createdAt)}</time>
                 {" — "}
                 {t(`timeline.event.${e.type}`)}

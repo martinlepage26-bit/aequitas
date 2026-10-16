@@ -27,6 +27,10 @@
   "workspace": {
     "title": "Espace de dossier",
     "caseReference": "Dossier {reference}",
+    "attribution": {
+      "legend": "Couleurs selon la provenance",
+      "by": "Source : {name}"
+    },
     "dispute": {
       "title": "Le différend",
       "amount": "Montant approximatif en jeu : {amount}",

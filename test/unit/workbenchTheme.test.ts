@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   THEME_BOOT_SCRIPT,
   contrastRatio,
+  roleColors,
   surfaces,
   themeTokenCss,
   type ThemeMode,
@@ -45,6 +46,17 @@ describe("workbench theme", () => {
     expect(css).toContain("--radius: 0;");
     expect(css).not.toContain("data-palette");
     expect(css).not.toContain("--swatch-");
+  });
+
+  it("keeps each source role distinct and legible in light and dark modes", () => {
+    for (const mode of ["light", "dark"] as ThemeMode[]) {
+      const colors = Object.values(roleColors[mode]);
+      expect(new Set(colors).size).toBe(4);
+      for (const color of colors) {
+        expect(contrastRatio(color, surfaces[mode].panel)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(color, surfaces[mode].raised)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it("applies a stored theme and follows the system scheme until one is chosen", () => {

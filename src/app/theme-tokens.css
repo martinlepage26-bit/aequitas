@@ -17,6 +17,10 @@
   --accent: #7c1e1e;
   --accent-text: #7c1e1e;
   --on-accent: #fff8f4;
+  --role-complainant: #7c1e1e;
+  --role-respondent: #214c6b;
+  --role-manager: #29583d;
+  --role-admin: #76542c;
   --radius: 0;
   --radius-sm: 0;
 }
@@ -37,6 +41,10 @@
   --accent: #e7b1a6;
   --accent-text: #f0c8be;
   --on-accent: #1a120f;
+  --role-complainant: #e7b1a6;
+  --role-respondent: #9bcce9;
+  --role-manager: #a4d4ae;
+  --role-admin: #e5c38e;
   --radius: 0;
   --radius-sm: 0;
 }

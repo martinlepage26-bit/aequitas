@@ -32,7 +32,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <WorkbenchShell locale={locale} signedIn={Boolean(session)} isAdmin={session?.globalRole === "ADMIN"} isComplainant={session?.globalRole === "COMPLAINANT"}>
+      <WorkbenchShell locale={locale} role={session?.globalRole ?? null}>
         {children}
       </WorkbenchShell>
     </NextIntlClientProvider>

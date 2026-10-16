@@ -1,4 +1,15 @@
 .shell { min-height: 100vh; background: var(--bg); color: var(--text); }
+.roleComplainant { --accent: var(--role-complainant); --accent-text: var(--role-complainant); --on-accent: #fff8f4; }
+.roleRespondent { --accent: var(--role-respondent); --accent-text: var(--role-respondent); --on-accent: #f7fbff; }
+.roleManager { --accent: var(--role-manager); --accent-text: var(--role-manager); --on-accent: #f7fcf7; }
+.roleAdmin { --accent: var(--role-admin); --accent-text: var(--role-admin); --on-accent: #fffaf2; }
+:global(html[data-theme="dark"]) .roleComplainant { --on-accent: #1a120f; }
+:global(html[data-theme="dark"]) .roleRespondent { --on-accent: #102333; }
+:global(html[data-theme="dark"]) .roleManager { --on-accent: #13261a; }
+:global(html[data-theme="dark"]) .roleAdmin { --on-accent: #2c2113; }
+.roleComplainant .rail, .roleRespondent .rail, .roleManager .rail, .roleAdmin .rail {
+  box-shadow: inset 4px 0 0 var(--accent);
+}
 .skip {
   position: absolute;
   left: 12px;
@@ -62,9 +73,24 @@
   border-bottom: 1px solid var(--text);
   box-shadow: 0 3px 0 var(--bg), 0 4px 0 var(--text);
 }
+.roleComplainant .toolbar, .roleRespondent .toolbar, .roleManager .toolbar, .roleAdmin .toolbar {
+  border-top: 4px solid var(--accent);
+}
 .toolbarLead { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 16rem; }
 .masthead { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
 .wordmark { margin: 0; font-size: 1.45rem; }
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+}
 .menuButton {
   display: none;
   align-items: center;
