@@ -7,13 +7,12 @@ Aequitas is a research-led workspace prototype for organizing claims, evidence, 
 ## Workflow
 
 ```mermaid
-flowchart TD
-  A["Case and party context"] --> B["Claims and linked evidence"]
-  B --> C["Access and write permissions"]
-  C --> D["Human review and correction"]
-  C --> E["Optional AI proposals"]
-  E --> D
-  D --> F["Draft synthesis and recorded events"]
+flowchart LR
+  A["Case context"] --> B["Authorized claims and evidence"]
+  B --> C["Human review"]
+  B --> D["Optional AI proposals"]
+  D --> C
+  C --> E["Draft synthesis and events"]
 ```
 
 ## Engineering highlights
