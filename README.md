@@ -1,44 +1,41 @@
-# Aequitas
+# Aequitas — Evidence and Human Review for Dispute Resolution
 
-A human-reviewable conflict knowledge and dispute-resolution workspace prototype. Its core method comes from `Aequitas Core.txt`: claims, evidence, competing interpretations, context, lived experience and repair. It distinguishes draft recommendations from decisions, records party consent separately, and treats legal research as sourced review material rather than an entitlement engine.
+Aequitas is a research-led workspace prototype for organizing claims, evidence, competing interpretations, consent, and proposed repair. It keeps draft recommendations separate from decisions and makes human correction part of the workflow.
 
-See [the core backend contract](docs/aequitas-core-backend.md) for the data model, validation, API, human correction workflow and operational limits.
+**Stack:** Next.js, TypeScript, React, Prisma/PostgreSQL, WebAuthn, Vitest, and Playwright.
 
-## Legal research connection
+## Engineering highlights
 
-Copy `.env.example` to `.env.local` and supply a LegiPro endpoint and a server-side token with `search:read` scope. The app uses a Next.js route handler so the token never reaches the browser. Without this configuration, the legal-context panel explicitly reports that no research source is available.
+- Case-level access and claim-write permissions are expressed in domain code.
+- Evidence and interpretations retain provenance rather than becoming an unexplained generated answer.
+- The optional AI pipeline proposes structured material for review.
+- Security tests exercise account-takeover prevention and invite-based account claiming.
 
-## Getting Started
+## Review the implementation
 
-First, run the development server:
+| Question | Start here |
+| --- | --- |
+| Who can read a case or write a claim? | [Case access](src/domain/caseAccess.ts), [claim permissions](src/domain/claimWrites.ts) |
+| How are AI proposals authorized and recorded? | [Pipeline writes](src/domain/pipeline/writes.ts) |
+| How is account takeover tested? | [HTTP/WebAuthn regression tests](test/integration/auth-takeover.test.ts) |
+| How does the method map to the backend? | [Core backend contract](docs/aequitas-core-backend.md) |
+| Which checks run in CI? | [CI workflow](.github/workflows/ci.yml) |
 
-```bash
+A useful review follows one case through evidence entry, competing claims, human correction, and a draft synthesis. The point of the prototype is to preserve those distinctions throughout the application.
+
+## Development and verification
+
+Use Node 22 and npm 11 as specified in `package.json`. Configure the database, storage, and authentication environment before starting the application; the backend contract describes the model and operational boundaries.
+
+```sh
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Available checks include `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e`. Database/storage-backed checks require an isolated configured environment. The repository also provides `npm run seed:demo`; inspect its configuration before using it against a database.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Scope
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This is a workspace prototype, not an automated legal decision-maker. Legal-context retrieval requires a separately configured source; missing configuration must remain visible to the user. Test sources document intended behavior, not a guarantee about every deployment.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[Detailed setup and operating guide](https://github.com/martinlepage26-bit/aequitas/blob/5898e6fa3e2b3ab43e5be20cb243844ee48d9356/README.md)
