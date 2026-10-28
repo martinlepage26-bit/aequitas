@@ -4,6 +4,18 @@ Aequitas is a research-led workspace prototype for organizing claims, evidence, 
 
 **Stack:** Next.js, TypeScript, React, Prisma/PostgreSQL, WebAuthn, Vitest, and Playwright.
 
+## Workflow
+
+```mermaid
+flowchart TD
+  A["Case and party context"] --> B["Claims and linked evidence"]
+  B --> C["Access and write permissions"]
+  C --> D["Human review and correction"]
+  C --> E["Optional AI proposals"]
+  E --> D
+  D --> F["Draft synthesis and recorded events"]
+```
+
 ## Engineering highlights
 
 - Case-level access and claim-write permissions are expressed in domain code.
