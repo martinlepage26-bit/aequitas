@@ -33,6 +33,7 @@ export default function proxy(request: NextRequest) {
     : NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
   response.headers.set("Cache-Control", "private, no-store");
+  if (/^\/(?:fr-CA|en-CA)\/auth\/recover\//.test(pathname)) response.headers.set("Referrer-Policy", "no-referrer");
   return response;
 }
 

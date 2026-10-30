@@ -10,6 +10,9 @@ import { downloadBuffer } from "./storage";
 const execute = promisify(execFile);
 export const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 export const MAX_EXTRACTED_CHARACTERS = 12000;
+const SUPPORTED_EVIDENCE_MIME_TYPES = new Set([
+  "text/plain", "application/pdf", "image/png", "image/jpeg", "image/tiff", "image/webp",
+]);
 export type EvidenceExtraction = {
   status: "extracted" | "bounded" | "empty" | "unsupported" | "unavailable";
   method: "utf8" | "pdftotext" | "tesseract" | "none";
@@ -29,6 +32,10 @@ export async function detectEvidenceMime(buffer: Buffer): Promise<string | null>
   const sniffed = await fileTypeFromBuffer(buffer);
   if (sniffed) return sniffed.mime;
   return buffer.length > 0 && decodePlainText(buffer) !== null ? "text/plain" : null;
+}
+
+export function isSupportedEvidenceMime(mime: string): boolean {
+  return SUPPORTED_EVIDENCE_MIME_TYPES.has(mime);
 }
 
 function finish(text: string, method: EvidenceExtraction["method"], bounded = false): EvidenceExtraction {
@@ -51,7 +58,7 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
     return decoded === null ? { status: "unsupported", method: "none", text: "", note: "The file is not valid UTF-8 text." } : finish(decoded, "utf8");
   }
   const pdf = mime === "application/pdf";
-  const image = ["image/png", "image/jpeg", "image/tiff", "image/webp"].includes(mime);
+  const image = isSupportedEvidenceMime(mime) && mime.startsWith("image/");
   if (!pdf && !image) return { status: "unsupported", method: "none", text: "", note: "This file format has no configured text extractor; metadata only." };
   const dir = await mkdtemp(join(tmpdir(), "aequitas-extract-"));
   try {

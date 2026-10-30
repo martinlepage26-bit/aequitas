@@ -2,6 +2,7 @@ import { recordStaffAccess } from "../../../../domain/staffAccess";
 import { requireSession } from "../../../../lib/session";
 import { prisma } from "../../../../lib/prisma";
 import { caseReadAccess } from "../../../../domain/caseAccess";
+import { saveCaseDetails } from "../../../../domain/caseDetails";
 
 // Section 16: "GET /api/cases/[id] — workspace projection (role-filtered)".
 // Replaces an M0-era SQLite prototype route that answered this exact path
@@ -41,4 +42,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     createdAt: caseRow.createdAt,
     closedAt: caseRow.closedAt,
   });
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
+  const auth = await requireSession();
+  if ("response" in auth) return auth.response;
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") return Response.json({ message: "Invalid dossier details." }, { status: 400 });
+  const { caseId } = await params;
+  const result = await saveCaseDetails({
+    caseId,
+    actorId: auth.session.userId,
+    actorRole: auth.session.globalRole,
+    expectedRevision: body.expectedRevision,
+    category: body.category,
+    disputeDescription: body.disputeDescription,
+    amountAtStake: body.amountAtStake,
+    respondentEmail: body.respondentEmail,
+    respondentDisplayName: body.respondentDisplayName,
+    simulated: body.simulated,
+  });
+  if (!result.ok) return Response.json({ message: result.message }, { status: result.status });
+  return Response.json({ revision: result.revision, changed: result.changed }, { headers: { "Cache-Control": "private, no-store" } });
 }

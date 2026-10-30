@@ -4,15 +4,18 @@ import { describe, expect, it } from "vitest";
 import {
   THEME_BOOT_SCRIPT,
   contrastRatio,
+  roleColors,
   surfaces,
+  tetradicSeedColors,
   themeTokenCss,
   type ThemeMode,
 } from "../../src/ui/workbenchTheme";
 
 describe("workbench theme", () => {
-  it("seals both modes with one signature colour", () => {
-    expect(surfaces.light.accent).toBe("#7c1e1e");
-    expect(surfaces.dark.accent).toBe("#e7b1a6");
+  it("builds both themes from the olive tetrad", () => {
+    expect(tetradicSeedColors).toEqual({ olive: "#a39e5c", teal: "#5ca37b", indigo: "#5c61a3", berry: "#a35c84" });
+    expect(surfaces.light.accent).toBe("#5d5b2e");
+    expect(surfaces.dark.accent).toBe("#c8c37c");
     expect(surfaces.light.accentText).toBe(surfaces.light.accent);
     expect(themeTokenCss()).not.toContain("data-palette");
     expect(surfaces).toMatchSnapshot();
@@ -33,18 +36,29 @@ describe("workbench theme", () => {
       expect(contrastRatio(surface.controlBorder, surface.raised)).toBeGreaterThanOrEqual(3);
       expect(contrastRatio(surface.focus, surface.panel)).toBeGreaterThanOrEqual(3);
     }
-    expect(surfaces.light.noteText).toBe("#4a3b13");
-    expect(surfaces.dark.noteText).toBe(surfaces.light.noteText);
-    expect(surfaces.dark.noteBg).toBe(surfaces.light.noteBg);
+    expect(surfaces.light.noteBorder).toBe(tetradicSeedColors.olive);
+    expect(surfaces.dark.noteBorder).toBe(tetradicSeedColors.olive);
   });
 
   it("writes the same tokens the stylesheet serves", () => {
     const css = readFileSync(new URL("../../src/app/theme-tokens.css", import.meta.url), "utf8");
     expect(css).toBe(themeTokenCss());
     expect(css).toContain('[data-theme="dark"]');
-    expect(css).toContain("--radius: 0;");
+    expect(css).toContain("--radius: 14px;");
     expect(css).not.toContain("data-palette");
     expect(css).not.toContain("--swatch-");
+  });
+
+  it("keeps each source role distinct and legible in light and dark modes", () => {
+    for (const mode of ["light", "dark"] as ThemeMode[]) {
+      const colors = Object.values(roleColors[mode]);
+      expect(new Set(colors).size).toBe(4);
+      for (const color of colors) {
+        expect(contrastRatio(color, surfaces[mode].panel)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(color, surfaces[mode].raised)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(surfaces[mode].onAccent, color)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it("applies a stored theme and follows the system scheme until one is chosen", () => {

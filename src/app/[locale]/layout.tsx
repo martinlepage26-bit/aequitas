@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { routing } from "../../i18n/routing";
 import { getSession } from "../../lib/session";
+import { prisma } from "../../lib/prisma";
 import WorkbenchShell from "../../components/WorkbenchShell";
 
 /**
@@ -29,10 +30,13 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   const messages = await getMessages();
   const session = await getSession();
+  const account = session
+    ? await prisma.user.findUnique({ where: { id: session.userId }, select: { displayName: true } })
+    : null;
 
   return (
     <NextIntlClientProvider messages={messages}>
-      <WorkbenchShell locale={locale} signedIn={Boolean(session)} isAdmin={session?.globalRole === "ADMIN"} isComplainant={session?.globalRole === "COMPLAINANT"}>
+      <WorkbenchShell locale={locale} role={session?.globalRole ?? null} displayName={account?.displayName ?? null}>
         {children}
       </WorkbenchShell>
     </NextIntlClientProvider>

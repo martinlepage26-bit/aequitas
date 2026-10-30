@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { GlobalRole } from "../generated/prisma";
+import { prisma } from "./prisma";
 import { signPayload, verifyPayload } from "./signedCookie";
 
 export const SESSION_COOKIE = "aequitas_session";
@@ -11,6 +12,7 @@ export interface SessionPayload {
   globalRole: GlobalRole;
   /** Section 7's authContext needs the real authentication method, not an assumed one. */
   authMethod: "passkey" | "dev-bypass";
+  sessionVersion?: number;
 }
 
 export function verifySessionToken(token: string): SessionPayload | null {
@@ -18,11 +20,14 @@ export function verifySessionToken(token: string): SessionPayload | null {
   if (!payload || payload.purpose !== "session" || typeof payload.userId !== "string" || !payload.userId.trim()) return null;
   if (!["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN"].includes(payload.globalRole ?? "")) return null;
   if (payload.authMethod !== "passkey" && payload.authMethod !== "dev-bypass") return null;
-  return payload as SessionPayload;
+  if (payload.sessionVersion !== undefined && (!Number.isSafeInteger(payload.sessionVersion) || payload.sessionVersion < 0)) return null;
+  return { ...payload, sessionVersion: payload.sessionVersion ?? 0 } as SessionPayload;
 }
 
-export async function createSessionCookie(payload: Omit<SessionPayload, "purpose">) {
-  const token = signPayload({ ...payload, purpose: "session" }, SESSION_TTL_SECONDS);
+export async function createSessionCookie(payload: Omit<SessionPayload, "purpose" | "sessionVersion">) {
+  const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { globalRole: true, sessionVersion: true } });
+  if (!user || user.globalRole !== payload.globalRole) throw new Error("Cannot create a session for this account.");
+  const token = signPayload({ ...payload, sessionVersion: user.sessionVersion, purpose: "session" }, SESSION_TTL_SECONDS);
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -37,7 +42,11 @@ export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const session = verifySessionToken(token);
+  if (!session) return null;
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { globalRole: true, sessionVersion: true } });
+  if (!user || user.globalRole !== session.globalRole || user.sessionVersion !== session.sessionVersion) return null;
+  return session;
 }
 
 /**
@@ -49,7 +58,7 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function getSessionToken(): Promise<string | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  return token && verifySessionToken(token) ? token : null;
+  return token && await getSession() ? token : null;
 }
 
 export async function clearSessionCookie() {

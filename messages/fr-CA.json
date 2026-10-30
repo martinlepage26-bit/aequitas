@@ -20,17 +20,68 @@
     "amountHint": "Un ordre de grandeur suffit. Laissez vide si vous ne le savez pas.",
     "simulatedLabel": "Il s'agit d'un dossier simulé (d'apprentissage) — aucune contrepartie ni résolution réelle.",
     "acknowledgeLabel": "J'ai lu la déclaration de consentement ci-dessus et je choisis volontairement d'y participer.",
-    "submitButton": "Créer le dossier",
-    "submitting": "Création en cours…",
+    "submitButton": "Enregistrer le brouillon",
+    "submitting": "Enregistrement…",
     "error": "Le dossier n'a pas pu être créé."
   },
   "workspace": {
     "title": "Espace de dossier",
     "caseReference": "Dossier {reference}",
+    "attribution": {
+      "legend": "Couleurs selon la provenance",
+      "by": "Source : {name}"
+    },
+    "journey": {
+      "eyebrow": "Parcours du dossier",
+      "title": "Un dossier commun, étape par étape",
+      "current": "En cours : {stage}",
+      "withdrawn": "Ce dossier a été retiré",
+      "stages": {
+        "dossier": "Dossier",
+        "evidence": "Preuves",
+        "positions": "Positions des parties",
+        "review": "Revue du gestionnaire",
+        "resolution": "Règlement"
+      },
+      "balanceLabel": "Les deux parties ont un statut égal dans ce processus",
+      "sharedRecord": "Dossier commun",
+      "balanceNote": "La couleur indique la provenance des renseignements. Elle n'évalue pas la preuve et ne prédit pas le résultat."
+    },
     "dispute": {
       "title": "Le différend",
       "amount": "Montant approximatif en jeu : {amount}",
       "missing": "Aucune description du différend n'a été enregistrée."
+    },
+    "edit": {
+      "respondentSummary": "Partie intimée : {name} ({email})",
+      "categorySummary": "Catégorie : {category}",
+      "editButton": "Modifier les renseignements du dossier",
+      "title": "Modifier les renseignements du dossier",
+      "hint": "Enregistrez les corrections avant l'envoi. Les renseignements précédents restent dans le journal du dossier. Un compte déjà activé ne peut pas être remplacé ici.",
+      "respondentName": "Nom de la partie intimée",
+      "respondentEmail": "Courriel de la partie intimée",
+      "category": "Catégorie du différend",
+      "description": "Description du différend",
+      "amount": "Montant approximatif en jeu (CAD, facultatif)",
+      "simulated": "Il s'agit d'un dossier simulé pour l'apprentissage",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "saved": "Modifications enregistrées.",
+      "error": "Les modifications n'ont pas pu être enregistrées."
+    },
+    "inviteRespondent": {
+      "title": "Inviter la partie intimée",
+      "description": "Envoyer un lien d'activation à {name}, à l'adresse {email}, après avoir vérifié le courriel ci-dessus.",
+      "openConfirm": "Envoyer une invitation…",
+      "confirmTitle": "Confirmer la destinataire ou le destinataire",
+      "confirmBody": "Un lien d'activation à usage unique sera envoyé à {email}. Vérifiez cette adresse avant l'envoi.",
+      "send": "Confirmer et envoyer l'invitation",
+      "sending": "Envoi en cours…",
+      "cancel": "Annuler",
+      "sent": "Une invitation d'activation a été envoyée à cette adresse. Elle expire après 72 heures.",
+      "active": "La partie intimée a déjà activé un compte Aequitas.",
+      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez."
     },
     "state": {
       "DRAFT": "Brouillon",
@@ -78,7 +129,11 @@
       "closedNotice": "Ce dossier est clos; aucune autre action n'est possible."
     },
     "draft": {
-      "submitButton": "Soumettre ce dossier",
+      "submitButton": "Vérifier et envoyer le dossier…",
+      "confirmTitle": "Confirmer l'envoi du dossier",
+      "confirmBody": "Votre dossier enregistré sera transmis à une gestionnaire ou à un gestionnaire. Les renseignements initiaux pourront encore être corrigés pendant la collecte des preuves; les preuves soumises conservent leurs versions. L'invitation à la partie intimée est envoyée séparément, à l'adresse que vous confirmez sur cette page.",
+      "confirmSend": "Confirmer et envoyer le dossier",
+      "cancel": "Annuler",
       "submitting": "Soumission en cours…",
       "error": "Le dossier n'a pas pu être soumis."
     },
@@ -426,9 +481,12 @@
       "title": "Activité du dossier",
       "description": "Le journal automatique des actions dans Aequitas. Ces dates indiquent les soumissions et l'avancement du dossier, pas les événements du différend.",
       "empty": "Aucun événement pour l'instant.",
+      "count": "{count} activités",
+      "filters": { "label": "Filtrer les activités selon leur source", "all": "Tout le monde" },
       "by": "par {name}",
       "event": {
         "CASE_CREATED": "Dossier créé",
+        "CASE_DETAILS_UPDATED": "Renseignements du dossier corrigés",
         "CASE_SUBMITTED": "Dossier soumis",
         "CASE_ASSIGNED": "Dossier assigné à un gestionnaire de dossier",
         "COI_DECLARED": "Déclaration de conflit d'intérêts enregistrée",
@@ -715,8 +773,10 @@
     "unclaimed": "Non attribué",
     "otherParty": "Avec {name}",
     "viewLink": "Voir",
+    "resumeLink": "Reprendre le brouillon",
     "filterLabel": "Afficher",
     "filterAll": "Tous les dossiers",
+    "showing": "{count} dossiers affichés",
     "filterEmpty": "Aucun dossier ne correspond à ce filtre.",
     "columns": {
       "reference": "Référence",
@@ -816,10 +876,28 @@
     "cancelled": "La connexion a été annulée ou a expiré. Vous pouvez réessayer.",
     "failed": "Connexion impossible. Vérifiez votre courriel et utilisez une clé d’accès associée à ce compte, ou contactez votre administrateur.",
     "passkeyNote": "Aucun mot de passe à retenir. Votre appareil confirme votre identité.",
+    "recoverAccess": "Clé d’accès perdue? Récupérer l’accès",
     "account": "Navigation du compte",
     "cases": "Dossiers",
     "invites": "Invitations",
     "signOut": "Se déconnecter"
+  },
+  "recovery": {
+    "title": "Récupérer l’accès",
+    "requestDescription": "Entrez le courriel de votre compte. S’il est associé à Aequitas, nous enverrons un lien pour créer une nouvelle clé d’accès.",
+    "email": "Courriel du compte",
+    "sendLink": "Envoyer le lien de récupération",
+    "sending": "Envoi en cours…",
+    "requested": "Si ce courriel est associé à un compte, un lien de récupération est en route. Vérifiez votre boîte de réception et vos courriels indésirables.",
+    "requestError": "Impossible de demander un lien pour le moment. Réessayez plus tard.",
+    "backToSignIn": "Retour à la connexion",
+    "replaceTitle": "Créer une nouvelle clé d’accès",
+    "replaceDescription": "Confirmez sur votre appareil pour remplacer vos anciennes clés d’accès. Les autres appareils connectés devront se reconnecter.",
+    "replacePasskey": "Remplacer ma clé d’accès",
+    "replacing": "En attente de votre appareil…",
+    "cancel": "Annuler",
+    "claimError": "La nouvelle clé d’accès n’a pas pu être vérifiée. Réessayez ou demandez un nouveau lien de récupération.",
+    "invalid": "Ce lien de récupération est invalide, expiré ou déjà utilisé. Demandez-en un nouveau depuis la page de connexion."
   },
   "adminInvites": {
     "title": "Gérer les invitations",

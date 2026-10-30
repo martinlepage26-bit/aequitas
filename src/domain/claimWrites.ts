@@ -486,7 +486,7 @@ export async function readClaimGraph(
     prisma.source.findMany({
       where: { caseId, deletedAt: null },
       orderBy: { createdAt: "asc" },
-      include: { evidenceItem: { select: { title: true } } },
+      include: { evidenceItem: { select: { title: true, submittedById: true } } },
     }),
     prisma.claim.findMany({ where: { caseId, deletedAt: null }, orderBy: { createdAt: "asc" } }),
     prisma.claimEvidenceLink.findMany({
@@ -532,6 +532,7 @@ export async function readClaimGraph(
     legalFramework: source.legalFramework,
     evidenceItemId: source.evidenceItemId,
     evidenceTitle: source.evidenceItem?.title ?? null,
+    ...(source.evidenceItem?.submittedById ? { evidenceSubmittedById: source.evidenceItem.submittedById } : {}),
     visibility: source.visibility,
     language: source.language,
     origin: source.origin,
