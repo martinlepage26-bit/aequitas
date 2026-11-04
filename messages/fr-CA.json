@@ -180,6 +180,24 @@
       "requesting": "Demande en cours…",
       "error": "L'ébauche de recommandation n'a pas pu être demandée."
     },
+    "authorDraft": {
+      "title": "Rédiger vous-même l’ébauche de recommandation",
+      "replaceTitle": "Remplacer cette ébauche par la vôtre",
+      "intro": "Aucun modèle n’est appelé. Votre ébauche est enregistrée comme nouvelle version et les parties ne la voient pas avant que vous l’émettiez avec la liste de vérification.",
+      "help": "Rédigez en langage clair. Une issue proposée n’est pas contraignante et ne prend effet que si les deux parties y consentent.",
+      "summaryLabel": "Résumé (120 mots ou moins)",
+      "proposedOutcomeLabel": "Issue proposée",
+      "reasoningLabel": "Raisonnement",
+      "limitsLabel": "Limites de cette recommandation",
+      "notConsideredLabel": "Ce qui n’a pas été pris en compte",
+      "onePerLine": "Un élément par ligne. Chaque liste doit contenir au moins un élément.",
+      "citationsLegend": "Preuves invoquées (facultatif)",
+      "relevanceLabel": "Pertinence de « {title} »",
+      "reasonLabel": "Motif du remplacement de l’ébauche actuelle",
+      "save": "Enregistrer l’ébauche",
+      "saving": "Enregistrement…",
+      "error": "L’ébauche n’a pas pu être enregistrée."
+    },
     "consent": {
       "title": "Consentement",
       "statementHeading": "Déclaration de consentement",
@@ -228,7 +246,8 @@
       },
       "issueButton": "Rendre la recommandation",
       "issuing": "Émission en cours…",
-      "error": "La recommandation n'a pas pu être rendue."
+      "error": "La recommandation n'a pas pu être rendue.",
+      "humanAuthoredLabel": "Rédigé par la personne gestionnaire du dossier. Aucun modèle n’a été utilisé."
     },
     "claims": {
       "title": "Énoncés de ce dossier",
@@ -796,7 +815,12 @@
       },
       "note": "Les parties soumettent leurs éléments dans leur dossier, pas sur cette page publique. Le dossier explique pourquoi une action n'est pas disponible."
     },
-    "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie."
+    "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie.",
+    "pilot": {
+      "title": "Vous gérez un programme de règlement des différends?",
+      "body": "Nous cherchons un programme québécois pour essayer cet espace de travail dans un projet pilote encadré. Il ne donne pas d’avis juridique et ne remplace pas vos gestionnaires de dossiers.",
+      "action": "Demander un projet pilote"
+    }
   },
   "auth": {
     "tagline": "un dossier lisible par les deux parties",

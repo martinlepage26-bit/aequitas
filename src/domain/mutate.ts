@@ -17,6 +17,7 @@ import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
+import { HUMAN_AUTHORED_PROMPT_VERSION } from "./humanAuthored";
 import { deriveGiveConsentState } from "./consent";
 import { BLOCKER_REASONS, loadResolutionBlockers, type ResolutionBlocker } from "./resolution";
 import {
@@ -191,7 +192,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
   }
 }
 
-class StaleDraftError extends Error {}
+export class StaleDraftError extends Error {}
 class ResolutionBlockedError extends Error {
   constructor(readonly blocker: ResolutionBlocker) {
     super(blocker);
@@ -929,7 +930,8 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
 
   const explanation = recommendation.explanation as unknown as ExplanationRecord;
   let schemaValidationError = validateExplanationRecord(explanation);
-  if (!schemaValidationError && (explanation.conflict_knowledge || recommendation.promptVersion >= "2026-09-20.1")) {
+  // A manager-authored draft has no model output, so no conflict map to check.
+  if (!schemaValidationError && (explanation.conflict_knowledge || (recommendation.promptVersion >= "2026-09-20.1" && recommendation.promptVersion !== HUMAN_AUTHORED_PROMPT_VERSION))) {
     schemaValidationError = validateConflictKnowledgeMap(explanation.conflict_knowledge, explanation.knowledge_sources ?? []);
   }
 

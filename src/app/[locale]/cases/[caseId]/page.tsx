@@ -17,6 +17,8 @@ import CloseIntakeButton from "./CloseIntakeButton";
 import SubmitCaseButton from "./SubmitCaseButton";
 import OpenIntakeButton from "./OpenIntakeButton";
 import RequestDraftButton from "./RequestDraftButton";
+import AuthorDraftForm from "./AuthorDraftForm";
+import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
 import WithdrawButton from "./WithdrawButton";
@@ -133,6 +135,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       recommendation = { id: row.id, explanation: row.explanation as unknown as ExplanationRecord, status: row.status };
     }
   }
+  const humanAuthored = recommendation ? isHumanAuthoredModel(recommendation.explanation.model.id) : false;
+  const canAuthorDraft = isAssignedManager && canRequestDraft
+    && (caseRow.state === "POSITIONS" || caseRow.state === "DRAFTING")
+    && (!recommendation || recommendation.status === "DRAFT");
+  const cleanEvidenceOptions = caseRow.evidenceItems
+    .filter((e) => e.scanStatus === "CLEAN" && !caseRow.evidenceItems.some((other) => other.supersedesId === e.id))
+    .map((e) => ({ id: e.id, title: e.title }));
   const reviewer = recommendation?.explanation.reviewer.user_id
     ? await prisma.user.findUnique({ where: { id: recommendation.explanation.reviewer.user_id }, select: { displayName: true } })
     : null;
@@ -301,6 +310,15 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
 
       {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}
+      {canAuthorDraft && (
+        <AuthorDraftForm
+          key={`author-${recommendation?.id ?? "new"}`}
+          caseId={caseId}
+          evidence={cleanEvidenceOptions}
+          replacesRecommendationId={recommendation?.id ?? null}
+          initial={recommendation && humanAuthored ? recommendation.explanation : undefined}
+        />
+      )}
 
       {recommendation && (
         <section aria-labelledby="recommendation-heading" className={styles.section}>
@@ -344,7 +362,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
             ))}
           </ul>
           <p className={styles.hint}>
-            {t("recommendation.modelLabel", { model: recommendation.explanation.model.id, version: recommendation.explanation.model.prompt_version })}
+            {humanAuthored
+              ? t("recommendation.humanAuthoredLabel")
+              : t("recommendation.modelLabel", { model: recommendation.explanation.model.id, version: recommendation.explanation.model.prompt_version })}
           </p>
           {reviewer && (
             <p className={styles.hint}>{t("recommendation.reviewerLabel", { name: reviewer.displayName })}</p>

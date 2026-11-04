@@ -180,6 +180,24 @@
       "requesting": "Requesting…",
       "error": "The draft recommendation could not be requested."
     },
+    "authorDraft": {
+      "title": "Write the draft recommendation yourself",
+      "replaceTitle": "Replace this draft with one you write",
+      "intro": "No model is called. Your draft is saved as a new version and is not visible to the parties until you issue it with the checklist.",
+      "help": "Write in plain language. A proposed outcome is not binding and does not take effect unless both parties consent.",
+      "summaryLabel": "Summary (120 words or fewer)",
+      "proposedOutcomeLabel": "Proposed outcome",
+      "reasoningLabel": "Reasoning",
+      "limitsLabel": "Limits of this recommendation",
+      "notConsideredLabel": "What was not considered",
+      "onePerLine": "One item per line. Each list needs at least one item.",
+      "citationsLegend": "Evidence relied on (optional)",
+      "relevanceLabel": "Why “{title}” is relevant",
+      "reasonLabel": "Reason for replacing the current draft",
+      "save": "Save draft",
+      "saving": "Saving…",
+      "error": "The draft could not be saved."
+    },
     "consent": {
       "title": "Consent",
       "statementHeading": "Consent statement",
@@ -228,7 +246,8 @@
       },
       "issueButton": "Issue recommendation",
       "issuing": "Issuing…",
-      "error": "The recommendation could not be issued."
+      "error": "The recommendation could not be issued.",
+      "humanAuthoredLabel": "Written by the case manager. No model was used."
     },
     "claims": {
       "title": "Claims on this case",
@@ -796,7 +815,12 @@
       },
       "note": "Submissions are made by the parties inside their case, not on this public page. The case workspace explains any unavailable action."
     },
-    "footer": "Proposals are reviewed by a person. Consent belongs to each party."
+    "footer": "Proposals are reviewed by a person. Consent belongs to each party.",
+    "pilot": {
+      "title": "Running a dispute-resolution program?",
+      "body": "We are looking for one Québec program to try this workspace in a supervised pilot. It does not give legal advice and does not replace your case managers.",
+      "action": "Ask about a pilot"
+    }
   },
   "auth": {
     "tagline": "a record both sides can read",

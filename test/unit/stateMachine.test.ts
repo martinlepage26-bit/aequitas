@@ -32,6 +32,7 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   submit_position: { from: ["POSITIONS"], roles: ["COMPLAINANT", "RESPONDENT"] },
   request_draft: { from: ["POSITIONS", "DRAFTING"], roles: ["CASE_MANAGER"] },
   draft_completed: { from: ["DRAFTING"], roles: [SYSTEM] },
+  author_draft: { from: ["POSITIONS", "DRAFTING"], roles: ["CASE_MANAGER"] },
   review_draft: { from: ["DRAFTING"], roles: ["CASE_MANAGER"] },
   issue_recommendation: { from: ["DRAFTING"], roles: ["CASE_MANAGER"] },
   give_consent: { from: ["ISSUED"], roles: ["COMPLAINANT", "RESPONDENT"] },
@@ -68,7 +69,7 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
     });
   }
 
-  it("asserts the full state x trigger x role cross product (880 combinations)", () => {
+  it("asserts the full state x trigger x role cross product (every combination)", () => {
     let checked = 0;
     for (const trigger of TRIGGERS) {
       const def = transitionsFor(trigger);

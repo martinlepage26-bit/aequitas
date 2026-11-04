@@ -18,6 +18,7 @@ export const TRIGGERS = [
   "submit_position",
   "request_draft",
   "draft_completed",
+  "author_draft",
   "review_draft",
   "issue_recommendation",
   "give_consent",
@@ -163,6 +164,17 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: SYSTEM,
     guards: ["explanationRecordValidatesAgainstSchema"],
     events: ["RECOMMENDATION_DRAFTED"],
+  },
+  {
+    // A case manager writes the recommendation draft themselves, with no
+    // model call. Same authority and guards as request_draft; the draft
+    // still needs the separate issue_recommendation checklist.
+    trigger: "author_draft",
+    from: ["POSITIONS", "DRAFTING"],
+    to: "DRAFTING",
+    actorRoles: ["CASE_MANAGER"],
+    guards: ["caseAssignedToManager", "bothPartiesHaveCurrentPositions", "coiDeclarationOnFile", "explanationRecordValid"],
+    events: ["RECOMMENDATION_DRAFT_REQUESTED", "RECOMMENDATION_DRAFTED"],
   },
   {
     trigger: "review_draft",
