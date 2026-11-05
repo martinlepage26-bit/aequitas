@@ -188,6 +188,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
     if (error instanceof IntakeNotReadyError) return { ok: false, step: "guard", reason: error.message, code: error.code };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
+    if (error instanceof StaleCaseError) return { ok: false, step: "authorize-state", reason: "The case changed. Reload before taking it." };
     if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
     if (error instanceof OutcomeNotIssuedError) return { ok: false, step: "guard", reason: "Outcome not yet available to you", code: "OUTCOME_NOT_ISSUED" };
     if (error instanceof OutcomeSupersededError) return { ok: false, step: "guard", reason: "A new outcome was issued, please review it.", code: "OUTCOME_SUPERSEDED" };
@@ -196,6 +197,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
 }
 
 export class StaleDraftError extends Error {}
+class StaleCaseError extends Error {}
 class ResolutionBlockedError extends Error {
   constructor(readonly blocker: ShownResolutionBlocker) {
     super(blocker);
@@ -373,10 +375,13 @@ export async function openIntake(input: OpenIntakeInput): Promise<MutationOutcom
       coiDeclarationOnFile: { declared: true, hasConflict: input.hasConflict },
     },
     write: async (tx) => {
-      await tx.case.update({
-        where: { id: input.caseId },
+      // Conditional on what the guards saw: still OPEN, still unassigned (or
+      // assigned to this manager), and not taken by the case agent meanwhile.
+      const taken = await tx.case.updateMany({
+        where: { id: input.caseId, state: "OPEN", caseManagerId: caseRow.caseManagerId, agentManaged: false },
         data: { state: "EVIDENCE_INTAKE", caseManagerId: caseRow.caseManagerId ?? input.actorId },
       });
+      if (taken.count !== 1) throw new StaleCaseError();
       await tx.coiDeclaration.create({
         data: {
           caseId: input.caseId,

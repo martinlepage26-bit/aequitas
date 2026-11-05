@@ -482,6 +482,22 @@ describe("ending participation, duplicate runs and concurrent updates", () => {
     expect(await verifyCase(prisma, await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))).toEqual([]);
   });
 
+  it("a person acting on a stale view after the agent took the case is refused", async () => {
+    const r = await submittedCase();
+    stubEmail();
+    const before = await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } });
+    expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("intake_opened");
+    // Deterministic interleaving: openIntake's first read sees the case as it was before the agent's write.
+    const read = vi.spyOn(prisma.case, "findUnique").mockResolvedValueOnce(before as never);
+    const human = await openIntake({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: false });
+    read.mockRestore();
+    expect(human.ok).toBe(false);
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } });
+    expect(row).toMatchObject({ state: "EVIDENCE_INTAKE", agentManaged: true, caseManagerId: null });
+    expect(await prisma.event.count({ where: { caseId: r.caseId, type: "EVIDENCE_INTAKE_OPENED" } })).toBe(1);
+    expect(await prisma.coiDeclaration.count({ where: { caseId: r.caseId } })).toBe(0);
+  });
+
   it("a person and the agent racing for the same submitted case: exactly one takes it", async () => {
     const r = await submittedCase();
     const [human] = await Promise.all([
