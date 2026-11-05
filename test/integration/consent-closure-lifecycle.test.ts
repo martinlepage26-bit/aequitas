@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "../../src/lib/prisma";
 import {
   closeCase,
@@ -310,6 +310,23 @@ describe("withdrawCase — standing complainant capability", () => {
     if (result.ok) return;
     expect(result.step).toBe("authorize-role");
   });
+
+  it("does not reopen a closed case when the complainant's withdrawal uses a stale read", async () => {
+    const { caseId } = await seedIssuedCase();
+    const stale = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    await prisma.case.update({ where: { id: caseId }, data: { state: "CLOSED", closedAt: new Date() } });
+    const read = vi.spyOn(prisma.case, "findUnique").mockResolvedValueOnce(stale as never);
+
+    const result = await (async () => {
+      try { return await withdrawCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId }); }
+      finally { read.mockRestore(); }
+    })();
+
+    expect(result.ok).toBe(false);
+    const current = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(current.state).toBe("CLOSED");
+    expect(await prisma.event.count({ where: { caseId, type: "CASE_WITHDRAWN" } })).toBe(0);
+  });
 });
 
 describe("closeCase + generateExportBundle — Section 15 sealed export", () => {
@@ -334,6 +351,26 @@ describe("closeCase + generateExportBundle — Section 15 sealed export", () => 
     const caseRow = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
     expect(caseRow.state).toBe("CLOSED");
     expect(caseRow.closedAt).not.toBeNull();
+  });
+
+  it("refuses closure from a stale state after a party withdraws during export", async () => {
+    const { caseId, recommendationId } = await seedIssuedCase();
+    expect((await giveShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} })).ok).toBe(true);
+    expect((await giveShown({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} })).ok).toBe(true);
+    const bundle = await generateExportBundle({ caseId, actorId: managerId });
+    const stale = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    await prisma.case.update({ where: { id: caseId }, data: { state: "WITHDRAWN" } });
+    const read = vi.spyOn(prisma.case, "findUnique").mockResolvedValueOnce(stale as never);
+
+    const closed = await (async () => {
+      try { return await closeCase({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, exportSha256: bundle.sha256 }); }
+      finally { read.mockRestore(); }
+    })();
+
+    expect(closed.ok).toBe(false);
+    const current = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(current.state).toBe("WITHDRAWN");
+    expect(await prisma.event.count({ where: { caseId, type: "CASE_CLOSED" } })).toBe(0);
   });
 
   it("rejects close_case with no export hash", async () => {

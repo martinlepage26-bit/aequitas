@@ -188,7 +188,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
     if (error instanceof IntakeNotReadyError) return { ok: false, step: "guard", reason: error.message, code: error.code };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
-    if (error instanceof StaleCaseError) return { ok: false, step: "authorize-state", reason: "The case changed. Reload before taking it." };
+    if (error instanceof StaleCaseError) return { ok: false, step: "authorize-state", reason: "The case changed. Reload and try again." };
     if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
     if (error instanceof OutcomeNotIssuedError) return { ok: false, step: "guard", reason: "Outcome not yet available to you", code: "OUTCOME_NOT_ISSUED" };
     if (error instanceof OutcomeSupersededError) return { ok: false, step: "guard", reason: "A new outcome was issued, please review it.", code: "OUTCOME_SUPERSEDED" };
@@ -1464,7 +1464,11 @@ export async function withdrawCase(input: WithdrawCaseInput): Promise<MutationOu
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
     },
     write: async (tx) => {
-      await tx.case.update({ where: { id: input.caseId }, data: { state: "WITHDRAWN" } });
+      const changed = await tx.case.updateMany({
+        where: { id: input.caseId, state: caseRow.state },
+        data: { state: "WITHDRAWN" },
+      });
+      if (changed.count !== 1) throw new StaleCaseError();
       return {
         caseId: input.caseId,
         toState: "WITHDRAWN",
@@ -1501,7 +1505,11 @@ export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<
     },
     write: async (tx) => {
       const closedAt = new Date();
-      await tx.case.update({ where: { id: input.caseId }, data: { state: "CLOSED", closedAt } });
+      const changed = await tx.case.updateMany({
+        where: { id: input.caseId, state: caseRow.state },
+        data: { state: "CLOSED", closedAt },
+      });
+      if (changed.count !== 1) throw new StaleCaseError();
       return {
         caseId: input.caseId,
         toState: "CLOSED",
