@@ -59,7 +59,7 @@ From `Aequitas Core.txt`.
 
 ## 5. The AI drafting pipeline
 
-1. **Gather sources.** Clean evidence is downloaded and checked against its recorded size and SHA-256 hash. Text is extracted from UTF-8, PDF (`pdftotext`) and images (OCR with `tesseract`). The server also snapshots both positions and the chronology.
+1. **Gather sources.** Clean evidence is downloaded and checked against its recorded size and SHA-256 hash. Text is extracted from UTF-8, PDF (`pdftotext`) and images (OCR with `tesseract`). PDF pages without text-layer content are rendered at bounded resolution and OCRed. The server also snapshots both positions and the chronology.
 2. **Legal research (optional).** One LegiPro query per draft (`/v0/search/routed`), scoped to category plus Québec/Canada. Results become quotable `legal_research` sources. If unconfigured or failing, the list is empty and the model must say no legal research was available.
 3. **Prompt and generation.** The router sets the domain; the prompt is versioned (`2026-09-22.1`). The model returns structured output.
 4. **Validation.** Rejected outputs include: missing sources; fabricated or translated-as-original excerpts; dangling or duplicate node IDs; double-counted sources; identical files placed in separate source groups; unsupported documented context; synthesis labels that contradict the underlying claim assessments.
@@ -76,7 +76,7 @@ From `Aequitas Core.txt`.
 - conditional synthesis with revision conditions;
 - repair options with prerequisites, accountability and consent.
 
-**Limits:** exact-excerpt matching proves traceability only, not truth, independence, relevance or legal liability. Extraction caps: 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case. Scanned PDFs are not OCRed.
+**Limits:** exact-excerpt matching proves traceability only, not truth, independence, relevance or legal liability. OCR may misread text; a scan embedded on a page that also has a text layer may be omitted. Extraction caps: 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case.
 
 ## 6. Access control
 
