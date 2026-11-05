@@ -57,6 +57,12 @@ The agent reuses the existing provider interface (`TextCompletion`, `src/domain/
 
 Not verified here: any live provider call, output quality on real disputes, latency and cost. Tests use a local stub.
 
+## Synthetic provider check
+
+`npm run agent:evaluate` makes at most one request with a fixed, adversarial synthetic retail example. It imports no database or storage code, writes no result, and requires both `AEQUITAS_CASE_AGENT_EVAL_SYNTHETIC_ONLY=true` and an explicit `AEQUITAS_CASE_AGENT_EVAL_PROVIDER=gemini|workers-ai`. Configure that provider's account key separately; the request is billed to that provider account, not Claude Code Cloud credits. The report includes the sample output for human review and deterministic-check result, but does not assess language quality, factual accuracy or neutrality. It is an evaluation aid, not a launch approval.
+
+Example: `AEQUITAS_CASE_AGENT_EVAL_SYNTHETIC_ONLY=true AEQUITAS_CASE_AGENT_EVAL_PROVIDER=gemini npm run agent:evaluate`. Without the confirmation flag, provider choice or provider key, it exits before sending a request.
+
 ## Known limits
 
 - The model sees extracted text from the parties' clean evidence. Text from both parties is sent in one provider call; exact-quote checks and six-word overlap checks do not prove that an outcome is neutral or free from paraphrased information about the other party.
