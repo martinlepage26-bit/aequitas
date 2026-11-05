@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { scanForForbiddenContent } from "../explanationRecord";
+import { proposalProblem, proposalSchema } from "./proposal";
 
 /**
  * Deterministic checks on what the model returns. The model is untrusted:
@@ -11,7 +12,7 @@ import { scanForForbiddenContent } from "../explanationRecord";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-05.2";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-05.3";
 export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -28,10 +29,10 @@ export const agentOutputSchema = z.object({
     relevance: text(500),
     excerpt: z.string().min(12).max(MAX_CITATION_EXCERPT_CHARACTERS).refine((value) => value.trim().length > 0),
   }).strict()).min(1).max(50),
-  outcomes: z.object({
-    complainant: z.object({ text: text(4000), evidence_item_ids: ids.min(1) }).strict(),
-    respondent: z.object({ text: text(4000), evidence_item_ids: ids.min(1) }).strict(),
-  }).strict(),
+  // Parties never read model text: the proposal is a closed choice rendered
+  // by fixed templates, and each side lists its own evidence relied on.
+  proposal: proposalSchema,
+  party_evidence: z.object({ complainant: ids.min(1), respondent: ids.min(1) }).strict(),
 }).strict();
 
 export type AgentOutput = z.infer<typeof agentOutputSchema>;
@@ -56,35 +57,12 @@ export function agentTextProblem(value: string): string | null {
   return hit ? `contains a phrase the case agent may not use (${hit.source.slice(0, 40)}…)` : null;
 }
 
-const SHINGLE = 6;
-
-function words(value: string): string[] {
-  return value.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").match(/[\p{L}\p{N}]+/gu) ?? [];
-}
-
-function shingles(value: string): Set<string> {
-  const w = words(value);
-  const out = new Set<string>();
-  for (let i = 0; i + SHINGLE <= w.length; i += 1) out.add(w.slice(i, i + SHINGLE).join(" "));
-  return out;
-}
-
-/** True when `candidate` repeats any run of six words from `source`. */
-export function sharesPassage(candidate: string, source: string): boolean {
-  const theirs = shingles(source);
-  if (theirs.size === 0) return false;
-  for (const s of shingles(candidate)) if (theirs.has(s)) return true;
-  return false;
-}
-
 export interface OutputContext {
   complainantEvidenceIds: ReadonlySet<string>;
   respondentEvidenceIds: ReadonlySet<string>;
   /** Exact extracted text from each current clean evidence object. */
   evidenceSources: ReadonlyMap<string, { text: string }>;
-  /** Everything the complainant submitted (position, evidence text, titles, descriptions, chronology). */
-  complainantCorpus: string;
-  respondentCorpus: string;
+  amountAtStakeCents: number;
 }
 
 export type OutputCheck =
@@ -103,7 +81,7 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   const out = parsed.data;
   if (out.needs_human) return { ok: false, escalation: "model_requested_review", detail: "model asked for a person" };
 
-  const texts = [out.summary, out.reasoning, ...out.limits, ...out.not_considered, ...out.citations.map((c) => c.relevance), out.outcomes.complainant.text, out.outcomes.respondent.text];
+  const texts = [out.summary, out.reasoning, ...out.limits, ...out.not_considered, ...out.citations.map((c) => c.relevance)];
   for (const value of texts) {
     const problem = agentTextProblem(value);
     if (problem) return { ok: false, escalation: "model_output_rejected", detail: problem };
@@ -121,18 +99,17 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
       return { ok: false, escalation: "model_output_rejected", detail: "citation excerpt is absent or ambiguous in the current evidence extract" };
     }
   }
-  // Isolation: each party's outcome may rest only on that party's own evidence
-  // and must not repeat the other party's words.
-  if (out.outcomes.complainant.evidence_item_ids.some((id) => !ctx.complainantEvidenceIds.has(id))
-    || out.outcomes.respondent.evidence_item_ids.some((id) => !ctx.respondentEvidenceIds.has(id))) {
+  // Isolation: each party's outcome may point only to that party's own evidence,
+  // and only to items with a verified excerpt.
+  if (out.party_evidence.complainant.some((id) => !ctx.complainantEvidenceIds.has(id))
+    || out.party_evidence.respondent.some((id) => !ctx.respondentEvidenceIds.has(id))) {
     return { ok: false, escalation: "model_output_rejected", detail: "outcome cites the other party's evidence" };
   }
   const citedIds = new Set(cited);
-  if ([...out.outcomes.complainant.evidence_item_ids, ...out.outcomes.respondent.evidence_item_ids].some((id) => !citedIds.has(id))) {
+  if ([...out.party_evidence.complainant, ...out.party_evidence.respondent].some((id) => !citedIds.has(id))) {
     return { ok: false, escalation: "model_output_rejected", detail: "an outcome cites evidence without an exact excerpt" };
   }
-  if (sharesPassage(out.outcomes.complainant.text, ctx.respondentCorpus) || sharesPassage(out.outcomes.respondent.text, ctx.complainantCorpus)) {
-    return { ok: false, escalation: "model_output_rejected", detail: "outcome repeats the other party's submission" };
-  }
+  const problem = proposalProblem(out.proposal, ctx.amountAtStakeCents);
+  if (problem) return { ok: false, escalation: "model_output_rejected", detail: problem };
   return { ok: true, value: out };
 }

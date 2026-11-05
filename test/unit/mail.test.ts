@@ -25,6 +25,11 @@ describe("Resend delivery", () => {
     expect(request.headers["Idempotency-Key"]).toBe("invitation/invite-1");
     expect(db.invitation.update).toHaveBeenCalledWith({ where: { id: "invite-1" }, data: { emailedAt: expect.any(Date) } });
   });
+  it("prints the configured response period on an automated respondent invitation", async () => {
+    configure(); const fetch = vi.fn().mockResolvedValue(Response.json({ id: "resend-period" })); vi.stubGlobal("fetch", fetch);
+    await sendInvitationEmail({ email: "respondent@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-period", validForDays: 5 });
+    expect(JSON.parse(fetch.mock.calls[0][1].body).text).toContain("valid for 5 days");
+  });
   it("accepts the documented legacy REPLY_TO setting when EMAIL_REPLY_TO is absent", async () => {
     configure(); vi.stubEnv("EMAIL_REPLY_TO", ""); vi.stubEnv("REPLY_TO", "legacy-reply@example.org");
     const fetch = vi.fn().mockResolvedValue(Response.json({ id: "resend-legacy" })); vi.stubGlobal("fetch", fetch);

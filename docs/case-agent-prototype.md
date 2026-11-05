@@ -1,103 +1,133 @@
-# Case agent prototype (2026-11-05)
+# Case agent (2026-11-05)
 
-Status: **prototype, off by default, tested on synthetic data only.** It is not part of the paid-pilot offer in `docs/paid-pilot-readiness.md`. Do not enable it for real cases before the decisions at the end of this page are made.
+Status: **off by default; tested on synthetic data with a stub model only.** No live model has been evaluated. Do not enable it for real cases before the decisions at the end of this page are made.
 
-## What it does
+## Routine path it handles without a case manager
 
-For one Québec program's `RETAIL` cases, the assigned manager still opens intake, records the conflict-of-interest declaration, and opts the case in. The agent then manages the remaining routine steps for parties who participate:
+All workflow decisions are deterministic code under the program's configured rules (`src/domain/caseAgent/config.ts`). The model only drafts a staff summary, picks a remedy from a closed list, and points to evidence excerpts. Every step below is a separate scheduled pass (`npm run agent:run`); each pass is idempotent and re-checks the case row under lock.
 
-1. **Manages evidence-intake completion.** Each party decides when their own evidence and dated entries are complete. A party can clear that mark while intake remains open; any new evidence or chronology entry clears that party's mark, and a material case-detail correction clears both marks. The agent closes intake only after both parties mark complete and both have current clean evidence. It queues a bilingual email to each party asking them to submit or update their position. A scan failure, open contestation, out-of-scope case, or evidence limit sends the case to a person. Silence never closes intake; there is no deadline or automatic non-response rule.
-2. **Checks the file.** After both parties submit positions, it waits while a position is missing or a scan is pending. The case goes to a person if:
-   - the category is not `RETAIL`
-   - the amount is missing or above the program's limit, or no limit is configured
-   - a file failed scanning
-   - a party has no clean evidence
-   - a contestation is open
+1. **Take the case.** A submitted `OPEN` case with no assigned manager is taken by the agent (`agent_open_intake`) only if it is `RETAIL` and its amount at stake is present and within the program limit. Anything else stays in the normal case-manager queue untouched. Both parties receive an explicit bilingual notice by email and on the case page: the agent handles routine steps, proposals are not binding, are not legal advice and do not judge truthfulness, participation is voluntary, and either party can ask for a person or end participation.
+2. **Invite the respondent.** The agent sends the existing respondent invitation once (`PARTY_NOTIFIED` event, same invitation tables and email as the complainant-initiated path). If the invitation cannot be delivered, or the respondent has not joined within the program's response period, the case goes to a person.
+3. **Collect evidence.** Parties upload through the existing evidence form: MIME allowlist, size limits, ClamAV scan, hash recorded. Each party must mark their own evidence intake complete; a new submission clears that party's mark, and a case-detail change clears both. The agent closes intake (`agent_close_intake`) only after both current marks and at least one clean item from each party, then queues a bilingual request for each party to submit or update their position. It can close as soon as both are ready. At the configured maximum period, an incomplete submission or a party who has not marked complete goes to a person; silence never counts as readiness. A pending scan makes it wait until that period ends, then goes to a person. A rejected file goes to a person immediately.
+4. **Collect positions.** Parties submit positions as usual. A missing position after the response period goes to a person.
+5. **Read the evidence and propose.** Before any model call the agent:
+   - downloads every current clean item and checks its stored size and SHA-256
+   - extracts text (see below)
+   - stops for a person if anything is unreadable, partial or over the limits
 
-   No model is called until these checks pass.
-3. **Asks the configured model** for a neutral summary with citations to case evidence, and for one non-binding proposed outcome per party, written in that party's language.
-4. **Validates the reply deterministically** (`src/domain/caseAgent/output.ts`). The case goes to a person instead if any check fails. The reply must:
-   - follow a strict JSON shape, with no model-set reviewer or source fields
-   - cite only current clean evidence in the case, each item at most once, with an exact excerpt from the hash-verified extraction
-   - attach server-computed character offsets plus the source-file and extracted-text hashes for every citation
-   - have each party's outcome cite only that party's own evidence
-   - not repeat any six-word run from the other party's submissions in a party's outcome
-   - avoid the forbidden terms and score patterns
-   - not judge credibility, state what the law requires, use binding wording, or apply deadline pressure (English and French)
-5. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes, their outcome-version-specific citation pointers, and notifications. Each party can open the exact cited excerpt from their own evidence; the server re-extracts it and checks the source hash, extraction hash, and character range before returning it. The excerpt is not copied into a second database field. Parties see the evidence title and excerpt, while model-written citation rationale stays in the staff audit record because the model saw both parties' material. Citation digests are bound to the issuance events and checked by `verifyCase`. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
-6. **Records answers** through the existing consent flow, which binds consent to the outcome version. While the agent manages the case, both consents resolve it without approver sign-off.
-7. **Closes** (`agent_close`, with a sealed export) only after both parties consent or the complainant withdraws.
-8. **Hands the case back** to the assigned case manager if a party declines. It does not close declined cases.
+   The model returns a staff-only summary, citations with exact excerpts, a structured proposal (`refund_full`, `refund_partial`, `store_credit`, `replacement` or `repair`, plus an amount where one applies), and the evidence each party's outcome relies on. Deterministic checks then require:
+   - a strict schema with no extra fields
+   - every excerpt appearing exactly once in the cited file's extraction
+   - each party's outcome pointing only to that party's own evidence
+   - an amount that is needed by the remedy and not above the amount at stake
+   - no verdict, credibility, score, legal-advice, binding or pressuring language in any model text
 
-Either party can press **"Ask for a person to review this case"** at any time before closure. The agent then stops, the assigned manager is notified, and approver sign-off applies again. Before the agent issues, a party can still correct their position; a correction during the model call makes that result stale. After issuance, a correction goes through a request for a person.
+   A failed check goes to a person; nothing is partially written.
+6. **Issue.** One locked write (`agent_issue`) stores the recommendation, both party outcomes, per-outcome citation pointers and notifications. If any material the model saw changed during the call, the result is discarded as stale and redone on the next pass.
+7. **Answers.** Parties consent or decline through the existing consent flow, which binds each answer to the outcome version. While the agent manages a case, both consents resolve it without approver sign-off. An unanswered proposal after the response period goes to a person.
+8. **Close.** After both parties consent, or after either party ends participation, the agent generates the sealed export and closes the case (`agent_close`). A decline goes to a person; the agent never closes a declined case.
+
+## Handoffs to a person
+
+The agent stops, records `AGENT_ESCALATED` with a reason, and notifies the assigned case manager. If no manager is assigned, it notifies every case-manager account with a passkey (the program's queue). An unassigned escalated case appears in every case manager's list; one manager takes it by declaring no conflict of interest (`POST /api/cases/[id]/claim`). From then on, normal human rules apply, including approver sign-off.
+
+Reasons:
+
+| Area | Reasons |
+|---|---|
+| Party choice | `party_request` (either party, any time before closure), `declined` |
+| Invitation and timing | `invitation_failed`, `respondent_no_response`, `submission_missing`, `intake_incomplete`, `evidence_scan_pending`, `no_answer` |
+| Scope | `out_of_scope_category`, `out_of_scope_amount` |
+| Evidence | `evidence_rejected`, `evidence_inadequate`, `evidence_extraction_failed`, `evidence_limit_exceeded` |
+| Process | `contestation_open` |
+| Program configuration | `program_rules_incomplete` |
+| Model | `model_unavailable`, `model_failed`, `model_requested_review`, `model_output_rejected` |
+
+## Evidence the agent actually reads
+
+The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
+
+| Format | Method | Notes |
+|---|---|---|
+| `text/plain` | UTF-8 decode | |
+| PDF | `pdftotext`, then `pdftoppm` + `tesseract` for pages without a text layer | Up to 20 pages. A longer file is "partial" and goes to a person. The page number is recorded with each citation. OCR may misread text. |
+| PNG, JPEG, TIFF, WebP | `tesseract` OCR | Languages from `AEQUITAS_OCR_LANGUAGES`. OCR text is cited as extracted, not corrected. |
+
+- **Limits:** 25 MiB per file, 12,000 characters per source, 12 files and 60,000 characters per case. Exceeding any of them goes to a person.
+- **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. A scanned image on a page that already has selectable text may be omitted from OCR.
+- **Citations:** each records the evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. A party opening a cited excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
+- **What an exact excerpt proves:** only that the text exists in the extraction. It does not prove the document is authentic, accurate or relevant.
+
+## Privacy and party choice
+
+- **Fixed party text.** No model-written sentence reaches a party. Each party reads fixed French or English wording generated from the structured proposal (`src/domain/caseAgent/proposal.ts`), plus excerpts from their own evidence only. The summary, reasoning and citation notes stay with staff. This replaces the earlier six-word overlap check, which could not prove that a paraphrase leaked nothing.
+- **Isolation rules unchanged.** The existing submission-visibility contract still applies: parties never see the other side's submissions, outcome or request for a person.
+- **Ending participation.** Either party can request a person until closure. The complainant can always end participation. The respondent can on agent-managed cases when the program setting `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW` is `true`; there is no default. Human-managed cases keep the existing complainant-only withdrawal rule.
 
 ## Permissions
 
-- **Its own account.** The agent acts as a single `CASE_AGENT` service account, created by `npm run agent:provision`.
-- **No sign-in.** No session is ever issued for that role (`src/lib/session.ts` accepts only the four human roles), and it has no passkey.
-- **Three transitions only.** In the state machine it holds `agent_close_intake` (EVIDENCE_INTAKE → POSITIONS, after both parties mark ready), `agent_issue` (POSITIONS → ISSUED), and `agent_close` (RESOLVED_CONSENT or WITHDRAWN → CLOSED). A unit test asserts it holds nothing else.
-- **Every write is guarded.** Each step checks `agentMayAct`: the case is opted in, not escalated, and the actor is the agent.
-- **No case read access.** `caseReadAccess` returns nothing for it, so it cannot use party, manager, approver or admin routes. Tests confirm it cannot consent, approve, write outcomes, issue as a manager, close as a manager, or request a person.
-- **Start gate is human; intake completion is party-controlled.** A case manager must open intake, record the conflict-of-interest declaration, and opt the case in. Only each party can mark or clear their own intake-ready status. The agent does not invite a respondent; the complainant must confirm the exact recipient email before an invitation is sent. The assigned manager stays accountable and receives every escalation.
-- **Audit and integrity.** Every agent write appends hash-chained events attributed to the agent account, with origin `case_agent`, the model id, the prompt version and a digest of the material it saw. Replay and `verifyCase` pass on agent-closed cases.
-- **Evidence input.** The agent downloads current clean evidence, verifies its stored size and SHA-256, then extracts text from UTF-8, PDFs and supported images. PDF pages with no extractable text are rendered one at a time at bounded resolution and OCRed; a mixed PDF keeps its text layer and fills pages that are otherwise blank. It follows the caps of 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case, with a 90-second total OCR limit and a 16 MiB rendered-page limit. If any current evidence is empty, truncated, unsupported, unavailable, over the case limit or fails its integrity check, the model is not called and the case is handed to a person. OCR can misread text; exact excerpts prove only that matching text exists in the extraction, not that the document is authentic, accurate or relevant. A scanned image embedded on a page that also has a text layer may be omitted from OCR.
+- **Account.** The agent acts as one `CASE_AGENT` service account (`npm run agent:provision`). No session can be issued for that role and it has no passkey.
+- **State machine.** It holds exactly `agent_open_intake`, `agent_close_intake`, `agent_issue` and `agent_close`, each guarded by `agentMayAct` (opted in, not escalated, actor is the agent). A unit test asserts it holds nothing else.
+- **No case access.** `caseReadAccess` gives it nothing, so it cannot use any route.
+- **What it cannot do.** Tests show it cannot consent, decline, approve, write outcomes as a manager, request a person, or administer users.
+- **Audit.** Every agent write appends hash-chained events attributed to the agent, with the model id, the prompt version (`case-agent-2026-11-05.3`) and a digest of the material it saw.
 
-## Runtime provider and configuration
+## Program configuration (no defaults)
 
-The agent reuses the existing provider interface (`TextCompletion`, `src/domain/pipeline/provider.ts`): Gemini or Cloudflare Workers AI. Anthropic and OpenAI are refused on this path. Model calls are made and billed by the deployment's own provider account. **Claude Code Cloud credits do not pay for them.**
-
-| Setting | Purpose |
+| Setting | Meaning |
 |---|---|
-| `AEQUITAS_CASE_AGENT_ENABLED=true` | Turns the agent on. Unset means off. |
-| `AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS` | The program's amount limit in CAD cents. Unset means no case is in scope. No default is chosen here. |
-| `AEQUITAS_PIPELINE_PROVIDER` | `gemini` (default) or `workers-ai`. |
-| `GEMINI_API_KEY`, optional `GEMINI_MODEL` | For Gemini. |
-| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `AEQUITAS_WORKERS_AI_MODEL` | For Workers AI. |
-| `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` | Required before any live case data is sent. Set only after reviewing the current terms for the selected provider, account and model; this is not legal or privacy approval. |
-| `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` | Also required for Gemini. Confirm the exact API key belongs to a project with active billing. Gemini's unpaid tier is unsuitable for case data under Google's current terms; the app cannot inspect the key's billing tier. |
-| `npm run agent:provision` | Creates the service account once. |
-| `npm run agent:run` | One scheduled pass. The CT920 `scheduled` Compose profile runs it every 10 minutes alongside notification retries every 15 minutes. Start that profile explicitly after deployment; it is not part of the default web stack. Enrollment is refused unless the selected provider is configured; if a provider is later missing, the pass skips all cases without changing them. Each case is compare-and-set leased before processing, revisited no sooner than 10 minutes later, and released afterward; an expired 30-minute lease recovers after a crashed run. It prints counts only. |
+| `AEQUITAS_CASE_AGENT_ENABLED=true` | Program-level switch. |
+| `AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS` | Largest amount at stake the agent may handle. |
+| `AEQUITAS_CASE_AGENT_INTAKE_DAYS` | Maximum time from opening intake to complete evidence and mark both sides ready; an incomplete case goes to a person when it expires. |
+| `AEQUITAS_CASE_AGENT_RESPONSE_DAYS` | Time to join after an invitation, to submit a position, and to answer a proposal. |
+| `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW` | `true` or `false`. |
+| `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` | Required before the agent sends case material to the chosen provider. Set only after reviewing the current terms for the exact provider, account and model; this is not privacy or legal approval. |
+| `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` | Also required for Gemini. Confirm the exact API key belongs to a project with active billing; the app cannot inspect the provider billing tier. |
 
-Start the production scheduler from `deploy/ct920` with `RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler`. The worker receives database, event-chain, storage, mail and approved provider settings; it does not receive the web session or WebAuthn secrets. Check counts with `docker compose -p aeq-prod --profile scheduled logs scheduler`. The agent remains off unless `AEQUITAS_CASE_AGENT_ENABLED=true` and the provider gates above are configured.
+If program rules are missing or invalid, the agent takes no new case and hands active agent-managed cases back to staff. New cases also wait in the normal queue until an approved provider is configured. Email delivery must be configured for the respondent invitation; otherwise the case goes to a person.
 
-Not verified here: any live provider call, output quality on real disputes, latency and cost. Tests use a local stub.
+**Runtime model.** The agent uses the existing `TextCompletion` interface: Gemini (`GEMINI_API_KEY`, optional `GEMINI_MODEL`) or Cloudflare Workers AI (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `AEQUITAS_WORKERS_AI_MODEL`), selected by `AEQUITAS_PIPELINE_PROVIDER`. Anthropic and OpenAI are refused on this path. Calls are billed to the deployment's own provider account, not to Claude Code Cloud credits. Current provider data terms and transfer conditions still require program and counsel review.
 
-Provider terms checked 2026-11-05: Google's Gemini API Additional Terms say Unpaid Services may use prompts and responses to improve products, may involve human review, and must not receive sensitive, confidential or personal information. Paid Gemini API use requires an active billing project and has different data terms. Cloudflare says standard Workers AI inference has zero retention and no model training, subject to stated exceptions; third-party model licenses still apply. These runtime flags do not assess Québec privacy law, transfers, or whether the provider is suitable for a specific program. See the [Gemini terms](https://ai.google.dev/gemini-api/terms), [Gemini billing tiers](https://ai.google.dev/gemini-api/docs/billing), and [Cloudflare Workers AI data-use terms](https://developers.cloudflare.com/workers-ai/platform/data-usage/).
+**Scheduling.** `npm run agent:run` is one bounded pass. The opt-in CT920 `scheduled` Compose profile runs it every 10 minutes and notification retries every 15 minutes. It is not started by the default web stack. From `deploy/ct920`, use `RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler`; inspect counts with `docker compose -p aeq-prod --profile scheduled logs scheduler`. The worker receives only database, event-chain, evidence-storage, email and provider settings; it has no web session or WebAuthn secrets. Each case is leased before a pass, revisited no sooner than 10 minutes later, and recovered after a 30-minute crashed-worker lease. A missing provider prevents new cases from being taken; already agent-managed cases can still close after consent or be handed back.
 
-## Synthetic provider check
+## Evaluation
 
-`npm run agent:evaluate` makes at most one request with a fixed, adversarial synthetic retail example. It imports no database or storage code, writes no result, and requires both `AEQUITAS_CASE_AGENT_EVAL_SYNTHETIC_ONLY=true` and an explicit `AEQUITAS_CASE_AGENT_EVAL_PROVIDER=gemini|workers-ai`. Configure that provider's account key separately; the request is billed to that provider account, not Claude Code Cloud credits. The report includes the sample output for human review and deterministic-check result, but does not assess language quality, factual accuracy or neutrality. It is an evaluation aid, not a launch approval.
+`npm run agent:evaluate -- --stub` exercises the harness offline. `--live` runs five synthetic fixtures against the configured provider and refuses to start unless `AEQUITAS_CASE_AGENT_EVAL_APPROVED=true`, which the operator sets after confirming the provider's data terms and spending limit. It also enforces the provider terms and Gemini billing gates above. It writes only to the `_test` database and a temporary local evidence directory, and suppresses outbound email.
 
-Example: `AEQUITAS_CASE_AGENT_EVAL_SYNTHETIC_ONLY=true AEQUITAS_CASE_AGENT_EVAL_PROVIDER=gemini npm run agent:evaluate`. Without the confirmation flag, provider choice or provider key, it exits before sending a request.
+- **Fixtures:** routine English, routine French, prompt injection, a question needing legal interpretation, and a private-detail bait.
+- **Recorded per run:** provider, model, prompt version, latency, token or cost information (`not reported by the provider interface`), status, escalation reason, whether the result matched the expected handling, party-language and leakage checks.
+- **Results so far:** only the stub mode has been run (5/5, which proves the harness works, not model quality). **Live-model quality is untested.**
 
 ## Known limits
 
-- The model sees extracted text from the parties' clean evidence. Text from both parties is sent in one provider call; exact-quote checks and six-word overlap checks do not prove that an outcome is neutral or free from paraphrased information about the other party.
-- The output checks are heuristics. They cannot prove that free text is accurate, neutral or free of the other party's information. Paraphrase that avoids a six-word overlap would pass.
-- A matching excerpt proves traceability to machine-extracted text, not truth, relevance, authenticity, completeness or legal liability. OCR and PDF text may be wrong; the original must be reviewed when a case is handed to a person.
-- An issued citation may become unavailable if its source is replaced or fails integrity checks; the original evidence remains the source of record.
-- Any model failure escalates at once; there is no retry budget.
-- There is no deadline or automated non-response path. If a party never marks their intake complete or submits a position, the agent waits until a person or that party takes another action.
-- The complainant, not the agent, confirms the respondent's exact email address before the invitation is sent.
-- Only the complainant can withdraw (existing rule); the respondent's equivalent is to decline or ask for a person.
-- If the assigned manager drafts by hand on an opted-in case, the agent waits rather than taking over.
-- A failure between export generation and closure can leave an extra export bundle.
-- Two parties only. No multi-organization isolation.
+- **Test coverage:**
+  - A stub stands in for the respondent's passkey enrolment.
+  - Scanning in the routine integration tests is seeded; the browser test uploads through the real scanner in CI.
+  - PDF page numbers are computed from form-feed breaks and are not yet covered by a test with a real multi-page PDF.
+- **Heuristic checks.** The deny list catches forbidden phrasing in staff-only model text; it cannot prove that text is accurate or neutral.
+- **Escalation behaviour:**
+  - Any model failure escalates at once; there is no retry budget.
+  - The automated respondent invitation expires with the configured response period. Invitation and account-recovery emails remain outside the retry outbox.
+- **Scope:**
+  - One program per deployment. Roles are global, so this is not multi-organization software.
+  - Two parties only. No retention or deletion service.
 
-## Decisions required before real case data
+## Decisions still needed before real case data
 
-**Product and governance (Martin)**
-- **Approval waiver.** Waiving approver sign-off for agent-managed cases removes the independent human check that Phase 3 added. Confirm that party consent plus the right to ask for a person is an acceptable substitute, or keep approver sign-off for agent cases.
-- **Accountability.** Who at the program answers for agent-issued proposals, and how often they sample them.
-- **Escalation of declined cases.** Whether they should go to a person (current behaviour) or close.
+**Owner**
+- **Approval waiver.** Confirm that consent plus the right to a person replaces approver sign-off on agent cases. Phase 3 introduced that sign-off as an independent check.
+- **Remedies and limits.** Confirm the remedy list, the amount limit, the intake and response periods, and the respondent-withdrawal rule for the program.
+- **Accountability and oversight.** Who answers for agent proposals, how often staff sample them, the complaint process, and the human-review capacity needed to absorb escalations.
 
-**Runtime (operator)**
-- **Provider and account.** Which provider and account to use.
-- **Data terms and region.** The provider's data-use and retention terms. Free tiers in particular may differ from paid terms; read the current terms before choosing.
-- **Spend and schedule.** Spend limits and monitoring for the scheduled run.
+**Operator**
+- **Provider.** Choose a provider and account. Review its current data-use, retention and region terms; free tiers may differ from paid ones.
+- **Spending and monitoring.** Set spending limits and monitoring.
+- **Scheduling.** Schedule `agent:run` and `notify:deliver`.
+- **Live evaluation.** Run it on synthetic cases before any real use.
 
-**Legal (counsel; not assessed here)**
-- **Automated processing.** Whether proposals produced by automated processing, without a person in the loop, trigger notice or review obligations under Québec privacy law, and what wording the notice must use.
-- **Privacy assessment and transfer.** Whether sending both parties' submissions to an external model provider (possibly outside Québec) needs a privacy impact assessment and a transfer assessment.
-- **Party-facing wording.** Whether the bilingual notices adequately say that a proposal is not binding, is not legal advice and does not judge truthfulness.
-- **Retention.** Retention of prompts and model replies at the provider and in Aequitas.
+**Counsel** (not assessed here)
+- **Automated processing.** Obligations for proposals produced without a person, under Québec privacy law, including notice and the right to have a person review.
+- **Privacy and transfers.** Whether sending both parties' submissions to the provider, possibly outside Québec, needs a privacy impact assessment and transfer analysis.
+- **Mediation framework.** How the agent fits any mediation or dispute-resolution framework that applies to the program.
+- **Retention.** Retention and deletion periods, given the append-only event log.
+- **Wording.** Adequacy of the bilingual notices and proposal wording.

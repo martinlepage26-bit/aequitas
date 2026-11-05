@@ -17,10 +17,8 @@ function validReply() {
       { evidence_item_id: complainantEvidenceId, relevance: "The receipt records the purchase total.", excerpt: "kettle purchased 2026-10-02; total paid $89.99." },
       { evidence_item_id: respondentEvidenceId, relevance: "The store note records the proposed repair remedy.", excerpt: "item marked final sale; repair voucher offered on 2026-10-05." },
     ],
-    outcomes: {
-      complainant: { text: "Proposition non contraignante : le magasin peut remplacer la bouilloire ou rembourser le montant indiqué sur le reçu.", evidence_item_ids: [complainantEvidenceId] },
-      respondent: { text: "Non-binding proposal: the store may replace the kettle or refund the amount shown on the receipt.", evidence_item_ids: [respondentEvidenceId] },
-    },
+    proposal: { remedy: "repair", amount_cents: null },
+    party_evidence: { complainant: [complainantEvidenceId], respondent: [respondentEvidenceId] },
   };
 }
 
@@ -38,10 +36,10 @@ describe("synthetic case-agent provider evaluation fixture", () => {
     expect(result).toMatchObject({ ok: true });
   });
 
-  it("rejects an outcome that repeats the other party's synthetic evidence", () => {
+  it("rejects a party outcome that points to the other party's synthetic evidence", () => {
     const reply = validReply();
-    reply.outcomes.complainant.text = "The kettle was marked final sale. Staff offered a repair voucher on October 5.";
+    reply.party_evidence.complainant = [respondentEvidenceId];
     const result = checkAgentOutput(JSON.stringify(reply), buildCaseAgentOutputContext(fixture.material, fixture.evidenceSources));
-    expect(result).toMatchObject({ ok: false, escalation: "model_output_rejected", detail: "outcome repeats the other party's submission" });
+    expect(result).toMatchObject({ ok: false, escalation: "model_output_rejected", detail: "outcome cites the other party's evidence" });
   });
 });

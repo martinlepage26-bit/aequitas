@@ -1,4 +1,8 @@
 import "./src/lib/loadEnv";
+import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { applyTestDatabase } from "./test/testDatabaseUrl";
 
@@ -7,6 +11,52 @@ import { applyTestDatabase } from "./test/testDatabaseUrl";
 // Workers and the webServer inherit this process's environment.
 applyTestDatabase();
 process.env.RESEND_API_KEY = "";
+process.env.SESSION_SECRET = "aequitas-playwright-test-only-session-secret";
+if (!process.env.AEQUITAS_E2E_STORAGE_OWNER_PID) {
+  const e2eStorageDir = mkdtempSync(join(tmpdir(), "aequitas-playwright-storage-"));
+  process.env.STORAGE_LOCAL_DIR = e2eStorageDir;
+  process.env.AEQUITAS_E2E_STORAGE_OWNER_PID = String(process.pid);
+  process.on("exit", () => rmSync(e2eStorageDir, { recursive: true, force: true }));
+}
+
+// On a developer machine with no ClamAV sidecar, run the E2E suite against a
+// tiny test-only INSTREAM responder. CI keeps its real ClamAV service, and a
+// local operator with ClamAV can opt out with AEQUITAS_E2E_REAL_CLAMAV=true.
+if (!process.env.CI && process.env.AEQUITAS_E2E_REAL_CLAMAV !== "true" && !process.env.AEQUITAS_E2E_SCANNER_OWNER_PID) {
+  const scannerPort = Number(process.env.AEQUITAS_E2E_CLAMAV_PORT ?? "43110");
+  const scanner = createServer((socket) => {
+    let buffer = Buffer.alloc(0);
+    let commandRead = false;
+    socket.on("data", (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      if (!commandRead) {
+        const newline = buffer.indexOf(0x0a);
+        if (newline < 0) return;
+        if (buffer.subarray(0, newline).toString("ascii") !== "nINSTREAM") {
+          socket.end("UNKNOWN COMMAND\n");
+          return;
+        }
+        buffer = buffer.subarray(newline + 1);
+        commandRead = true;
+      }
+      while (buffer.byteLength >= 4) {
+        const size = buffer.readUInt32BE(0);
+        if (buffer.byteLength < size + 4) return;
+        buffer = buffer.subarray(size + 4);
+        if (size === 0) {
+          socket.end("stream: OK\n");
+          return;
+        }
+      }
+    });
+  });
+  scanner.on("error", (error) => { throw error; });
+  scanner.listen(scannerPort, "127.0.0.1");
+  scanner.unref();
+  process.env.CLAMAV_HOST = "127.0.0.1";
+  process.env.CLAMAV_PORT = String(scannerPort);
+  process.env.AEQUITAS_E2E_SCANNER_OWNER_PID = String(process.pid);
+}
 const testPort = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
 // Virtual browser credentials must be checked against the actual test
 // server, independently of a developer's demo or production RP settings.

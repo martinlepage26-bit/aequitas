@@ -29,6 +29,9 @@ vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: t
 const ENV = {
   AEQUITAS_CASE_AGENT_ENABLED: "true",
   AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+  AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
+  AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
+  AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
   AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
   AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true",
   GEMINI_API_KEY: "synthetic-test-only",
@@ -50,7 +53,12 @@ const mk = (label: string, globalRole: GlobalRole, extra: { isApprover?: boolean
   prisma.user.create({ data: { email: `agent-${label}-${randomUUID()}@example.org`, displayName: `Agent test ${label}`, globalRole, locale: extra.locale ?? "fr-CA", isApprover: extra.isApprover ?? false } });
 
 beforeAll(async () => {
-  vi.stubEnv("RESEND_API_KEY", "");
+  vi.stubEnv("SESSION_SECRET", "synthetic-case-agent-test-signing-secret");
+  vi.stubEnv("RESEND_API_KEY", "test-not-a-key");
+  vi.stubEnv("EMAIL_FROM", "noreply@example.org");
+  vi.stubEnv("EMAIL_REPLY_TO", "noreply@example.org");
+  vi.stubEnv("APP_URL", "http://localhost:3000");
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "synthetic-email" }), { status: 200 })));
   storageDir = mkdtempSync(path.join(tmpdir(), "aeq-agent-"));
   process.env.STORAGE_LOCAL_DIR = storageDir;
   const existingAgent = await prisma.user.findFirst({ where: { globalRole: "CASE_AGENT" } });
@@ -124,10 +132,8 @@ function goodOutput(s: Setup): Output {
       { evidence_item_id: s.complainantEvidence, relevance: "Purchase record.", excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." },
       { evidence_item_id: s.respondentEvidence, relevance: "Sale conditions shown in store.", excerpt: "Clearance shelf tag: final sale." },
     ],
-    outcomes: {
-      complainant: { text: "Proposition : le magasin remplace la bouilloire ou rembourse le prix payé, selon votre préférence.", evidence_item_ids: [s.complainantEvidence] },
-      respondent: { text: "Proposal: replace the kettle or refund the price paid, at the customer's choice, and record the outcome.", evidence_item_ids: [s.respondentEvidence] },
-    },
+    proposal: { remedy: "replacement", amount_cents: null },
+    party_evidence: { complainant: [s.complainantEvidence], respondent: [s.respondentEvidence] },
   };
 }
 
@@ -148,10 +154,12 @@ describe("case agent: party-controlled intake", () => {
     const s = await positionsCase({ keepIntakeOpen: true });
     const model = stub(() => { throw new Error("The model must not be called while the agent closes intake."); });
 
-    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "respondent_invited" });
+    await prisma.webAuthnCredential.create({ data: { userId: s.respondentId, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "parties_completing_intake" });
     expect((await setPartyIntakeReady({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId, ready: true })).ok).toBe(false);
     expect((await setPartyIntakeReady({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, ready: true })).ok).toBe(true);
-    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "parties_completing_intake" });
     expect((await setPartyIntakeReady({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId, ready: true })).ok).toBe(true);
 
     expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "intake_closed" });
@@ -323,7 +331,7 @@ describe("case agent: normal completion", () => {
     await prisma.case.update({ where: { id: s.caseId }, data: { agentManaged: false } });
     expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => "{}"), env: ENV })).status).toBe("skipped");
     await prisma.case.update({ where: { id: s.caseId }, data: { agentManaged: true } });
-    expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => "{}"), env: {} })).status).toBe("skipped");
+    expect(await runCaseAgent({ caseId: s.caseId, model: stub(() => "{}"), env: {} })).toEqual({ status: "escalated", reason: "program_rules_incomplete" });
   });
 });
 
@@ -351,7 +359,7 @@ describe("case agent: least privilege", () => {
     expect((await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, {})).ok).toBe(false);
     const noProvider = { ...ENV, GEMINI_API_KEY: "" };
     const providerRefused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, noProvider);
-    expect(providerRefused).toEqual({ ok: false, status: 409, reason: "The case agent's model provider is not configured." });
+    expect(providerRefused).toEqual({ ok: false, status: 409, reason: "The case agent's approved model provider is not configured." });
     const tenancy = await positionsCase({ category: "TENANCY", enroll: false });
     const refused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: tenancy.caseId }, ENV);
     expect(refused.ok || refused.status).toBe(409);
@@ -359,12 +367,26 @@ describe("case agent: least privilege", () => {
 });
 
 describe("case agent: party isolation", () => {
-  it("rejects an outcome that cites or repeats the other party's submission, and writes nothing", async () => {
-    for (const leak of ["cite", "quote"] as const) {
+  it("never puts model-written text in front of a party", async () => {
+    const s = await positionsCase();
+    const out = goodOutput(s) as { summary: string; citations: Array<{ relevance: string }> };
+    out.summary = `Staff only: ${RESPONDENT_POSITION}`;
+    out.citations[0].relevance = `Leak attempt: ${RESPONDENT_POSITION}`;
+    expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(out)), env: ENV })).status).toBe("issued");
+    const c = await issuedOutcome(s.caseId, s.complainantId);
+    expect(c.body).toMatch(/^Proposition pour régler votre demande : le commerçant remplace l’article\./);
+    const complainantView = JSON.stringify(await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" }));
+    expect(complainantView).not.toContain(RESPONDENT_POSITION);
+    expect(complainantView).not.toContain("counter staff");
+    const own = (await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" }))?.parties[0].issued?.citations ?? [];
+    expect(own.map((p) => [p.evidenceItemId, p.relevance])).toEqual([[s.complainantEvidence, ""]]);
+  });
+
+  it("rejects an outcome that points to the other party's evidence, and writes nothing", async () => {
+    for (const leak of ["cite"] as const) {
       const s = await positionsCase();
-      const out = goodOutput(s) as { outcomes: { complainant: { text: string; evidence_item_ids: string[] } } };
-      if (leak === "cite") out.outcomes.complainant.evidence_item_ids = [s.respondentEvidence];
-      else out.outcomes.complainant.text = `Proposition. ${RESPONDENT_POSITION}`;
+      const out = goodOutput(s) as { party_evidence: { complainant: string[] } };
+      if (leak === "cite") out.party_evidence.complainant = [s.respondentEvidence];
       const result = await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(out)), env: ENV });
       expect(result).toEqual({ status: "escalated", reason: "model_output_rejected" });
       expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
@@ -387,7 +409,6 @@ describe("case agent: unsupported or unsafe cases go to a person", () => {
   it.each([
     ["amount above the program limit", { amount: 900_000 }, ENV, "out_of_scope_amount"],
     ["amount missing", { amount: null }, ENV, "out_of_scope_amount"],
-    ["no amount limit configured", {}, { AEQUITAS_CASE_AGENT_ENABLED: "true" }, "out_of_scope_amount"],
   ] as const)("%s", async (_label, opts, env, reason) => {
     const s = await positionsCase(opts);
     const model = stub(() => JSON.stringify(goodOutput(s)));
@@ -506,9 +527,9 @@ describe("case agent: model failure", () => {
   ] as const)("%s", async (_label, kind, reason) => {
     const s = await positionsCase();
     const model = kind === null ? null : typeof kind !== "string" ? kind : stub(() => {
-      const out = goodOutput(s) as Record<string, unknown> & { outcomes: { respondent: { text: string } }; citations: Array<{ evidence_item_id: string }> };
+      const out = goodOutput(s) as Record<string, unknown> & { reasoning: string; citations: Array<{ evidence_item_id: string }> };
       if (kind === "needs_human") out.needs_human = "The dispute turns on a warranty question.";
-      if (kind === "credibility") out.outcomes.respondent.text = "The customer's account is more credible.";
+      if (kind === "credibility") out.reasoning = "The customer's account is more credible.";
       if (kind === "unknown") out.citations[0].evidence_item_id = randomUUID();
       return JSON.stringify(out);
     });

@@ -14,7 +14,8 @@ import en from "../messages/en-CA.json";
 // web server never calls a model.
 
 const port = process.env.PLAYWRIGHT_PORT ?? 3000;
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" };
+// Synthetic program rules for tests only.
+const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true", AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true", GEMINI_API_KEY: "synthetic-test-only" };
 
 async function contextFor(browser: Browser, userId: string, globalRole: string): Promise<BrowserContext> {
   const context = await browser.newContext();
@@ -32,6 +33,9 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const mk = (label: string, globalRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER") =>
       prisma.user.create({ data: { email: `agent-intake-e2e-${label}-${randomUUID()}@example.org`, displayName: `Intake ${label} ${locale}`, globalRole, locale } });
     const [c, r, m] = await Promise.all([mk("c", "COMPLAINANT"), mk("r", "RESPONDENT"), mk("m", "CASE_MANAGER")]);
+    // This scenario starts after the respondent has joined; invitation
+    // delivery is covered by the no-manager routine-path E2E journey.
+    await prisma.webAuthnCredential.create({ data: { userId: r.id, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
     const statement = await prisma.consentStatementVersion.create({ data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale, body: "Synthetic.", effectiveFrom: new Date() } });
     const created = await createCase({ actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-AGENT-INTAKE-${randomUUID().slice(0, 8)}`, complainantId: c.id, respondentId: r.id, simulated: true, category: "RETAIL", amountAtStakeCents: 5000, disputeDescription: "Synthetic kettle dispute.", requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
     if (!created.ok) throw new Error(created.reason);
@@ -65,7 +69,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await cp.getByRole("button", { name: copy.intakeReadyMark }).click();
     expect((await secondComplainantMark).ok()).toBe(true);
     const waitingModel = { provider: "test", model: "never-called", calls: 0, async complete() { this.calls++; throw new Error("Unexpected model call"); } };
-    expect(await runCaseAgent({ caseId, env: ENV, model: waitingModel })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect(await runCaseAgent({ caseId, env: ENV, model: waitingModel })).toEqual({ status: "waiting", reason: "parties_completing_intake" });
     expect(waitingModel.calls).toBe(0);
 
     const respondentMark = rp.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/intake-ready` && res.request().method() === "POST");
@@ -114,15 +118,14 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: "Position B synthetic.", locale });
     const enrolled = await enrollCaseAgent({ actorId: m.id, actorRole: "CASE_MANAGER", caseId }, ENV);
     if (!enrolled.ok) throw new Error(enrolled.reason);
-    const outcomeC = `OUTCOME-C-${randomUUID()}`;
-    const outcomeR = `OUTCOME-R-${randomUUID()}`;
     const run = await runCaseAgent({ caseId, env: ENV, model: { provider: "test", model: "stub", complete: async () => JSON.stringify({
       needs_human: null, summary: "Summary.", reasoning: "Reasoning.", limits: ["Limit."], not_considered: ["Other losses."],
       citations: [
         { evidence_item_id: ids[0], relevance: "Receipt documents the purchase.", excerpt: evidence[0].excerpt },
         { evidence_item_id: ids[1], relevance: "Store note records the offered remedy.", excerpt: evidence[1].excerpt },
       ],
-      outcomes: { complainant: { text: outcomeC, evidence_item_ids: [ids[0]] }, respondent: { text: outcomeR, evidence_item_ids: [ids[1]] } },
+      proposal: { remedy: "repair", amount_cents: null },
+      party_evidence: { complainant: [ids[0]], respondent: [ids[1]] },
     }) } });
     expect(run.status).toBe("issued");
     const issuedC = await prisma.partyOutcome.findFirstOrThrow({
@@ -136,6 +139,9 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const citationC = issuedC.citations[0];
     const citationR = issuedR.citations[0];
     if (!citationC || !citationR) throw new Error("Missing party citation");
+    const outcomeC = issuedC.body;
+    const outcomeR = issuedR.body;
+    expect(outcomeC).not.toBe(outcomeR);
 
     const [cc, rc, mc] = await Promise.all([contextFor(browser, c.id, "COMPLAINANT"), contextFor(browser, r.id, "RESPONDENT"), contextFor(browser, m.id, "CASE_MANAGER")]);
     const [cp, rp, mp] = await Promise.all([cc.newPage(), rc.newPage(), mc.newPage()]);

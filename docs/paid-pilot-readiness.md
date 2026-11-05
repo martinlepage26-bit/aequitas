@@ -11,7 +11,7 @@ Status: **release candidate for review. Not approved for real pilot data.** This
 
 ## Buyer (hypothesis, not validated demand)
 
-One Québec program that runs voluntary consumer dispute resolution between a buyer and a seller, with its own staff as case managers. Category: `RETAIL`. No customer conversation, letter of intent or pricing evidence is in this repository.
+One Québec program that runs voluntary consumer dispute resolution between a buyer and a seller. The proposed agent handles eligible routine `RETAIL` cases; program staff take exceptions and cases outside scope. No customer conversation, letter of intent or pricing evidence is in this repository.
 
 ## Workflow problem (hypothesis)
 
@@ -20,8 +20,9 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 ## Proposed pilot offer
 
 - One program, one isolated deployment, `RETAIL`, two-party cases, fr-CA and en-CA.
-- Program staff are case managers; one other staff account holds approver sign-off.
-- **No AI.** The assigned case manager writes the recommendation, citing at least one clean evidence item from the case. Each party then receives their own written outcome and answers it. Leave `ANTHROPIC_API_KEY` and the pipeline flag unset.
+- The agent handles the configured routine path without a case manager. Each party sees fixed bilingual proposal wording, can consent or decline, can ask for a person, and keeps control over their own evidence and outcome. Both parties' consent is required before a proposal takes effect.
+- Program staff remain available for every exception, request for review, decline, or case outside scope. Human-managed cases retain the separate approver step.
+- The agent remains off until the program rules, provider account and data terms, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
 - Price, term and payment: **not set.** No billing is built.
 
 ## One measurable outcome
@@ -30,28 +31,28 @@ Median elapsed time from `EVIDENCE_INTAKE_OPENED` to `RECOMMENDATION_ISSUED`, re
 
 ## What works end to end (synthetic data, disposable database)
 
-Submission → evidence (scanned) → chronology and positions → case manager writes the recommendation with evidence citations (no model call) → issue checklist → per-party outcomes, each visible only to that party → independent approver sign-off (assigned manager and admin refused) → explicit consent bound to the party's outcome version (a re-issued outcome revokes earlier consent) → export → closure → event hash chain and replay verified. Covered by `test/integration/authored-draft.test.ts` and, in both locales through the browser, `e2e/authored-draft.spec.ts`.
+The manual journey is covered: submission → scanned evidence → positions → case manager writes a cited recommendation without AI → issuance → per-party outcomes → independent approver sign-off → version-bound party consent → export and closure. The autonomous routine path is also covered with synthetic data and a stub model: agent intake → respondent invitation → both parties' evidence and positions → exact evidence citations and fixed remedy wording → both consents → export and closure. Neither journey proves live-model quality or readiness for real cases. See `test/integration/authored-draft.test.ts`, `test/integration/case-agent-routine.test.ts`, and the corresponding browser tests.
 
 ## Onboarding steps
 
 1. Martin chooses the release commit and deploys it to the single pilot host. Not done here.
-2. Run `npx prisma migrate deploy` (adds `20261105090000_notification_delivery_attempts`, additive).
+2. Run `npx prisma migrate deploy` to apply all pending schema migrations on the selected release, including the notification-attempt and case-agent scheduler fields.
 3. Invite the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`); each enrols a passkey on the production hostname.
 4. Grant approver to one staff member who will not manage the same cases (`scripts/grant-approver.ts`).
 5. Publish current consent statements in fr-CA and en-CA.
-6. Start the CT920 scheduled profile so failed email notifications are retried every 15 minutes; each is tried at most 8 times, then counted as `exhausted`. The case-agent job also runs every 10 minutes but remains off unless separately enabled after its provider and governance gates are resolved.
+6. Set the program's explicit amount limit, intake and response periods, and respondent-withdrawal rule. Review the selected provider's current terms; set `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` and, for Gemini, `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` only after verification. Start the CT920 scheduled profile so failed notifications retry every 15 minutes and the case agent runs every 10 minutes. The agent takes no new cases without complete program settings and an approved provider configuration.
 7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
 8. Run one synthetic case end to end with program staff before any real file.
 
 ## Case agent prototype
 
-An opt-in automated case agent exists on this branch (`docs/case-agent-prototype.md`). It is off by default, is not part of this offer, and needs the product, runtime and legal decisions listed there before any real case.
+The automated case agent is the proposed routine workflow, but is off by default. Its program settings have no defaults; it needs the owner, operator and counsel decisions in `docs/case-agent-prototype.md` before any real case.
 
 ## Launch gates (policy or manual; not decided in code)
 
 1. **Release and hosting decision.** Confirm the deployed commit and host, and choose the pilot deployment. Merging into `main` may trigger Railway.
 2. **Retention and deletion policy.** No retention or deletion service exists. Events are append-only by database trigger, so erasure needs a design (for example, separating personal fields from the hash chain). Retention periods and the response to a deletion request need counsel and the program; none are set here.
-3. **Privacy assessment.** Whether any processing (hosting, email provider, backups off-box, any later model use) needs a privacy impact assessment or transfer analysis is a question for counsel. Not assessed.
+3. **Privacy assessment.** Whether hosting, email, backups and sending submissions to the selected model provider need a privacy impact assessment or transfer analysis is a question for counsel. Not assessed.
 4. **Organization isolation.** Roles are global; any case manager sees unclaimed open cases; admins are global. Multi-organization use is blocked. One program per deployment.
 5. **Identity and access.** Real passkey enrolment on the production hostname; identity check before re-enrolling the six existing users.
 6. **Email.** Delivery through the configured provider and the retry job must be checked on the pilot host.

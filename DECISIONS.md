@@ -223,3 +223,13 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Approval.** Consent alone resolves an agent-managed case while it is not escalated (`consentAloneResolves`). After escalation, approver sign-off applies again. This waives the Phase 3 independent check for agent cases and needs Martin's explicit decision before real use.
 - **Refusal.** A declined case is handed to a person, not closed.
 - **Isolation.** A request for a person (`AGENT_ESCALATED`) is visible to the requesting party and staff only; both parties see a neutral "a person will review" notice.
+
+## Case agent routine path (2026-11-05, continued)
+
+- **No per-case manager work on the routine path.** New agent-only transitions `agent_open_intake` (OPEN → EVIDENCE_INTAKE) and `agent_close_intake` (EVIDENCE_INTAKE → POSITIONS). The agent takes an eligible, unassigned, submitted `RETAIL` case, sends the existing respondent invitation once, and closes intake when the configured evidence period ends.
+- **Program rules are configuration with no defaults** (`caseAgentProgram`): amount limit, intake days, response days, respondent withdrawal. Missing or invalid means the agent acts on nothing.
+- **Party text is deterministic.** Model output for parties is a closed remedy choice plus an amount, rendered by fixed bilingual templates; free-text outcomes and the six-word overlap check are removed. Staff keep the model summary and citation notes.
+- **Respondent withdrawal.** Allowed on agent-managed cases only when `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW=true` (`respondent_withdraw` transition). Human-managed cases keep the complainant-only rule; changing that is an owner decision.
+- **Queue.** Escalations with no assigned manager notify every case manager with a passkey. `caseReadAccess` makes such a case claimable, and `POST /api/cases/[id]/claim` assigns it with a no-conflict declaration.
+- **Timeouts.** Respondent not joining, a missing submission or position, or an unanswered proposal past the configured period goes to a person.
+- **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Live mode needs operator approval (`AEQUITAS_CASE_AGENT_EVAL_APPROVED`) and a configured provider; neither was available, so live quality is untested.

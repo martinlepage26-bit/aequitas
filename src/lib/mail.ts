@@ -37,13 +37,18 @@ async function sendEmail(to: string, subject: string, text: string, idempotencyK
   if (!response.ok || typeof data?.id !== "string") throw new Error("Email provider did not accept the message");
 }
 
-export async function sendInvitationEmail(input: { email: string; locale: string; claimPath: string; invitationId: string }) {
+export async function sendInvitationEmail(input: { email: string; locale: string; claimPath: string; invitationId: string; validForDays?: number }) {
   if (!emailConfigured()) return "not_configured" as const;
   const french = input.locale === "fr-CA";
+  const validForDays = input.validForDays ?? 3;
+  if (!Number.isSafeInteger(validForDays) || validForDays < 1) throw new Error("Invalid invitation validity period.");
+  const validPeriod = french
+    ? `${validForDays} ${validForDays === 1 ? "jour" : "jours"}`
+    : `${validForDays} ${validForDays === 1 ? "day" : "days"}`;
   const link = appUrl(input.claimPath);
   await sendEmail(input.email, french ? "Votre invitation à Aequitas" : "Your invitation to Aequitas", french
-    ? `Vous avez reçu une invitation à Aequitas. Créez votre clé d’accès avec ce lien, valable 72 heures :\n\n${link}\n\nSi vous n’attendiez pas cette invitation, vous pouvez l’ignorer.`
-    : `You have been invited to Aequitas. Create your passkey using this link, valid for 72 hours:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`, `invitation/${input.invitationId}`);
+    ? `Vous avez reçu une invitation à Aequitas. Créez votre clé d’accès avec ce lien, valide pendant ${validPeriod} :\n\n${link}\n\nSi vous n’attendiez pas cette invitation, vous pouvez l’ignorer.`
+    : `You have been invited to Aequitas. Create your passkey using this link, valid for ${validPeriod}:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`, `invitation/${input.invitationId}`);
   try { await prisma.invitation.update({ where: { id: input.invitationId }, data: { emailedAt: new Date() } }); }
   catch { console.error("Invitation email accepted; delivery timestamp could not be persisted."); }
   return "accepted" as const;
@@ -85,6 +90,19 @@ export function notificationEmail(input: {
           subject: "A new outcome needs your answer",
           text: `The mediator issued a new outcome on your case. Your earlier answer no longer applies. Sign in to read the outcome and consent or decline:\n\n${link}`,
         };
+  }
+  if (input.kind === "agent_managing") {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? { subject: "Un assistant automatisé s’occupe de votre dossier", text: `Un assistant automatisé s’occupe des étapes courantes de votre dossier. Ses propositions ne sont pas contraignantes, ne constituent pas un avis juridique et ne jugent pas qui dit vrai. Votre participation est volontaire : vous pouvez demander qu’une personne examine le dossier ou mettre fin à votre participation en tout temps.\n\n${link}` }
+      : { subject: "An automated assistant is handling your case", text: `An automated assistant handles the routine steps of your case. Its proposals are not binding, are not legal advice, and do not judge who is telling the truth. Taking part is voluntary: you can ask for a person to review the case or end your participation at any time.\n\n${link}` };
+  }
+  if (input.kind === "agent_escalated") {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    const reference = input.referenceNumber ?? "";
+    return french
+      ? { subject: "Un dossier a besoin d’une personne", text: `L’assistant automatisé a cessé de traiter le dossier ${reference}. Une personne doit le prendre en charge :\n\n${link}` }
+      : { subject: "A case needs a person", text: `The automated assistant stopped handling case ${reference}. A person needs to take it:\n\n${link}` };
   }
   if (input.kind === CASE_REOPENED_KIND) {
     const link = appUrl(`/${input.locale}/cases/${input.caseId}`);

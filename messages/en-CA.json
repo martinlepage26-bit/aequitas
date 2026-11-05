@@ -691,8 +691,22 @@
         "model_unavailable": "No model is configured.",
         "model_failed": "The model request failed.",
         "model_requested_review": "The assistant could not propose an outcome safely.",
-        "model_output_rejected": "The assistant's proposal failed the safety checks."
-      }
+        "model_output_rejected": "The assistant's proposal failed the safety checks.",
+        "invitation_failed": "The respondent invitation could not be delivered.",
+        "respondent_no_response": "The respondent did not join within the program's response period.",
+        "submission_missing": "A required submission was missing at the end of the program's period.",
+        "intake_incomplete": "A party did not mark evidence intake complete within the program's period.",
+        "evidence_scan_pending": "A required security scan was still pending at the end of the program's period.",
+        "no_answer": "A party did not answer the proposal within the program's response period.",
+        "evidence_extraction_failed": "A file could not be read in full.",
+        "evidence_limit_exceeded": "The evidence exceeds what the assistant can read."
+      },
+      "endButton": "End my participation",
+      "endConfirm": "Ending your participation stops the process for this case. You cannot undo it here.",
+      "endConfirmButton": "Yes, end my participation",
+      "endCancel": "Keep participating",
+      "claimHelp": "The automated assistant handed this case to the case-manager queue. Reason: {reason} Taking it confirms you have no conflict of interest.",
+      "claimButton": "Take this case (no conflict of interest)"
     }
   },
   "knowledgeMap": {

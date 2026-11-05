@@ -1,6 +1,7 @@
 import "../src/lib/loadEnv";
 import { prisma } from "../src/lib/prisma";
-import { caseAgentEnabled, resolveCaseAgentModel, runCaseAgent } from "../src/domain/caseAgent/agent";
+import { resolveCaseAgentModel, runCaseAgent } from "../src/domain/caseAgent/agent";
+import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { claimAgentCase, findEligibleAgentCases, releaseAgentCase } from "../src/domain/caseAgent/scheduler";
 
 /**
@@ -9,14 +10,13 @@ import { claimAgentCase, findEligibleAgentCases, releaseAgentCase } from "../src
  * counts only. Model calls are billed to the deployment's provider account.
  */
 async function main() {
-  if (!caseAgentEnabled()) { console.log(JSON.stringify({ enabled: false })); return; }
+  const program = caseAgentProgram();
   const resolved = resolveCaseAgentModel();
-  if (!resolved.ok) {
-    console.log(JSON.stringify({ enabled: true, modelConfigured: false, candidates: 0, claimed: 0, counts: { skipped_provider_unconfigured: 1 } }));
-    return;
-  }
-  const model = resolved.model;
-  const candidates = await findEligibleAgentCases();
+  const mayTakeNewCases = program.ok && resolved.ok;
+  const candidates = await findEligibleAgentCases({
+    ...(mayTakeNewCases ? { unassignedOpenMaxAmountCents: program.program.maxAmountCents } : {}),
+  });
+  const model = resolved.ok ? resolved.model : null;
   const counts: Record<string, number> = {};
   let claimed = 0;
   for (const candidate of candidates) {
@@ -40,7 +40,14 @@ async function main() {
       }
     }
   }
-  console.log(JSON.stringify({ enabled: true, modelConfigured: resolved.ok, candidates: candidates.length, claimed, counts }));
+  console.log(JSON.stringify({
+    enabled: program.ok,
+    missingProgramSettings: program.ok ? [] : program.missing,
+    modelConfigured: resolved.ok,
+    candidates: candidates.length,
+    claimed,
+    counts,
+  }));
 }
 
 main().catch(() => { console.error("Case agent run failed."); process.exitCode = 1; }).finally(() => prisma.$disconnect());

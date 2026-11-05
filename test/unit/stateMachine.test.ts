@@ -42,14 +42,21 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   request_new_version: { from: ["RESOLVED_DECLINED", "ISSUED"], roles: ["CASE_MANAGER"] },
   withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["COMPLAINANT"] },
   close_case: { from: ["RESOLVED_CONSENT", "RESOLVED_DECLINED", "WITHDRAWN"], roles: ["CASE_MANAGER"] },
-  agent_close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_AGENT"] },
   agent_issue: { from: ["POSITIONS"], roles: ["CASE_AGENT"] },
   agent_close: { from: ["RESOLVED_CONSENT", "WITHDRAWN"], roles: ["CASE_AGENT"] },
+  agent_open_intake: { from: ["OPEN"], roles: ["CASE_AGENT"] },
+  agent_close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_AGENT"] },
+  respondent_withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["RESPONDENT"] },
 };
 
 describe("state machine: exhaustive (state, trigger, role) coverage", () => {
   it("covers every trigger defined in Section 6", () => {
     expect(new Set(TRIGGERS)).toEqual(new Set(Object.keys(EXPECTED)));
+    expect(new Set(TRIGGERS).size).toBe(TRIGGERS.length);
+  });
+
+  it("requires both parties' current intake-completion marks before the agent closes intake", () => {
+    expect(transitionsFor("agent_close_intake").guards).toContain("bothPartiesMarkedIntakeReady");
   });
 
   for (const trigger of TRIGGERS) {
@@ -90,9 +97,9 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
     expect(checked).toBe(TRIGGERS.length * STATES_WITH_NONE.length * ACTORS.length);
   });
 
-  it("the case agent holds only its three agent transitions", () => {
+  it("the case agent holds only its four agent transitions", () => {
     const allowed = TRIGGERS.filter((trigger) => isActorRoleAllowed(transitionsFor(trigger), "CASE_AGENT"));
-    expect(allowed).toEqual(["agent_close_intake", "agent_issue", "agent_close"]);
+    expect(allowed).toEqual(["agent_issue", "agent_close", "agent_open_intake", "agent_close_intake"]);
   });
 
   it("ADMIN is never a valid actor for any state-machine trigger (guardrail 10)", () => {

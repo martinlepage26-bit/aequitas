@@ -12,6 +12,10 @@ export type CaseAgentPanelProps = {
   escalationReason: string | null;
   closed: boolean;
   canEnroll: boolean;
+  /** This party may end participation under the program's rules. */
+  canEndParticipation?: boolean;
+  /** A queue case manager may take this escalated, unassigned case. */
+  canClaim?: boolean;
 };
 
 /**
@@ -24,10 +28,15 @@ export default function CaseAgentPanel(props: CaseAgentPanelProps) {
   const router = useRouter();
   const [status, setStatus] = useState<{ kind: "idle" | "busy" | "error"; message?: string }>({ kind: "idle" });
 
-  async function post(path: string) {
+  const [confirmEnd, setConfirmEnd] = useState(false);
+
+  async function post(path: string, body?: unknown) {
     setStatus({ kind: "busy" });
     try {
-      const res = await fetch(`/api/cases/${props.caseId}/${path}`, { method: "POST" });
+      const res = await fetch(`/api/cases/${props.caseId}/${path}`, {
+        method: "POST",
+        ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setStatus({ kind: "error", message: data.message || t("error") });
@@ -40,7 +49,7 @@ export default function CaseAgentPanel(props: CaseAgentPanelProps) {
     }
   }
 
-  if (!props.agentManaged && !(props.viewer === "manager" && props.canEnroll)) return null;
+  if (!props.agentManaged && !(props.viewer === "manager" && props.canEnroll) && !props.canClaim) return null;
   const reason = props.escalationReason ? t(`reason.${props.escalationReason}`) : "";
 
   return (
@@ -56,6 +65,23 @@ export default function CaseAgentPanel(props: CaseAgentPanelProps) {
                 {status.kind === "busy" ? t("requesting") : t("requestButton")}
               </button>
             )}
+          {!props.closed && props.canEndParticipation && (
+            confirmEnd
+              ? (
+                <p>
+                  {t("endConfirm")}{" "}
+                  <button type="button" id="confirm-end-participation" onClick={() => post("end-participation")} disabled={status.kind === "busy"}>{t("endConfirmButton")}</button>{" "}
+                  <button type="button" onClick={() => setConfirmEnd(false)}>{t("endCancel")}</button>
+                </p>
+              )
+              : <button type="button" id="end-participation" onClick={() => setConfirmEnd(true)}>{t("endButton")}</button>
+          )}
+        </>
+      )}
+      {props.canClaim && (
+        <>
+          <p id="case-agent-claim-help">{t("claimHelp", { reason })}</p>
+          <button type="button" id="claim-escalated-case" onClick={() => post("claim", { hasConflict: false })} disabled={status.kind === "busy"}>{t("claimButton")}</button>
         </>
       )}
       {props.viewer === "manager" && props.agentManaged && (

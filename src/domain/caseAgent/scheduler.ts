@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Case } from "../../generated/prisma";
+import type { Case, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
 
 export const CASE_AGENT_BATCH_LIMIT = 50;
@@ -7,7 +7,8 @@ export const CASE_AGENT_REVISIT_DELAY_MS = 10 * 60 * 1000;
 export const CASE_AGENT_LEASE_DURATION_MS = 30 * 60 * 1000;
 
 export type AgentScheduleCandidate = Pick<Case,
-  "id" | "agentLastAttemptAt" | "agentNextRunAt" | "agentLeaseUntil" | "agentLeaseToken" | "createdAt"
+  | "id" | "agentLastAttemptAt" | "agentNextRunAt" | "agentLeaseUntil" | "agentLeaseToken" | "createdAt"
+  | "agentManaged" | "caseManagerId" | "state" | "category" | "amountAtStakeCents"
 >;
 
 export type AgentScheduleLease = { caseId: string; token: string };
@@ -17,13 +18,24 @@ function boundedBatchSize(value: number | undefined): number {
   return Math.min(CASE_AGENT_BATCH_LIMIT, Math.max(1, Math.trunc(value)));
 }
 
-export async function findEligibleAgentCases(input: { now?: Date; limit?: number } = {}): Promise<AgentScheduleCandidate[]> {
+export async function findEligibleAgentCases(input: { now?: Date; limit?: number; unassignedOpenMaxAmountCents?: number; caseIds?: string[] } = {}): Promise<AgentScheduleCandidate[]> {
   const now = input.now ?? new Date();
+  const eligible: Prisma.CaseWhereInput[] = [{ agentManaged: true, state: { not: "CLOSED" } }];
+  const cap = input.unassignedOpenMaxAmountCents;
+  if (cap !== undefined && Number.isInteger(cap) && cap > 0) {
+    eligible.push({
+      agentManaged: false,
+      caseManagerId: null,
+      state: "OPEN",
+      category: "RETAIL",
+      amountAtStakeCents: { not: null, lte: cap },
+    });
+  }
   return prisma.case.findMany({
     where: {
-      agentManaged: true,
+      ...(input.caseIds ? { id: { in: input.caseIds } } : {}),
       agentEscalatedAt: null,
-      state: { not: "CLOSED" },
+      OR: eligible,
       AND: [
         { OR: [{ agentNextRunAt: null }, { agentNextRunAt: { lte: now } }] },
         { OR: [{ agentLeaseUntil: null }, { agentLeaseUntil: { lte: now } }] },
@@ -36,6 +48,11 @@ export async function findEligibleAgentCases(input: { now?: Date; limit?: number
       agentLeaseUntil: true,
       agentLeaseToken: true,
       createdAt: true,
+      agentManaged: true,
+      caseManagerId: true,
+      state: true,
+      category: true,
+      amountAtStakeCents: true,
     },
     orderBy: [
       { agentNextRunAt: { sort: "asc", nulls: "first" } },
@@ -50,12 +67,20 @@ export async function findEligibleAgentCases(input: { now?: Date; limit?: number
 /** Compare-and-set claim: overlapping scheduled runs cannot own the same lease. */
 export async function claimAgentCase(candidate: AgentScheduleCandidate, now = new Date()): Promise<AgentScheduleLease | null> {
   const token = randomUUID();
+  const workflow: Prisma.CaseWhereInput = candidate.agentManaged
+    ? { agentManaged: true, caseManagerId: candidate.caseManagerId, state: candidate.state }
+    : {
+      agentManaged: false,
+      caseManagerId: null,
+      state: "OPEN",
+      category: "RETAIL",
+      amountAtStakeCents: candidate.amountAtStakeCents,
+    };
   const result = await prisma.case.updateMany({
     where: {
       id: candidate.id,
-      agentManaged: true,
+      ...workflow,
       agentEscalatedAt: null,
-      state: { not: "CLOSED" },
       agentLastAttemptAt: candidate.agentLastAttemptAt,
       agentNextRunAt: candidate.agentNextRunAt,
       agentLeaseUntil: candidate.agentLeaseUntil,
