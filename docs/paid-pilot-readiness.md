@@ -13,7 +13,9 @@ Status: **release candidate for review. Not approved for real pilot data.** This
 
 ## Buyer (hypothesis, not validated demand)
 
-One Québec program that runs voluntary consumer dispute resolution between a buyer and a seller. The proposed agent handles eligible routine `RETAIL` cases; program staff take exceptions and cases outside scope. No customer conversation, letter of intent or pricing evidence is in this repository.
+A Québec organization that runs voluntary consumer dispute resolution between a buyer and a seller. The proposed agent handles eligible routine `RETAIL` cases; program staff take exceptions and cases outside scope. No customer conversation, letter of intent or pricing evidence is in this repository.
+
+**Existing option to account for:** the Government of Québec describes the Office de la protection du consommateur's PARLe service as online mediation between consumers and participating merchants ([Québec.ca: Mediation](https://www.quebec.ca/en/justice-and-civil-status/dispute-prevention-resolution-processes/mediation)). This is an incumbent in the same broad problem space, not proof that the OPC wants Aequitas or that another organization will buy it. Before setting a pilot price, identify a specific program operator and budget owner, then verify a workflow gap PARLe and the operator's current tools do not cover.
 
 ## Workflow problem (hypothesis)
 
