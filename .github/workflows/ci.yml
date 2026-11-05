@@ -66,6 +66,10 @@ jobs:
           docker exec aequitas-postgres createdb -U aequitas aequitas_test
           DATABASE_URL=postgresql://aequitas:aequitas_dev@localhost:5433/aequitas_test npx prisma migrate deploy
       - run: npx prisma generate
+      - name: Run case-agent operator status against the isolated test database
+        env:
+          DATABASE_URL: postgresql://aequitas:aequitas_dev@localhost:5433/aequitas_test
+        run: npm run agent:status
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run check:i18n-parity
