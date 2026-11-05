@@ -20,17 +20,70 @@
     "amountHint": "A rough figure is enough. Leave this blank if you do not know.",
     "simulatedLabel": "This is a simulated (training) case — no real counterparty or resolution.",
     "acknowledgeLabel": "I have read the consent statement above and voluntarily choose to participate.",
-    "submitButton": "Create case",
-    "submitting": "Creating…",
+    "submitButton": "Save draft",
+    "submitting": "Saving draft…",
     "error": "The case could not be created."
   },
   "workspace": {
     "title": "Case workspace",
     "caseReference": "Case {reference}",
+    "partyVisibleNotice": "Both parties may read this text. Write only what both parties should see.",
+    "partyOutcomeNotice": "Only {name} can read this outcome. Write only what that party should see.",
+    "attribution": {
+      "legend": "Colours by source",
+      "by": "Source: {name}"
+    },
+    "journey": {
+      "eyebrow": "Case pathway",
+      "title": "A shared record, step by step",
+      "current": "Now: {stage}",
+      "withdrawn": "This case was withdrawn",
+      "stages": {
+        "dossier": "Dossier",
+        "evidence": "Evidence",
+        "positions": "Both positions",
+        "review": "Manager review",
+        "resolution": "Resolution"
+      },
+      "balanceLabel": "The two parties have equal standing in this process",
+      "sharedRecord": "Shared record",
+      "balanceNote": "Colour identifies who contributed information. It does not rate the evidence or predict an outcome."
+    },
     "dispute": {
       "title": "The dispute",
       "amount": "Approximate amount at stake: {amount}",
       "missing": "No dispute description was recorded."
+    },
+    "edit": {
+      "respondentSummary": "Respondent: {name} ({email})",
+      "categorySummary": "Category: {category}",
+      "editButton": "Edit dossier details",
+      "title": "Edit dossier details",
+      "hint": "Save corrections before sending. The original details remain in the case activity record. An activated respondent account cannot be replaced here.",
+      "respondentName": "Respondent's name",
+      "respondentEmail": "Respondent's email",
+      "category": "Dispute category",
+      "description": "Dispute description",
+      "amount": "Approximate amount at stake (CAD, optional)",
+      "simulated": "This is a simulated training dossier",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "saved": "Changes saved.",
+      "error": "The changes could not be saved."
+    },
+    "inviteRespondent": {
+      "title": "Invite the respondent",
+      "description": "Send an account activation link to {name} at {email} after checking the address above.",
+      "openConfirm": "Send invitation…",
+      "confirmTitle": "Confirm the recipient",
+      "confirmBody": "A one-use passkey activation link will be emailed to {email}. Check this address before sending.",
+      "send": "Confirm and send invitation",
+      "sending": "Sending…",
+      "cancel": "Cancel",
+      "sent": "An activation invitation was sent to this address. It expires after 72 hours.",
+      "active": "The respondent has already activated an Aequitas account.",
+      "error": "The invitation could not be sent. Check the address and try again."
     },
     "state": {
       "DRAFT": "Draft",
@@ -78,7 +131,11 @@
       "closedNotice": "This case is closed; no further action is possible."
     },
     "draft": {
-      "submitButton": "Submit this case",
+      "submitButton": "Review and send dossier…",
+      "confirmTitle": "Confirm dossier submission",
+      "confirmBody": "Your saved dossier will be sent for manager review. You can still correct initial details during evidence intake; submitted evidence keeps its version history. The respondent invitation is sent separately to the address you confirm on this page.",
+      "confirmSend": "Confirm and send dossier",
+      "cancel": "Cancel",
       "submitting": "Submitting…",
       "error": "The case could not be submitted."
     },
@@ -155,7 +212,7 @@
     },
     "chronology": {
       "title": "Dispute chronology",
-      "description": "Add events from the dispute using the date they happened, not the date you submit them. Both parties can read these accounts; they are reported events, not verified findings.",
+      "description": "Add events from the dispute using the date they happened, not the date you submit them. Only you, the case manager, an approver, and an administrator can read the events you add; they are reported events, not verified findings.",
       "empty": "No dispute events have been added yet.",
       "reportedBy": "Reported by {name}",
       "form": {
@@ -198,6 +255,24 @@
       "saving": "Saving…",
       "error": "The draft could not be saved."
     },
+    "partyOutcome": {
+      "title": "Outcomes for each party",
+      "description": "The mediator writes the outcome each party will read before they consent or decline. A party sees only their own issued outcome.",
+      "bodyLabel": "Outcome for {name}",
+      "saveDraft": "Save draft",
+      "saving": "Saving…",
+      "issueButton": "Issue this outcome",
+      "issuing": "Issuing…",
+      "issuedStatus": "Issued outcome",
+      "draftStatus": "Draft, not yet issued",
+      "saved": "Draft saved.",
+      "issuedAnnouncement": "Outcome issued.",
+      "error": "The outcome could not be saved.",
+      "version": "Version {version}",
+      "yourOutcome": "Your outcome",
+      "readOnly": "You can read these outcomes. Only the assigned mediator can write them.",
+      "revisionPending": "An unissued revision is pending. Consent is still open on version {version}."
+    },
     "consent": {
       "title": "Consent",
       "statementHeading": "Consent statement",
@@ -209,6 +284,9 @@
       "givenAnnouncement": "Your consent has been recorded.",
       "declinedAnnouncement": "Your decline has been recorded.",
       "revokedAnnouncement": "Your consent has been withdrawn.",
+      "outcomeUnavailable": "Outcome not yet available to you",
+      "outcomeNeedsAnswer": "A new outcome needs your answer.",
+      "outcomeSuperseded": "A new outcome was issued, please review it.",
       "error": "Your response could not be recorded."
     },
     "withdraw": {
@@ -445,9 +523,15 @@
       "title": "Case activity",
       "description": "An automatic log of actions taken in Aequitas. These timestamps record submissions and case progress, not when events in the dispute happened.",
       "empty": "No events yet.",
+      "count": "{count} activity items",
+      "filters": {
+        "label": "Filter case activity by source",
+        "all": "Everyone"
+      },
       "by": "by {name}",
       "event": {
         "CASE_CREATED": "Case created",
+        "CASE_DETAILS_UPDATED": "Dossier details corrected",
         "CASE_SUBMITTED": "Case submitted",
         "CASE_ASSIGNED": "Case assigned to a case manager",
         "COI_DECLARED": "Conflict-of-interest declaration recorded",
@@ -498,7 +582,9 @@
         "CONTESTATION_RESPONDED": "Contestation answered",
         "CONTESTATION_OVERRULED": "Contestation overruled with a reason",
         "CONTESTATION_WITHDRAWN": "Contestation withdrawn",
-        "RESOLUTION_APPROVED": "Approver signed off on the recommendation"
+        "RESOLUTION_APPROVED": "Approver signed off on the recommendation",
+        "PARTY_OUTCOME_EDITED": "Party outcome draft saved",
+        "PARTY_OUTCOME_ISSUED": "Party outcome issued"
       }
     },
     "resolution": {
@@ -547,6 +633,7 @@
       "targetClaim": "Claim: {text}",
       "code": {
         "OPEN_CONTESTATION": "A contestation is still open. It must be answered, overruled, or withdrawn before the case can resolve.",
+        "RESOLUTION_PAUSED": "Resolution paused pending review",
         "APPROVAL_REQUIRED": "An approver must sign off on the current recommendation before consent can resolve the case.",
         "ADMIN_CANNOT_APPROVE": "Administrators cannot sign off or overrule.",
         "NOT_APPROVER": "Only a designated approver can sign off or overrule.",
@@ -734,8 +821,10 @@
     "unclaimed": "Unclaimed",
     "otherParty": "With {name}",
     "viewLink": "View",
+    "resumeLink": "Resume draft",
     "filterLabel": "Show",
     "filterAll": "All cases",
+    "showing": "Showing {count} cases",
     "filterEmpty": "No cases match this filter.",
     "columns": {
       "reference": "Reference",
@@ -773,7 +862,7 @@
   },
   "landing": {
     "title": "Aequitas",
-    "tagline": "A record both sides can read.",
+    "tagline": "Each party sees only their own submissions.",
     "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
     "signIn": "Sign in with a passkey",
     "myCases": "My cases",
@@ -823,7 +912,7 @@
     }
   },
   "auth": {
-    "tagline": "a record both sides can read",
+    "tagline": "each party sees only their own submissions",
     "otherLanguage": "Français",
     "chooseMode": "Choose sign-in or registration",
     "signIn": "Sign in",
@@ -840,10 +929,28 @@
     "cancelled": "Sign-in was cancelled or timed out. You can try again.",
     "failed": "Unable to sign in. Check your email and use a passkey registered for this account, or contact your administrator.",
     "passkeyNote": "No password to remember. Your device confirms it is you.",
+    "recoverAccess": "Lost your passkey? Recover access",
     "account": "Account navigation",
     "cases": "Cases",
     "invites": "Invitations",
     "signOut": "Sign out"
+  },
+  "recovery": {
+    "title": "Recover access",
+    "requestDescription": "Enter your account email. If it belongs to an Aequitas account, we’ll send a link to create a new passkey.",
+    "email": "Account email",
+    "sendLink": "Send recovery link",
+    "sending": "Sending…",
+    "requested": "If this address belongs to an account, a recovery link is on its way. Check your inbox and spam folder.",
+    "requestError": "We couldn’t request a link right now. Please try again later.",
+    "backToSignIn": "Back to sign in",
+    "replaceTitle": "Create a new passkey",
+    "replaceDescription": "Confirm on your device to replace your old passkeys. Other signed-in devices will need to sign in again.",
+    "replacePasskey": "Replace my passkey",
+    "replacing": "Waiting for your device…",
+    "cancel": "Cancel",
+    "claimError": "We couldn’t verify the new passkey. Try again or request a new recovery link.",
+    "invalid": "This recovery link is invalid, expired, or already used. Request a new one from the sign-in page."
   },
   "adminInvites": {
     "title": "Manage invitations",

@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { downloadBuffer, evidenceObjectKey } from "../lib/storage";
 import { caseReadAccess } from "./caseAccess";
 import { appendEvent } from "./events";
+import { canReadPartySubmission } from "./submissionVisibility";
 
 const SERVEABLE_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/tiff", "image/webp", "text/plain"]);
 
@@ -53,7 +54,9 @@ export type EvidenceDownload =
   | { ok: false; status: 404 | 500 };
 
 /**
- * Parties and the assigned case manager may read a CLEAN evidence file.
+ * The author and the assigned case manager may read a CLEAN evidence file.
+ * The other party gets the same 404 as a missing file. Admins and approvers
+ * do not download bytes; they read the workspace instead.
  * The storage key must be the one this case's simulated flag implies
  * (`live/` or `simulated/`). A hash mismatch or a failed audit write
  * refuses the bytes.
@@ -71,6 +74,9 @@ export async function downloadCleanEvidence(input: {
 
   const item = await prisma.evidenceItem.findFirst({ where: { id: input.evidenceId, caseId: input.caseId } });
   if (!item || item.scanStatus !== "CLEAN") return { ok: false, status: 404 };
+  if (!canReadPartySubmission({ access, viewerId: input.actorId, authorId: item.submittedById })) {
+    return { ok: false, status: 404 };
+  }
   if (item.simulated !== caseRow.simulated) return { ok: false, status: 404 };
   if (item.storageKey !== evidenceObjectKey(caseRow.simulated, caseRow.id, item.id)) return { ok: false, status: 404 };
 

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { utimes } from "node:fs/promises";
 
 /**
  * Starts a real `next dev` for an HTTP-level suite (route handlers can't be
@@ -60,6 +61,35 @@ export async function startNextDev(port: number): Promise<DevServer> {
       await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 10_000))]);
     },
   };
+}
+
+/**
+ * `next dev` compiles routes on demand. On a busy runner the first POST to a
+ * nested route (`/evidence/[evidenceId]/supersede`) can be answered by the
+ * dev server's own HTML 404 — the route file is on disk, but it is not in
+ * the matcher yet — while the parent `/evidence` route already responds.
+ * That miss is not the route handler: the handler always returns JSON, and
+ * an unsupported MIME type is rejected with 400 before any case or evidence
+ * lookup. An application 404 is JSON as well.
+ *
+ * Probe until the handler answers, nudging the watcher with a timestamp
+ * update when the response is still the HTML shell. Callers then assert on
+ * the handler's real status.
+ */
+export async function ensureDevRoute(url: string, routeFile: string): Promise<void> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const response = await fetch(url, { method: "POST" });
+    const type = response.headers.get("content-type") ?? "";
+    await response.arrayBuffer().catch(() => undefined);
+    if (type.includes("application/json")) return;
+    if (response.status !== 404 || !type.includes("text/html")) {
+      throw new Error(`Dev route probe for ${url} returned ${response.status} ${type || "no content-type"}.`);
+    }
+    const stamp = new Date(Date.now() + attempt + 1);
+    await utimes(routeFile, stamp, stamp);
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  throw new Error(`next dev did not register ${routeFile}.`);
 }
 
 /** Minimal cookie jar: remembers Set-Cookie values across fetch calls. */

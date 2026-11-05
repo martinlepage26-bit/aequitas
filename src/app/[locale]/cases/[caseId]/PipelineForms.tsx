@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PartyVisibleNotice from "./PartyVisibleNotice";
 import styles from "./workspace.module.css";
 
 function usePost(url: string, body: () => unknown) {
@@ -30,6 +31,7 @@ export function AddAssumptionForm({ caseId, label, button }: { caseId: string; l
   const form = usePost(`/api/cases/${caseId}/pipeline/assumptions`, () => ({ text, origin: "ANALYST_NOTE" }));
   return (
     <form onSubmit={form.submit} className={styles.form}>
+      <PartyVisibleNotice />
       <div className={styles.formRow}>
         <label htmlFor="assumption-text">{label}</label>
         <textarea id="assumption-text" required maxLength={4000} value={text} onChange={(event) => setText(event.target.value)} />
@@ -113,6 +115,7 @@ export function ProposalActions({
     <div className={styles.form}>
       {kind === "CLAIM" && (
         <>
+          <PartyVisibleNotice />
           <div className={styles.formRow}>
             <label htmlFor={`proposal-confidence-${proposalId}`}>{confidenceLabel}</label>
             <select id={`proposal-confidence-${proposalId}`} value={level} onChange={(event) => setLevel(event.target.value as typeof level)}>

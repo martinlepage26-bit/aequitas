@@ -70,8 +70,14 @@ enum RecommendationStatus {
   SUPERSEDED
 }
 
+enum PartyOutcomeStatus {
+  DRAFT
+  ISSUED
+}
+
 enum EventType {
   CASE_CREATED
+  CASE_DETAILS_UPDATED
   CASE_SUBMITTED
   CASE_ASSIGNED
   COI_DECLARED
@@ -123,6 +129,8 @@ enum EventType {
   CONTESTATION_OVERRULED
   CONTESTATION_WITHDRAWN
   RESOLUTION_APPROVED
+  PARTY_OUTCOME_EDITED
+  PARTY_OUTCOME_ISSUED
 }
 
 model User {
@@ -133,10 +141,12 @@ model User {
   globalRole  GlobalRole
   // Phase 3: approver capability (P3-D2). Granted by scripts/grant-approver.ts.
   isApprover  Boolean  @default(false)
+  sessionVersion Int   @default(0)
   createdAt   DateTime @default(now())
 
   credentials WebAuthnCredential[]
   invitations Invitation[]
+  recoveries  AccountRecovery[]
 
   casesAsComplainant    Case[] @relation("CaseComplainant")
   casesAsRespondent     Case[] @relation("CaseRespondent")
@@ -164,6 +174,8 @@ model User {
   contestationsOpened       Contestation[]      @relation("ContestationOpenedBy")
   contestationsResponded    Contestation[]      @relation("ContestationRespondedBy")
   contestationsOverruled    Contestation[]      @relation("ContestationOverruledBy")
+  partyOutcomesReceived     PartyOutcome[]      @relation("PartyOutcomeParty")
+  partyOutcomesAuthored     PartyOutcome[]      @relation("PartyOutcomeAuthor")
 }
 
 model WebAuthnCredential {
@@ -189,6 +201,20 @@ model Invitation {
   emailedAt   DateTime?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AccountRecovery {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -240,6 +266,7 @@ model Case {
   contextFactors      ContextFactor[]
   syntheses           SynthesisVersion[]
   contestations       Contestation[]
+  partyOutcomes       PartyOutcome[]
 }
 
 model EvidenceItem {
@@ -315,6 +342,31 @@ model Recommendation {
   @@unique([caseId, version])
 }
 
+// The outcome a mediator writes for one party. A party reads only their own
+// ISSUED versions. A later draft does not replace the issued text until it
+// is issued. Approvers and admins may read every version; only the assigned
+// mediator writes.
+model PartyOutcome {
+  id           String             @id @default(uuid())
+  caseId       String
+  partyId      String
+  version      Int
+  status       PartyOutcomeStatus @default(DRAFT)
+  body         String
+  locale       String
+  authoredById String
+  issuedAt     DateTime?
+  createdAt    DateTime           @default(now())
+
+  case       Case @relation(fields: [caseId], references: [id])
+  party      User @relation("PartyOutcomeParty", fields: [partyId], references: [id])
+  authoredBy User @relation("PartyOutcomeAuthor", fields: [authoredById], references: [id])
+  consentRecords ConsentRecord[]
+
+  @@unique([caseId, partyId, version])
+  @@index([caseId, partyId, status])
+}
+
 model ConsentRecord {
   id                 String        @id @default(uuid())
   caseId             String
@@ -327,12 +379,18 @@ model ConsentRecord {
   givenAt            DateTime?
   declinedAt         DateTime?
   revokedAt          DateTime?
+  revokedReason      String?
+  partyOutcomeId     String?
+  partyOutcomeVersion Int?
   createdAt          DateTime      @default(now())
 
   case           Case                     @relation(fields: [caseId], references: [id])
   recommendation Recommendation           @relation(fields: [recommendationId], references: [id])
   party          User                     @relation(fields: [partyId], references: [id])
   statementVersion ConsentStatementVersion @relation(fields: [statementVersionId], references: [id])
+  partyOutcome   PartyOutcome?            @relation(fields: [partyOutcomeId], references: [id])
+
+  @@index([partyOutcomeId])
 }
 
 model ConsentStatementVersion {

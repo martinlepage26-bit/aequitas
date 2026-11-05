@@ -156,10 +156,9 @@ describe("clean evidence download", () => {
     rejectedId = (await prisma.evidenceItem.findFirstOrThrow({ where: { caseId, scanStatus: "REJECTED" } })).id;
   }, 120_000);
 
-  it("lets a party and the assigned case manager download a clean file", async () => {
+  it("lets the author and the assigned case manager download a clean file", async () => {
     for (const actor of [
       { actorId: complainantId, actorRole: "COMPLAINANT" as const },
-      { actorId: respondentId, actorRole: "RESPONDENT" as const },
       { actorId: activatedManagerId, actorRole: "CASE_MANAGER" as const },
     ]) {
       const result = await downloadCleanEvidence({ ...actor, caseId, evidenceId: cleanId });
@@ -170,8 +169,9 @@ describe("clean evidence download", () => {
       expect(result.contentDisposition.startsWith("attachment;")).toBe(true);
       expect(result.contentDisposition).not.toMatch(/[\r\n]/);
     }
+    expect(await downloadCleanEvidence({ actorId: respondentId, actorRole: "RESPONDENT", caseId, evidenceId: cleanId })).toEqual({ ok: false, status: 404 });
     const events = await prisma.event.findMany({ where: { caseId, type: "EVIDENCE_ACCESSED" }, orderBy: { seq: "asc" } });
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(2);
     expect(events.every((event) => (event.payload as { evidenceItemId?: string }).evidenceItemId === cleanId)).toBe(true);
     expect(replayCaseState(await prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } }))).toBe("EVIDENCE_INTAKE");
   });

@@ -16,6 +16,9 @@ describe("post-issuance event replay", () => {
   it("reopens a resolved case following revocation", () => {
     expect(replay("CASE_RESOLVED", "CONSENT_REVOKED", "CASE_REOPENED")).toBe("ISSUED");
   });
+  it("leaves the case state unchanged when a party outcome is edited or issued", () => {
+    expect(replay("RECOMMENDATION_ISSUED", "PARTY_OUTCOME_EDITED", "PARTY_OUTCOME_ISSUED")).toBe("ISSUED");
+  });
   it("preserves withdrawal and closure through audit-only events", () => {
     expect(replay("RECOMMENDATION_ISSUED", "CASE_WITHDRAWN", "NOTE_ADDED")).toBe("WITHDRAWN");
     expect(replay("CASE_RESOLVED", "CASE_CLOSED", "NOTE_ADDED")).toBe("CLOSED");

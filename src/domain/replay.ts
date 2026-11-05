@@ -103,6 +103,10 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "RESOLUTION_APPROVED":
         // Phase 3. Contestation and sign-off gate consent; they do not move Case.state.
         break;
+      case "PARTY_OUTCOME_EDITED":
+      case "PARTY_OUTCOME_ISSUED":
+        // A party-facing outcome is an audit of text. It does not move Case.state.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

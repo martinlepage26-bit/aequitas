@@ -6,8 +6,9 @@ import { ClaimsList, type ClaimsCopy } from "./ClaimsList";
 
 const CLAIM_TYPES: ClaimTypeName[] = ["FACTUAL", "CAUSAL", "MORAL", "IDENTITY", "POLICY", "IMPACT_STATEMENT"];
 
-export default async function ClaimsPanel({ caseId, locale, graph }: { caseId: string; locale: string; graph: ClaimGraph }) {
+export default async function ClaimsPanel({ caseId, locale, graph, complainantId, respondentId }: { caseId: string; locale: string; graph: ClaimGraph; complainantId: string; respondentId: string }) {
   const t = await getTranslations("workspace.claims");
+  const tRole = await getTranslations("workspace.role");
   const copy: ClaimsCopy = {
     title: t("title"),
     description: t("description"),
@@ -30,6 +31,11 @@ export default async function ClaimsPanel({ caseId, locale, graph }: { caseId: s
     impactNotice: t("impactNotice"),
     relationshipsTitle: t("relationshipsTitle"),
     noRelationships: t("noRelationships"),
+    role: {
+      complainant: tRole("complainant"),
+      respondent: tRole("respondent"),
+      manager: tRole("caseManager"),
+    },
     type: Object.fromEntries(CLAIM_TYPES.map((key) => [key, t(`type.${key}`)])) as ClaimsCopy["type"],
     confidence: {
       ESTABLISHED: t("confidence.ESTABLISHED"),
@@ -71,7 +77,7 @@ export default async function ClaimsPanel({ caseId, locale, graph }: { caseId: s
 
   return (
     <>
-      <ClaimsList locale={locale} view={graph.view} authors={graph.authors} copy={copy} />
+      <ClaimsList locale={locale} view={graph.view} authors={graph.authors} copy={copy} complainantId={complainantId} respondentId={respondentId} />
       {graph.canAuthor && (
         <ClaimAuthorForms
           caseId={caseId}

@@ -22,7 +22,7 @@ export default function CloseCaseButton({ caseId }: { caseId: string }) {
   }
 
   return (
-    <div style={{ marginTop: "1rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
       <button type="button" onClick={handleClose} disabled={status.kind === "busy"}>
         {status.kind === "busy" ? t("closing") : t("closeButton")}
       </button>

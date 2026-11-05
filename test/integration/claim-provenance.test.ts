@@ -94,6 +94,11 @@ function copyFor(messages: typeof en): ClaimsCopy {
     impactNotice: claims.impactNotice,
     relationshipsTitle: claims.relationshipsTitle,
     noRelationships: claims.noRelationships,
+    role: {
+      complainant: messages.workspace.role.complainant,
+      respondent: messages.workspace.role.respondent,
+      manager: messages.workspace.role.caseManager,
+    },
     type: claims.type,
     confidence: claims.confidence,
     status: claims.status,
@@ -217,10 +222,17 @@ describe("traceable core writes", () => {
 
     const partyView = await readClaimGraph(caseId, { userId: complainantId, globalRole: "COMPLAINANT" });
     expect(partyView?.canAuthor).toBe(false);
-    expect(partyView?.view.rendered.map((item) => item.id).sort()).toEqual([impact.data.id, supported.data.id].sort());
-    expect(partyView?.view.needsEvidence.map((item) => item.id)).toEqual([bare.data.id]);
-    expect(partyView?.view.needsEvidence[0]?.renderedStatus).toBe("NEEDS_EVIDENCE");
-    expect(partyView?.view.rendered.find((item) => item.id === impact.data.id)?.shownAsFactClaim).toBe(false);
+    // A party sees a claim only when every link is their own evidence. The delivery-note claim stays. The impact claim cites a statute, and the bare claim has no link, so both are omitted.
+    expect(partyView?.view.rendered.map((item) => item.id)).toEqual([supported.data.id]);
+    expect(partyView?.view.needsEvidence).toEqual([]);
+    expect(JSON.stringify(partyView)).not.toContain(impact.data.id);
+    expect(JSON.stringify(partyView)).not.toContain(bare.data.id);
+
+    const managerView = await readClaimGraph(caseId, { userId: managerId, globalRole: "CASE_MANAGER" });
+    expect(managerView?.view.rendered.map((item) => item.id).sort()).toEqual([impact.data.id, supported.data.id].sort());
+    expect(managerView?.view.needsEvidence.map((item) => item.id)).toEqual([bare.data.id]);
+    expect(managerView?.view.needsEvidence[0]?.renderedStatus).toBe("NEEDS_EVIDENCE");
+    expect(managerView?.view.rendered.find((item) => item.id === impact.data.id)?.shownAsFactClaim).toBe(false);
 
     const caseRow = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
     expect(await verifyCase(prisma, caseRow)).toEqual([]);
@@ -270,7 +282,7 @@ describe("traceable core writes", () => {
     const manager = await prisma.user.findUniqueOrThrow({ where: { id: managerId } });
 
     for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
-      const html = renderClaimsPanelHtml({ locale, view: graph.view, authors: [{ id: managerId, displayName: manager.displayName }], copy: copyFor(messages) });
+      const html = renderClaimsPanelHtml({ locale, view: graph.view, authors: [{ id: managerId, displayName: manager.displayName }], copy: copyFor(messages), complainantId, respondentId });
       expect(html).toContain(`data-claims-locale="${locale}"`);
       expect(html).toContain(messages.workspace.claims.why);
       const ids = renderedClaimIds(html);

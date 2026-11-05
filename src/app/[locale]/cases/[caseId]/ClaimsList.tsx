@@ -23,6 +23,7 @@ export interface ClaimsCopy {
   impactNotice: string;
   relationshipsTitle: string;
   noRelationships: string;
+  role: { complainant: string; respondent: string; manager: string };
   type: Record<ClaimTypeName, string>;
   confidence: Record<string, string>;
   status: Record<string, string>;
@@ -40,12 +41,16 @@ function ClaimBody({
   locale,
   authorName,
   formatWhen,
+  complainantId,
+  respondentId,
 }: {
   claim: PresentedClaim;
   copy: ClaimsCopy;
   locale: string;
   authorName: (id: string) => string;
   formatWhen: (iso: string) => string;
+  complainantId: string;
+  respondentId: string;
 }) {
   return (
     <li
@@ -55,8 +60,10 @@ function ClaimBody({
       data-rendered-status={claim.renderedStatus}
       data-shown-as-fact={claim.shownAsFactClaim ? "true" : "false"}
       data-scored-as-fact={claim.scoredAsFact ? "true" : "false"}
-      className={styles.claim}
+      className={`${styles.claim} ${styles.originRecord}`}
+      data-origin="CASE_MANAGER"
     >
+      <span className={styles.originLabel}>{copy.role.manager}</span>
       <p className={styles.claimMeta}>
         <span className={styles.claimType}>{copy.type[claim.claimType]}</span>
         {" · "}
@@ -74,7 +81,9 @@ function ClaimBody({
             <h3>{copy.provenanceTitle}</h3>
             <ul>
               {claim.links.map((link) => (
-                <li key={link.id} data-provenance-link={link.id}>
+                <li key={link.id} data-provenance-link={link.id} className={link.evidenceSubmittedById ? styles.originRecord : undefined} data-origin={link.evidenceSubmittedById === complainantId ? "COMPLAINANT" : link.evidenceSubmittedById === respondentId ? "RESPONDENT" : undefined}>
+                  {link.evidenceSubmittedById === complainantId && <span className={styles.originLabel}>{copy.role.complainant}</span>}
+                  {link.evidenceSubmittedById === respondentId && <span className={styles.originLabel}>{copy.role.respondent}</span>}
                   <p><strong>{copy.sourceLabel}:</strong> {link.sourceTitle}</p>
                   {link.citation && <p>{fill(copy.citation, { citation: link.citation })}</p>}
                   {link.legalFramework && <p>{fill(copy.framework, { name: link.legalFramework })}</p>}
@@ -102,11 +111,15 @@ export function ClaimsList({
   view,
   authors,
   copy,
+  complainantId,
+  respondentId,
 }: {
   locale: string;
   view: ClaimsView;
   authors: Array<{ id: string; displayName: string }>;
   copy: ClaimsCopy;
+  complainantId: string;
+  respondentId: string;
 }) {
   const names = new Map(authors.map((author) => [author.id, author.displayName]));
   const authorName = (id: string) => names.get(id) ?? id;
@@ -122,7 +135,7 @@ export function ClaimsList({
       ) : (
         <ul data-rendered-claims>
           {view.rendered.map((claim) => (
-            <ClaimBody key={claim.id} claim={claim} copy={copy} locale={locale} authorName={authorName} formatWhen={formatWhen} />
+            <ClaimBody key={claim.id} claim={claim} copy={copy} locale={locale} authorName={authorName} formatWhen={formatWhen} complainantId={complainantId} respondentId={respondentId} />
           ))}
         </ul>
       )}
@@ -131,7 +144,7 @@ export function ClaimsList({
           <h3>{copy.needsEvidenceHeading}</h3>
           <ul>
             {view.needsEvidence.map((claim) => (
-              <ClaimBody key={claim.id} claim={claim} copy={copy} locale={locale} authorName={authorName} formatWhen={formatWhen} />
+              <ClaimBody key={claim.id} claim={claim} copy={copy} locale={locale} authorName={authorName} formatWhen={formatWhen} complainantId={complainantId} respondentId={respondentId} />
             ))}
           </ul>
         </div>

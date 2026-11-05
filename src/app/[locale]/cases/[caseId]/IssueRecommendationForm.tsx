@@ -30,7 +30,7 @@ export default function IssueRecommendationForm({ recommendationId }: { recommen
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: "1rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+    <form onSubmit={handleSubmit} style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
       <div style={{ marginBottom: "0.5rem" }}>
         <label>
           <input

@@ -25,7 +25,7 @@ export default function RequestDraftButton({ caseId }: { caseId: string }) {
   }
 
   return (
-    <div style={{ marginTop: "1rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
       <button type="button" onClick={handleClick} disabled={status.kind === "busy"}>
         {status.kind === "busy" ? t("requesting") : t("requestButton")}
       </button>

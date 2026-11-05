@@ -4,28 +4,39 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { GlobalRole } from "../generated/prisma";
 import { EvenLine, Icon, Mark, Wordmark } from "./icons";
 import ThemeControls from "./ThemeControls";
 import styles from "./workbench-shell.module.css";
 
 export default function WorkbenchShell({
   locale,
-  signedIn,
-  isAdmin,
-  isComplainant,
+  role,
+  displayName,
   children,
 }: {
   locale: string;
-  signedIn: boolean;
-  isAdmin: boolean;
-  isComplainant: boolean;
+  role: GlobalRole | null;
+  displayName: string | null;
   children: ReactNode;
 }) {
   const tAuth = useTranslations("auth");
+  const tRole = useTranslations("workspace.role");
   const tLanding = useTranslations("landing");
   const tCases = useTranslations("caseList");
   const tChrome = useTranslations("chrome");
   const pathname = usePathname();
+  const signedIn = role !== null;
+  const isAdmin = role === "ADMIN";
+  const isComplainant = role === "COMPLAINANT";
+  const roleClass = role === "COMPLAINANT" ? styles.roleComplainant
+    : role === "RESPONDENT" ? styles.roleRespondent
+      : role === "CASE_MANAGER" ? styles.roleManager
+        : role === "ADMIN" ? styles.roleAdmin : "";
+  const roleLabel = role === "COMPLAINANT" ? tRole("complainant")
+    : role === "RESPONDENT" ? tRole("respondent")
+      : role === "CASE_MANAGER" ? tRole("caseManager")
+        : role === "ADMIN" ? tRole("admin") : null;
   const [openPath, setOpenPath] = useState<string | null>(null);
   const open = openPath === pathname;
 
@@ -45,7 +56,7 @@ export default function WorkbenchShell({
   const onCases = pathname === cases || (pathname.startsWith(`${cases}/`) && !onNew);
 
   return (
-    <div className={styles.shell}>
+    <div className={`${styles.shell} ${roleClass}`}>
       <a className={styles.skip} href="#main-content">{tLanding("skipToContent")}</a>
       <div className={styles.frame}>
         <div id="workbench-rail" className={open ? `${styles.rail} ${styles.railOpen}` : styles.rail}>
@@ -97,6 +108,10 @@ export default function WorkbenchShell({
               <div className={styles.masthead}>
                 <p className={styles.wordmark}><Wordmark>{tLanding("title")}</Wordmark></p>
                 <EvenLine />
+                {signedIn && roleLabel && displayName && <div className={styles.profileIdentity} role="group" aria-label={`${displayName}, ${roleLabel}`}>
+                  <span className={styles.profileName} title={displayName}>{displayName}</span>
+                  <span className={styles.roleBadge}>{roleLabel}</span>
+                </div>}
               </div>
             </div>
             <div className={styles.toolbarTools}>

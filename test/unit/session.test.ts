@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { signPayload } from "../../src/lib/signedCookie";
 
 const cookieStore = vi.hoisted(() => ({ token: "", set: vi.fn(), delete: vi.fn() }));
+const userLookup = vi.hoisted(() => vi.fn());
+vi.mock("../../src/lib/prisma", () => ({ prisma: { user: { findUnique: userLookup } } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({
   get: () => cookieStore.token ? { value: cookieStore.token } : undefined,
   set: cookieStore.set, delete: cookieStore.delete,
@@ -12,6 +14,7 @@ beforeEach(() => {
   process.env.SESSION_SECRET = "unit-session-purpose-test-secret";
   cookieStore.token = "";
   vi.clearAllMocks();
+  userLookup.mockResolvedValue({ globalRole: "COMPLAINANT", sessionVersion: 0 });
 });
 
 describe("session token boundary", () => {
@@ -35,7 +38,7 @@ describe("session token boundary", () => {
   it("accepts a complete purpose-bound authenticated session", async () => {
     const payload = { purpose: "session", userId: "owner", globalRole: "COMPLAINANT", authMethod: "passkey" };
     cookieStore.token = signPayload(payload, 300);
-    expect(await getSession()).toEqual(payload);
+    expect(await getSession()).toEqual({ ...payload, sessionVersion: 0 });
     expect(await getSessionToken()).toBe(cookieStore.token);
   });
 
@@ -44,5 +47,12 @@ describe("session token boundary", () => {
     const [, token] = cookieStore.set.mock.calls[0];
     cookieStore.token = token;
     expect(await getSession()).toMatchObject({ purpose: "session", userId: "owner" });
+  });
+
+  it("rejects an old session after account recovery increments its version", async () => {
+    cookieStore.token = signPayload({ purpose: "session", userId: "owner", globalRole: "COMPLAINANT", authMethod: "passkey", sessionVersion: 0 }, 300);
+    userLookup.mockResolvedValue({ globalRole: "COMPLAINANT", sessionVersion: 1 });
+    expect(await getSession()).toBeNull();
+    expect(await getSessionToken()).toBeNull();
   });
 });

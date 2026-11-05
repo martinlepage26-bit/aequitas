@@ -18,7 +18,11 @@ const nextConfig = {
   // service; a default build (one worker per core, each with its own thread
   // pool) hit "OS can't spawn worker thread" there. NEXT_BUILD_CPUS caps the
   // build workers where needed; unset (CI, laptops) keeps Next's default.
-  ...(process.env.NEXT_BUILD_CPUS ? { experimental: { cpus: Number(process.env.NEXT_BUILD_CPUS) } } : {}),
+  experimental: {
+    // Proxy buffers multipart requests before the route applies its 25 MiB file cap.
+    proxyClientMaxBodySize: 28 * 1024 * 1024,
+    ...(process.env.NEXT_BUILD_CPUS ? { cpus: Number(process.env.NEXT_BUILD_CPUS) } : {}),
+  },
   // H6/H7: the root is the default-locale landing, not the retired M0 demo.
   // /fr and /en follow the short-locale URL convention used elsewhere.
   // Using rewrites() instead of redirects() for the root path to ensure

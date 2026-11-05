@@ -1,9 +1,14 @@
 import type { DisputeCategory } from "../generated/prisma";
 import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
+import { RECOVERY_TTL_MINUTES } from "./accountRecovery";
 
 /** Queued when a complainant submits a case and a case manager should see it. */
 export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
+/** Queued for one party when a new outcome replaces the version they already answered. */
+export const OUTCOME_NEEDS_ANSWER_KIND = "outcome_needs_answer";
+/** Queued for the other party when a resolved case returns to issued. No outcome text. */
+export const CASE_REOPENED_KIND = "case_reopened";
 
 export function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.EMAIL_REPLY_TO && process.env.APP_URL);
@@ -38,6 +43,18 @@ export async function sendInvitationEmail(input: { email: string; locale: string
   return "accepted" as const;
 }
 
+export async function sendAccountRecoveryEmail(input: { email: string; locale: string; token: string; recoveryId: string }) {
+  if (!emailConfigured()) return "not_configured" as const;
+  const french = input.locale === "fr-CA";
+  const link = appUrl(`/${french ? "fr-CA" : "en-CA"}/auth/recover/${encodeURIComponent(input.token)}`);
+  await sendEmail(input.email, french ? "Récupérer votre accès Aequitas" : "Recover your Aequitas access", french
+    ? `Une demande de récupération de votre accès Aequitas a été reçue. Pour créer une nouvelle clé d’accès, ouvrez ce lien à usage unique dans les ${RECOVERY_TTL_MINUTES} prochaines minutes :\n\n${link}\n\nSi vous n’avez pas demandé cette récupération, ignorez ce message. Votre clé d’accès actuelle reste valide tant que la récupération n’est pas terminée.`
+    : `A request to recover your Aequitas access was received. To create a new passkey, open this single-use link within ${RECOVERY_TTL_MINUTES} minutes:\n\n${link}\n\nIf you did not request this, ignore this message. Your current passkey remains valid until recovery is completed.`, `recovery/${input.recoveryId}`);
+  try { await prisma.accountRecovery.update({ where: { id: input.recoveryId }, data: { emailedAt: new Date() } }); }
+  catch { console.error("Recovery email accepted; delivery timestamp could not be persisted."); }
+  return "accepted" as const;
+}
+
 /**
  * Email copy for one queued notification. Case-manager alerts name only the
  * reference number and category. Every other kind stays a generic update
@@ -51,6 +68,24 @@ export function notificationEmail(input: {
   category?: DisputeCategory;
 }): { subject: string; text: string } {
   const french = input.locale === "fr-CA";
+  if (input.kind === OUTCOME_NEEDS_ANSWER_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? {
+          subject: "Un nouveau résultat demande votre réponse",
+          text: `Le médiateur a émis un nouveau résultat dans votre dossier. Votre réponse précédente ne s'applique plus. Connectez-vous pour lire le résultat et consentir ou refuser :\n\n${link}`,
+        }
+      : {
+          subject: "A new outcome needs your answer",
+          text: `The mediator issued a new outcome on your case. Your earlier answer no longer applies. Sign in to read the outcome and consent or decline:\n\n${link}`,
+        };
+  }
+  if (input.kind === CASE_REOPENED_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? { subject: "Le dossier a été rouvert", text: `Le dossier a été rouvert. Connectez-vous pour consulter le dossier :\n\n${link}` }
+      : { subject: "The case was reopened", text: `The case was reopened. Sign in to read the record:\n\n${link}` };
+  }
   if (input.kind === CASE_AWAITING_MANAGER_KIND && input.referenceNumber && input.category) {
     const category = resolveCategoryLabel(input.category, input.locale);
     const reference = input.referenceNumber;

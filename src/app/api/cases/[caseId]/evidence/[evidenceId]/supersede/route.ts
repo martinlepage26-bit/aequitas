@@ -1,10 +1,10 @@
-import { detectEvidenceMime } from "../../../../../../../lib/evidenceText";
+import { detectEvidenceMime, isSupportedEvidenceMime, MAX_EVIDENCE_BYTES } from "../../../../../../../lib/evidenceText";
 import { requireSession } from "../../../../../../../lib/session";
 import { mutationFailureResponse, supersedeEvidence } from "../../../../../../../domain/mutate";
 import { EVIDENCE_KINDS } from "../../../../../../../domain/evidenceKinds";
 import type { EvidenceKind } from "../../../../../../../generated/prisma";
 
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_BYTES = MAX_EVIDENCE_BYTES;
 
 export async function POST(
   request: Request,
@@ -16,7 +16,7 @@ export async function POST(
   const { caseId, evidenceId } = await params;
 
   const form = await request.formData().catch(() => null);
-  if (!form) return Response.json({ message: "Expected multipart/form-data." }, { status: 400 });
+  if (!form) return Response.json({ message: "Invalid multipart/form-data or upload exceeds the 25 MB limit." }, { status: 400 });
 
   const file = form.get("file");
   const kind = form.get("kind");
@@ -31,13 +31,16 @@ export async function POST(
     return Response.json({ message: "title is required." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return Response.json({ message: `File exceeds the ${MAX_BYTES / (1024 * 1024)} MB limit.` }, { status: 400 });
+    return Response.json({ message: `File exceeds the ${MAX_BYTES / (1024 * 1024)} MB limit.` }, { status: 413 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = await detectEvidenceMime(buffer);
   if (!mimeType) {
     return Response.json({ message: "Could not determine the file's type from its contents." }, { status: 400 });
+  }
+  if (!isSupportedEvidenceMime(mimeType)) {
+    return Response.json({ message: "Unsupported file type. Upload UTF-8 text, PDF, PNG, JPEG, TIFF or WebP." }, { status: 400 });
   }
 
   const outcome = await supersedeEvidence({

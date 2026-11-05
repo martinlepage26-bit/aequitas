@@ -29,7 +29,7 @@ export default function OpenIntakeButton({ caseId }: { caseId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: "1rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+    <form onSubmit={handleSubmit} style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
       <div style={{ marginBottom: "0.75rem" }}>
         <label htmlFor="coi-has-conflict">
           <input

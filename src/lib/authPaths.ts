@@ -18,3 +18,10 @@ export function authReturnPath(locale: string, value: unknown): string {
 export function signInPath(locale: string, returnTo?: string): string {
   return `/${locale}/auth/sign-in${returnTo ? `?next=${encodeURIComponent(authReturnPath(locale, returnTo))}` : ""}`;
 }
+
+/** The public origin may differ from the route URL behind a trusted proxy. */
+export function signOutOriginAllowed(requestUrl: string, origin: string | null, appUrl?: string): boolean {
+  if (!origin) return true;
+  const requestOrigin = new URL(requestUrl).origin;
+  return origin === requestOrigin || (appUrl ? origin === new URL(appUrl).origin : false);
+}

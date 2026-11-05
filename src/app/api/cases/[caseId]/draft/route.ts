@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     explanation: recommendation.explanation,
     modelId: recommendation.modelId,
     promptVersion: recommendation.promptVersion,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 /** Submit a complete correction with the base version, preserving an attributable history. */

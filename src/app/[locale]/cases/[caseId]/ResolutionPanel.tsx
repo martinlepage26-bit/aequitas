@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { ResolutionView } from "../../../../domain/resolution";
+import PartyVisibleNotice from "./PartyVisibleNotice";
+import styles from "./workspace.module.css";
 
 export interface ContestTargetOption {
   type: "CLAIM" | "SYNTHESIS" | "PROPOSAL" | "RECOMMENDATION";
@@ -13,6 +15,7 @@ export interface ContestTargetOption {
 
 const KNOWN_CODES = new Set([
   "OPEN_CONTESTATION",
+  "RESOLUTION_PAUSED",
   "APPROVAL_REQUIRED",
   "ADMIN_CANNOT_APPROVE",
   "NOT_APPROVER",
@@ -36,16 +39,21 @@ export default function ResolutionPanel({
   caseId,
   view,
   viewerId,
+  complainantId,
+  respondentId,
   targets,
   sectionClassName,
 }: {
   caseId: string;
   view: ResolutionView;
   viewerId: string;
+  complainantId: string;
+  respondentId: string;
   targets: ContestTargetOption[];
   sectionClassName?: string;
 }) {
   const t = useTranslations("workspace.resolution");
+  const tRole = useTranslations("workspace.role");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,15 +137,17 @@ export default function ResolutionPanel({
       ) : (
         <ul id="contestation-list">
           {view.contestations.map((c) => (
-            <li key={c.id} data-status={c.status}>
+            <li key={c.id} data-status={c.status} className={styles.originRecord} data-origin={c.openedById === complainantId ? "COMPLAINANT" : c.openedById === respondentId ? "RESPONDENT" : "CASE_MANAGER"}>
+              <span className={styles.originLabel}>{c.openedById === complainantId ? tRole("complainant") : c.openedById === respondentId ? tRole("respondent") : tRole("caseManager")}</span>
               <p>
                 <strong>{t(`status.${c.status}`)}</strong> — {targetLabel(c.targetType, c.targetId)} — {t("openedBy", { name: c.openedByName })}
               </p>
               <p>{c.grounds}</p>
-              {c.response && <p>{t("responseBy", { name: c.respondedByName ?? "", text: c.response })}</p>}
-              {c.overruleReason && <p>{t("overruledBy", { name: c.overruledByName ?? "", text: c.overruleReason })}</p>}
+              {c.response && <p className={styles.originRecord} data-origin="CASE_MANAGER"><span className={styles.originLabel}>{tRole("caseManager")}</span> {t("responseBy", { name: c.respondedByName ?? "", text: c.response })}</p>}
+              {c.overruleReason && <p className={styles.originRecord} data-origin="CASE_MANAGER"><span className={styles.originLabel}>{tRole("caseManager")}</span> {t("overruledBy", { name: c.overruledByName ?? "", text: c.overruleReason })}</p>}
               {c.status === "OPEN" && (view.viewer.canRespond || view.viewer.canOverrule) && (
                 <>
+                  {view.viewer.canRespond && <PartyVisibleNotice />}
                   <label htmlFor={`contestation-note-${c.id}`}>{view.viewer.canRespond ? t("responseLabel") : t("overruleLabel")}</label>
                   <textarea
                     id={`contestation-note-${c.id}`}

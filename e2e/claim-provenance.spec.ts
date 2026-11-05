@@ -115,9 +115,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await partyPage.goto(`/${locale}/cases/${caseId}`);
     await expect(partyPage.getByRole("button", { name: copy.form.saveSource, exact: true })).toHaveCount(0);
     const partyPanel = partyPage.locator("[data-claims-panel]");
-    await partyPanel.getByText(copy.why, { exact: true }).click();
-    await expect(partyPanel.getByText(excerpt)).toBeVisible();
-    await expect(partyPanel.getByText(manager.displayName)).toHaveCount(2);
+    // The only source is a statute, not the party's own evidence, so the party does not receive the claim or its excerpt.
+    await expect(partyPanel.getByText(claimText)).toHaveCount(0);
+    await expect(partyPanel.getByText(excerpt)).toHaveCount(0);
+    await expect(partyPanel.getByText(copy.why, { exact: true })).toHaveCount(0);
     await managerContext.close();
     await partyContext.close();
   });
