@@ -91,4 +91,6 @@ jobs:
       # Exercise the end-to-end case-agent harness with synthetic fixtures and
       # a stub model only. This cannot make provider calls or leave the CI job.
       - name: Run synthetic case-agent evaluation
+        env:
+          NODE_OPTIONS: --throw-deprecation
         run: npm run agent:evaluate -- --stub

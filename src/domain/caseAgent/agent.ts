@@ -478,11 +478,11 @@ async function loadMaterialIn(tx: Prisma.TransactionClient, caseId: string): Pro
     },
   });
   const latestPosition = (partyId: string) => tx.positionStatement.findFirst({ where: { caseId, partyId }, orderBy: { version: "desc" } });
-  const [complainantPosition, respondentPosition, openContestations] = await Promise.all([
-    latestPosition(caseRow.complainantId),
-    latestPosition(caseRow.respondentId),
-    tx.contestation.count({ where: { caseId, status: "OPEN" } }),
-  ]);
+  // Transaction clients share one PostgreSQL connection; overlapping queries
+  // on that client are deprecated by pg and are serialized internally anyway.
+  const complainantPosition = await latestPosition(caseRow.complainantId);
+  const respondentPosition = await latestPosition(caseRow.respondentId);
+  const openContestations = await tx.contestation.count({ where: { caseId, status: "OPEN" } });
   const superseded = new Set(caseRow.evidenceItems.map((e) => e.supersedesId).filter(Boolean));
   return { caseRow, complainantPosition, respondentPosition, openContestations, current: caseRow.evidenceItems.filter((e) => !superseded.has(e.id)) };
 }
