@@ -22,6 +22,7 @@
     "notify:deliver": "tsx scripts/deliver-notifications.ts",
     "agent:provision": "tsx scripts/provision-case-agent.ts",
     "agent:run": "tsx scripts/run-case-agent.ts",
+    "agent:status": "tsx scripts/status-case-agent.ts",
     "ops:scheduler": "tsx scripts/scheduled-ops.ts",
     "agent:evaluate": "tsx scripts/evaluate-case-agent.ts"
   },
