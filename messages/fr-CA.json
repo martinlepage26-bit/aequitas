@@ -680,8 +680,20 @@
         "model_unavailable": "Aucun modèle n’est configuré.",
         "model_failed": "La requête au modèle a échoué.",
         "model_requested_review": "L’assistant n’a pas pu proposer un résultat de façon sûre.",
-        "model_output_rejected": "La proposition de l’assistant n’a pas passé les vérifications."
-      }
+        "model_output_rejected": "La proposition de l’assistant n’a pas passé les vérifications.",
+        "invitation_failed": "L’invitation de la partie intimée n’a pas pu être livrée.",
+        "respondent_no_response": "La partie intimée ne s’est pas jointe dans le délai prévu par le programme.",
+        "submission_missing": "Une soumission requise manquait à la fin du délai prévu par le programme.",
+        "no_answer": "Une partie n’a pas répondu à la proposition dans le délai prévu par le programme.",
+        "evidence_extraction_failed": "Un fichier n’a pas pu être lu au complet.",
+        "evidence_limit_exceeded": "Les preuves dépassent ce que l’assistant peut lire."
+      },
+      "endButton": "Mettre fin à ma participation",
+      "endConfirm": "Mettre fin à votre participation arrête le processus pour ce dossier. Vous ne pourrez pas l’annuler ici.",
+      "endConfirmButton": "Oui, mettre fin à ma participation",
+      "endCancel": "Continuer à participer",
+      "claimHelp": "L’assistant automatisé a confié ce dossier à la file des gestionnaires. Motif : {reason} En le prenant, vous confirmez n’avoir aucun conflit d’intérêts.",
+      "claimButton": "Prendre ce dossier (aucun conflit d’intérêts)"
     }
   },
   "knowledgeMap": {

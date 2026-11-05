@@ -21,7 +21,8 @@
     "seed:demo": "tsx prisma/seed-demo.ts",
     "notify:deliver": "tsx scripts/deliver-notifications.ts",
     "agent:provision": "tsx scripts/provision-case-agent.ts",
-    "agent:run": "tsx scripts/run-case-agent.ts"
+    "agent:run": "tsx scripts/run-case-agent.ts",
+    "agent:evaluate": "tsx scripts/evaluate-case-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

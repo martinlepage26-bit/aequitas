@@ -11,7 +11,11 @@ async function main() {
   if (!caseAgentEnabled()) { console.log(JSON.stringify({ enabled: false })); return; }
   const resolved = resolveCaseAgentModel();
   const model = resolved.ok ? resolved.model : null;
-  const cases = await prisma.case.findMany({ where: { agentManaged: true, agentEscalatedAt: null, state: { not: "CLOSED" } }, select: { id: true }, take: 50, orderBy: { createdAt: "asc" } });
+  // Cases the agent manages, plus submitted cases nobody has taken yet (eligibility is checked per case).
+  const cases = await prisma.case.findMany({
+    where: { agentEscalatedAt: null, OR: [{ agentManaged: true, state: { not: "CLOSED" } }, { agentManaged: false, state: "OPEN", caseManagerId: null }] },
+    select: { id: true }, take: 50, orderBy: { createdAt: "asc" },
+  });
   const counts: Record<string, number> = {};
   for (const row of cases) {
     try {

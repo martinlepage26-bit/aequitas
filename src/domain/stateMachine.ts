@@ -29,6 +29,9 @@ export const TRIGGERS = [
   "close_case",
   "agent_issue",
   "agent_close",
+  "agent_open_intake",
+  "agent_close_intake",
+  "respondent_withdraw",
 ] as const;
 
 export type Trigger = (typeof TRIGGERS)[number];
@@ -253,6 +256,32 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: ["CASE_AGENT"],
     guards: ["agentMayAct", "bothPartiesHaveCurrentPositions", "explanationRecordValid", "citationsResolveToCaseEvidence"],
     events: ["RECOMMENDATION_DRAFT_REQUESTED", "RECOMMENDATION_DRAFTED", "RECOMMENDATION_ISSUED", "PARTY_OUTCOME_ISSUED"],
+  },
+  {
+    trigger: "agent_open_intake",
+    from: ["OPEN"],
+    to: "EVIDENCE_INTAKE",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct"],
+    events: ["AGENT_ENROLLED", "EVIDENCE_INTAKE_OPENED"],
+  },
+  {
+    trigger: "agent_close_intake",
+    from: ["EVIDENCE_INTAKE"],
+    to: "POSITIONS",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "atLeastOneEvidenceItemPerPartyOrOverride"],
+    events: ["EVIDENCE_INTAKE_CLOSED"],
+  },
+  {
+    // Respondent ends participation on an agent-managed case, only where the
+    // program's configured rule allows it (caseAgent/agent.ts endParticipation).
+    trigger: "respondent_withdraw",
+    from: ANY_EXCEPT_CLOSED,
+    to: "WITHDRAWN",
+    actorRoles: ["RESPONDENT"],
+    guards: ["isCaseParty"],
+    events: ["CASE_WITHDRAWN"],
   },
   {
     trigger: "agent_close",

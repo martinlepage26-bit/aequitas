@@ -31,6 +31,8 @@ const extractedSpanSchema = z.object({
   source_sha256: z.string().regex(/^[a-f0-9]{64}$/),
   extracted_text_sha256: z.string().regex(/^[a-f0-9]{64}$/),
   extraction_method: z.enum(["utf8", "pdftotext", "tesseract"]),
+  // 1-based PDF page, counted from pdftotext's form-feed page breaks.
+  page: z.number().int().positive().optional(),
 }).strict();
 
 const evidenceCitationSchema = z.object({

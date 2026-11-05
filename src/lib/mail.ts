@@ -80,6 +80,19 @@ export function notificationEmail(input: {
           text: `The mediator issued a new outcome on your case. Your earlier answer no longer applies. Sign in to read the outcome and consent or decline:\n\n${link}`,
         };
   }
+  if (input.kind === "agent_managing") {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? { subject: "Un assistant automatisé s’occupe de votre dossier", text: `Un assistant automatisé s’occupe des étapes courantes de votre dossier. Ses propositions ne sont pas contraignantes, ne constituent pas un avis juridique et ne jugent pas qui dit vrai. Votre participation est volontaire : vous pouvez demander qu’une personne examine le dossier ou mettre fin à votre participation en tout temps.\n\n${link}` }
+      : { subject: "An automated assistant is handling your case", text: `An automated assistant handles the routine steps of your case. Its proposals are not binding, are not legal advice, and do not judge who is telling the truth. Taking part is voluntary: you can ask for a person to review the case or end your participation at any time.\n\n${link}` };
+  }
+  if (input.kind === "agent_escalated") {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    const reference = input.referenceNumber ?? "";
+    return french
+      ? { subject: "Un dossier a besoin d’une personne", text: `L’assistant automatisé a cessé de traiter le dossier ${reference}. Une personne doit le prendre en charge :\n\n${link}` }
+      : { subject: "A case needs a person", text: `The automated assistant stopped handling case ${reference}. A person needs to take it:\n\n${link}` };
+  }
   if (input.kind === CASE_REOPENED_KIND) {
     const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
     return french

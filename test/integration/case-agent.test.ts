@@ -23,7 +23,8 @@ import { verifyCase } from "../../src/domain/verifyEvents";
  * withdrawal, a party's request for a person, and model failure.
  */
 
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" };
+// Synthetic program rules for tests only; production values are the program's to set.
+const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true" };
 const COMPLAINANT_POSITION = "The kettle stopped heating after three days and the store refused an exchange at the counter.";
 const RESPONDENT_POSITION = "Our counter staff offered a repair voucher because the receipt showed a clearance purchase.";
 const COMPLAINANT_EVIDENCE_TEXT = "Receipt: kettle purchase on 2026-10-02; paid full price $89.99.";
@@ -105,10 +106,8 @@ function goodOutput(s: Setup): Output {
       { evidence_item_id: s.complainantEvidence, relevance: "Purchase record.", excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." },
       { evidence_item_id: s.respondentEvidence, relevance: "Sale conditions shown in store.", excerpt: "Clearance shelf tag: final sale." },
     ],
-    outcomes: {
-      complainant: { text: "Proposition : le magasin remplace la bouilloire ou rembourse le prix payé, selon votre préférence.", evidence_item_ids: [s.complainantEvidence] },
-      respondent: { text: "Proposal: replace the kettle or refund the price paid, at the customer's choice, and record the outcome.", evidence_item_ids: [s.respondentEvidence] },
-    },
+    proposal: { remedy: "replacement", amount_cents: null },
+    party_evidence: { complainant: [s.complainantEvidence], respondent: [s.respondentEvidence] },
   };
 }
 
@@ -262,12 +261,26 @@ describe("case agent: least privilege", () => {
 });
 
 describe("case agent: party isolation", () => {
-  it("rejects an outcome that cites or repeats the other party's submission, and writes nothing", async () => {
-    for (const leak of ["cite", "quote"] as const) {
+  it("never puts model-written text in front of a party", async () => {
+    const s = await positionsCase();
+    const out = goodOutput(s) as { summary: string; citations: Array<{ relevance: string }> };
+    out.summary = `Staff only: ${RESPONDENT_POSITION}`;
+    out.citations[0].relevance = `Leak attempt: ${RESPONDENT_POSITION}`;
+    expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(out)), env: ENV })).status).toBe("issued");
+    const c = await issuedOutcome(s.caseId, s.complainantId);
+    expect(c.body).toMatch(/^Proposition pour régler votre demande : le commerçant remplace l’article\./);
+    const complainantView = JSON.stringify(await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" }));
+    expect(complainantView).not.toContain(RESPONDENT_POSITION);
+    expect(complainantView).not.toContain("counter staff");
+    const own = (await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" }))?.parties[0].issued?.citations ?? [];
+    expect(own.map((p) => [p.evidenceItemId, p.relevance])).toEqual([[s.complainantEvidence, ""]]);
+  });
+
+  it("rejects an outcome that points to the other party's evidence, and writes nothing", async () => {
+    for (const leak of ["cite"] as const) {
       const s = await positionsCase();
-      const out = goodOutput(s) as { outcomes: { complainant: { text: string; evidence_item_ids: string[] } } };
-      if (leak === "cite") out.outcomes.complainant.evidence_item_ids = [s.respondentEvidence];
-      else out.outcomes.complainant.text = `Proposition. ${RESPONDENT_POSITION}`;
+      const out = goodOutput(s) as { party_evidence: { complainant: string[] } };
+      if (leak === "cite") out.party_evidence.complainant = [s.respondentEvidence];
       const result = await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(out)), env: ENV });
       expect(result).toEqual({ status: "escalated", reason: "model_output_rejected" });
       expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
@@ -290,7 +303,6 @@ describe("case agent: unsupported or unsafe cases go to a person", () => {
   it.each([
     ["amount above the program limit", { amount: 900_000 }, ENV, "out_of_scope_amount"],
     ["amount missing", { amount: null }, ENV, "out_of_scope_amount"],
-    ["no amount limit configured", {}, { AEQUITAS_CASE_AGENT_ENABLED: "true" }, "out_of_scope_amount"],
   ] as const)("%s", async (_label, opts, env, reason) => {
     const s = await positionsCase(opts);
     const model = stub(() => JSON.stringify(goodOutput(s)));
@@ -409,9 +421,9 @@ describe("case agent: model failure", () => {
   ] as const)("%s", async (_label, kind, reason) => {
     const s = await positionsCase();
     const model = kind === null ? null : typeof kind !== "string" ? kind : stub(() => {
-      const out = goodOutput(s) as Record<string, unknown> & { outcomes: { respondent: { text: string } }; citations: Array<{ evidence_item_id: string }> };
+      const out = goodOutput(s) as Record<string, unknown> & { reasoning: string; citations: Array<{ evidence_item_id: string }> };
       if (kind === "needs_human") out.needs_human = "The dispute turns on a warranty question.";
-      if (kind === "credibility") out.outcomes.respondent.text = "The customer's account is more credible.";
+      if (kind === "credibility") out.reasoning = "The customer's account is more credible.";
       if (kind === "unknown") out.citations[0].evidence_item_id = randomUUID();
       return JSON.stringify(out);
     });

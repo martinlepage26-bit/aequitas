@@ -25,6 +25,12 @@ import RequestDraftButton from "./RequestDraftButton";
 import AuthorDraftForm from "./AuthorDraftForm";
 import CaseAgentPanel from "./CaseAgentPanel";
 import { caseAgentEnabled } from "../../../../domain/caseAgent/agent";
+import { caseAgentProgram } from "../../../../domain/caseAgent/config";
+
+function caseAgentRespondentMayWithdraw(): boolean {
+  const program = caseAgentProgram();
+  return program.ok && program.program.respondentMayWithdraw;
+}
 import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
@@ -399,13 +405,15 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
 
       {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}
-      {(access === "party" || access === "assigned-manager") && (
+      {(access === "party" || access === "assigned-manager" || (access === "claimable" && caseRow.agentEscalatedAt)) && (
         <CaseAgentPanel
           caseId={caseId}
           viewer={access === "party" ? "party" : "manager"}
           agentManaged={caseRow.agentManaged}
           escalated={Boolean(caseRow.agentEscalatedAt)}
-          escalationReason={access === "assigned-manager" ? caseRow.agentEscalationReason : null}
+          escalationReason={access !== "party" ? caseRow.agentEscalationReason : null}
+          canClaim={access === "claimable" && Boolean(caseRow.agentEscalatedAt)}
+          canEndParticipation={access === "party" && caseRow.agentManaged && (session.userId === caseRow.complainantId || caseAgentRespondentMayWithdraw())}
           closed={caseRow.state === "CLOSED"}
           canEnroll={access === "assigned-manager" && !caseRow.agentManaged && caseAgentEnabled() && caseRow.category === "RETAIL" && (caseRow.state === "EVIDENCE_INTAKE" || caseRow.state === "POSITIONS")}
         />

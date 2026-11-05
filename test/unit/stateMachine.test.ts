@@ -43,6 +43,9 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   close_case: { from: ["RESOLVED_CONSENT", "RESOLVED_DECLINED", "WITHDRAWN"], roles: ["CASE_MANAGER"] },
   agent_issue: { from: ["POSITIONS"], roles: ["CASE_AGENT"] },
   agent_close: { from: ["RESOLVED_CONSENT", "WITHDRAWN"], roles: ["CASE_AGENT"] },
+  agent_open_intake: { from: ["OPEN"], roles: ["CASE_AGENT"] },
+  agent_close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_AGENT"] },
+  respondent_withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["RESPONDENT"] },
 };
 
 describe("state machine: exhaustive (state, trigger, role) coverage", () => {
@@ -90,7 +93,7 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
 
   it("the case agent holds only its two agent transitions", () => {
     const allowed = TRIGGERS.filter((trigger) => isActorRoleAllowed(transitionsFor(trigger), "CASE_AGENT"));
-    expect(allowed).toEqual(["agent_issue", "agent_close"]);
+    expect(allowed).toEqual(["agent_issue", "agent_close", "agent_open_intake", "agent_close_intake"]);
   });
 
   it("ADMIN is never a valid actor for any state-machine trigger (guardrail 10)", () => {

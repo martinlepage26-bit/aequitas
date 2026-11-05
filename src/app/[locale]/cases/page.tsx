@@ -33,7 +33,7 @@ export default async function CaseListPage({ params }: { params: Promise<{ local
         : await prisma.case.findMany({
             // H2: unclaimed cases are listed only while OPEN, the one state
             // in which another manager may open them (src/domain/caseAccess.ts).
-            where: { OR: [{ caseManagerId: session.userId }, { caseManagerId: null, state: "OPEN" }] },
+            where: { OR: [{ caseManagerId: session.userId }, { caseManagerId: null, state: "OPEN" }, { caseManagerId: null, agentEscalatedAt: { not: null }, state: { not: "CLOSED" } }] },
             include,
             orderBy: { createdAt: "desc" },
           });
