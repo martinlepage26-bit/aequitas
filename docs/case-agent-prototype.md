@@ -92,10 +92,10 @@ If program rules are missing or invalid, the agent takes no new case and hands a
 
 ## Evaluation
 
-`npm run agent:evaluate -- --stub` exercises the harness offline. `--live` runs five synthetic fixtures against the configured provider and refuses to start unless `AEQUITAS_CASE_AGENT_EVAL_APPROVED=true`, which the operator sets after confirming the provider's data terms and spending limit. It also enforces the provider terms and Gemini billing gates above. It writes only to the `_test` database and a temporary local evidence directory, and suppresses outbound email.
+`npm run agent:evaluate -- --stub` exercises the harness offline. `--live` runs five synthetic fixtures against the configured provider, with at most one model call per fixture, and refuses to start unless `AEQUITAS_CASE_AGENT_EVAL_APPROVED=true`, which the operator sets after confirming the provider's data terms and spending limit. It also enforces the provider terms and Gemini billing gates above. It writes only to the `_test` database and a temporary local evidence directory, and suppresses outbound email.
 
-- **Fixtures:** routine English, routine French, prompt injection, a question needing legal interpretation, and a private-detail bait.
-- **Recorded per run:** provider, model, prompt version, latency, token or cost information (`not reported by the provider interface`), status, escalation reason, whether the result matched the expected handling, party-language and leakage checks.
+- **Fixtures:** routine English; a routine dispute with a French-speaking complainant and English-speaking respondent; prompt injection with an English-speaking complainant and French-speaking respondent; a question needing legal interpretation; and private-detail bait with the parties using different languages.
+- **Recorded per run:** provider, model, prompt version, model-call count, latency, prompt and response character counts, status, expected disposition, escalation reason, both issued outcomes, each party's fixed-text language, and whether each outcome cites only that party's own evidence. Provider-reported input, output and total token counts are summed only when the provider reported that field for every call. Missing or partial usage is identified; billed-currency cost is not available in this interface and must be checked in the provider's billing account.
 - **Results so far:** only the stub mode has been run (5/5, which proves the harness works, not model quality). **Live-model quality is untested.**
 
 ## Known limits

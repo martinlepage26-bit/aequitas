@@ -56,4 +56,45 @@ describe("free pipeline provider", () => {
       CLOUDFLARE_API_TOKEN: "token",
     }).ok).toBe(true);
   });
+
+  it("returns only provider-reported token counts for Gemini and Workers AI", async () => {
+    const geminiFetch = (async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "{}" }] } }],
+      usageMetadata: { promptTokenCount: 21, candidatesTokenCount: 8, totalTokenCount: 29 },
+    }), { status: 200 })) as typeof fetch;
+    const gemini = resolveFreeTextModel({ AEQUITAS_PIPELINE_ENABLED: "true", GEMINI_API_KEY: "test-only" }, geminiFetch);
+    expect(gemini.ok).toBe(true);
+    if (gemini.ok) {
+      await expect(gemini.model.completeWithUsage?.("synthetic prompt")).resolves.toEqual({
+        text: "{}",
+        usage: { promptTokens: 21, completionTokens: 8, totalTokens: 29 },
+      });
+    }
+
+    const workersFetch = (async () => new Response(JSON.stringify({
+      result: { response: "{}", usage: { prompt_tokens: 34, completion_tokens: 13, total_tokens: 47 } },
+    }), { status: 200 })) as typeof fetch;
+    const workers = resolveFreeTextModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      CLOUDFLARE_ACCOUNT_ID: "account",
+      CLOUDFLARE_API_TOKEN: "test-only",
+    }, workersFetch);
+    expect(workers.ok).toBe(true);
+    if (workers.ok) {
+      await expect(workers.model.completeWithUsage?.("synthetic prompt")).resolves.toEqual({
+        text: "{}",
+        usage: { promptTokens: 34, completionTokens: 13, totalTokens: 47 },
+      });
+    }
+  });
+
+  it("does not invent token counts when the provider omits usage metadata", async () => {
+    const fetchImpl = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "{}" }] } }] }), { status: 200 })) as typeof fetch;
+    const resolved = resolveFreeTextModel({ AEQUITAS_PIPELINE_ENABLED: "true", GEMINI_API_KEY: "test-only" }, fetchImpl);
+    expect(resolved.ok).toBe(true);
+    if (resolved.ok) {
+      await expect(resolved.model.completeWithUsage?.("synthetic prompt")).resolves.toEqual({ text: "{}", usage: undefined });
+    }
+  });
 });

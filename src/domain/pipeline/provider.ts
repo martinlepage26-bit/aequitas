@@ -12,56 +12,101 @@ export interface TextCompletion {
   provider: string;
   model: string;
   complete(prompt: string): Promise<string>;
+  /** Optional provider-reported metering. Never estimate tokens from text. */
+  completeWithUsage?(prompt: string): Promise<TextCompletionWithUsage>;
+}
+
+export interface TextCompletionUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+export interface TextCompletionWithUsage {
+  text: string;
+  usage?: TextCompletionUsage;
+}
+
+function tokenCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+}
+
+function usageCounts(input: unknown, output: unknown, total: unknown): TextCompletionUsage | undefined {
+  const promptTokens = tokenCount(input);
+  const completionTokens = tokenCount(output);
+  const totalTokens = tokenCount(total);
+  const usage: TextCompletionUsage = {
+    ...(promptTokens !== undefined ? { promptTokens } : {}),
+    ...(completionTokens !== undefined ? { completionTokens } : {}),
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+  };
+  return Object.keys(usage).length ? usage : undefined;
 }
 
 function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): TextCompletion {
+  async function completeWithUsage(prompt: string): Promise<TextCompletionWithUsage> {
+    const response = await fetchImpl(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, responseMimeType: "application/json" },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    if (!response.ok) throw new Error(`Gemini request failed (${response.status}).`);
+    const body = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      usageMetadata?: { promptTokenCount?: unknown; candidatesTokenCount?: unknown; totalTokenCount?: unknown };
+    };
+    const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+    if (!text.trim()) throw new Error("Gemini returned an empty response.");
+    return {
+      text,
+      usage: usageCounts(body.usageMetadata?.promptTokenCount, body.usageMetadata?.candidatesTokenCount, body.usageMetadata?.totalTokenCount),
+    };
+  }
   return {
     provider: "gemini",
     model,
-    async complete(prompt: string) {
-      const response = await fetchImpl(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0, responseMimeType: "application/json" },
-          }),
-          signal: AbortSignal.timeout(30_000),
-        },
-      );
-      if (!response.ok) throw new Error(`Gemini request failed (${response.status}).`);
-      const body = (await response.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      };
-      const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
-      if (!text.trim()) throw new Error("Gemini returned an empty response.");
-      return text;
-    },
+    completeWithUsage,
+    async complete(prompt: string) { return (await completeWithUsage(prompt)).text; },
   };
 }
 
 function workersModel(accountId: string, token: string, model: string, fetchImpl: typeof fetch): TextCompletion {
+  async function completeWithUsage(prompt: string): Promise<TextCompletionWithUsage> {
+    const response = await fetchImpl(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    if (!response.ok) throw new Error(`Workers AI request failed (${response.status}).`);
+    const body = (await response.json()) as {
+      result?: { response?: string; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } };
+      response?: string;
+      usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
+    };
+    const text = body.result?.response ?? body.response ?? "";
+    if (!text.trim()) throw new Error("Workers AI returned an empty response.");
+    const usage = body.result?.usage ?? body.usage;
+    return {
+      text,
+      usage: usageCounts(usage?.prompt_tokens, usage?.completion_tokens, usage?.total_tokens),
+    };
+  }
   return {
     provider: "workers-ai",
     model,
-    async complete(prompt: string) {
-      const response = await fetchImpl(
-        `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
-          signal: AbortSignal.timeout(30_000),
-        },
-      );
-      if (!response.ok) throw new Error(`Workers AI request failed (${response.status}).`);
-      const body = (await response.json()) as { result?: { response?: string }; response?: string };
-      const text = body.result?.response ?? body.response ?? "";
-      if (!text.trim()) throw new Error("Workers AI returned an empty response.");
-      return text;
-    },
+    completeWithUsage,
+    async complete(prompt: string) { return (await completeWithUsage(prompt)).text; },
   };
 }
 
