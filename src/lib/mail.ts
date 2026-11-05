@@ -12,8 +12,12 @@ export const CASE_REOPENED_KIND = "case_reopened";
 /** Queued for both parties when an automated case agent opens the position stage. */
 export const CASE_AGENT_POSITIONS_REQUESTED_KIND = "case_agent_positions_requested";
 
+function replyToAddress() {
+  return process.env.EMAIL_REPLY_TO?.trim() || process.env.REPLY_TO?.trim() || "";
+}
+
 export function emailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.EMAIL_REPLY_TO && process.env.APP_URL);
+  return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && replyToAddress() && process.env.APP_URL);
 }
 
 function appUrl(path: string) {
@@ -26,7 +30,7 @@ async function sendEmail(to: string, subject: string, text: string, idempotencyK
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: process.env.EMAIL_REPLY_TO, to: [to], subject, text }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyToAddress(), to: [to], subject, text }),
     signal: AbortSignal.timeout(10_000),
   });
   const data = await response.json().catch(() => null);

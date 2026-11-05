@@ -40,9 +40,14 @@ docker compose -p aeq-prod logs -f app
 docker compose -p aeq-prod stop      # stop (clean SIGTERM exit via scripts/start.mjs)
 docker compose -p aeq-prod down      # ROLLBACK: removes only aeq-prod containers; Railway is unaffected (it is parallel)
 docker compose -p aeq-prod down -v   # also deletes aeq-prod volumes (data!) — only with intent
+RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler  # opt in to notification retries and case-agent polling
+docker compose -p aeq-prod --profile scheduled logs scheduler
+docker compose -p aeq-prod --profile scheduled stop scheduler
 curl -s 127.0.0.1:18310/api/health   # {"status":"ok","release":"<sha>"}
 ```
 From the Mac: `ssh -L 18310:127.0.0.1:18310 mtl-00`, then open http://127.0.0.1:18310/fr-CA/auth/sign-in. Passkeys won't work on that origin, so this is for smoke tests only.
+
+The scheduled container receives only its database, event-chain, storage, mail and model settings; it does not receive session or WebAuthn secrets. `deploy.sh` refreshes the scheduler image after later deployments if the opt-in scheduler container already exists. Mail accepts `EMAIL_REPLY_TO`; `REPLY_TO` remains a compatibility alias for the older deployment configuration.
 
 ## Health release
 `/api/health` reports `RAILWAY_GIT_COMMIT_SHA ?? RELEASE_SHA ?? RELEASE_COMMIT`. Railway behaviour is unchanged.

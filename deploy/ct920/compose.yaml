@@ -41,6 +41,43 @@ services:
     logging: *logging
     networks: [aeq-prod-net]
 
+  scheduler:
+    container_name: aeq-prod-scheduler
+    image: aeq-prod-app:${RELEASE_SHA:-unknown}
+    profiles: [scheduled]
+    init: true
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+      HASH_CHAIN_GENESIS: ${HASH_CHAIN_GENESIS:-0000000000000000000000000000000000000000000000000000000000000000}
+      STORAGE_LOCAL_DIR: /data/evidence
+      APP_URL: ${APP_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+      REPLY_TO: ${REPLY_TO:-}
+      AEQUITAS_OCR_LANGUAGES: ${AEQUITAS_OCR_LANGUAGES:-eng+fra}
+      AEQUITAS_CASE_AGENT_ENABLED: ${AEQUITAS_CASE_AGENT_ENABLED:-false}
+      AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: ${AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS:-}
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: ${AEQUITAS_AI_PROVIDER_TERMS_REVIEWED:-false}
+      AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: ${AEQUITAS_GEMINI_PAID_TIER_CONFIRMED:-false}
+      AEQUITAS_PIPELINE_PROVIDER: ${AEQUITAS_PIPELINE_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      AEQUITAS_WORKERS_AI_MODEL: ${AEQUITAS_WORKERS_AI_MODEL:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+    volumes: ["aeq-prod-evidence:/data"]
+    stop_grace_period: 30s
+    logging: *logging
+    networks: [aeq-prod-net]
+    command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/scheduled-ops.ts"]
+
   postgres:
     container_name: aeq-prod-postgres
     # Same major as Railway (postgres-ssl:18). ECR Public mirror.

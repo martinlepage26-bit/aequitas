@@ -25,6 +25,13 @@ describe("Resend delivery", () => {
     expect(request.headers["Idempotency-Key"]).toBe("invitation/invite-1");
     expect(db.invitation.update).toHaveBeenCalledWith({ where: { id: "invite-1" }, data: { emailedAt: expect.any(Date) } });
   });
+  it("accepts the documented legacy REPLY_TO setting when EMAIL_REPLY_TO is absent", async () => {
+    configure(); vi.stubEnv("EMAIL_REPLY_TO", ""); vi.stubEnv("REPLY_TO", "legacy-reply@example.org");
+    const fetch = vi.fn().mockResolvedValue(Response.json({ id: "resend-legacy" })); vi.stubGlobal("fetch", fetch);
+    expect(emailConfigured()).toBe(true);
+    expect(await sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-legacy" })).toBe("accepted");
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ reply_to: "legacy-reply@example.org" });
+  });
   it("keeps failed notifications pending and retries with the same idempotency key", async () => {
     configure();
     db.notification.findMany.mockResolvedValue([{ id: "notification-1", caseId: "case-1", locale: "en-CA", user: { email: "recipient@example.com" } }]);

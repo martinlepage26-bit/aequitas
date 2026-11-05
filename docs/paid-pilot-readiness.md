@@ -39,7 +39,7 @@ Submission → evidence (scanned) → chronology and positions → case manager 
 3. Invite the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`); each enrols a passkey on the production hostname.
 4. Grant approver to one staff member who will not manage the same cases (`scripts/grant-approver.ts`).
 5. Publish current consent statements in fr-CA and en-CA.
-6. Schedule `npm run notify:deliver` (for example every 15 minutes) so failed email notifications are retried; each is tried at most 8 times, then counted as `exhausted`.
+6. Start the CT920 scheduled profile so failed email notifications are retried every 15 minutes; each is tried at most 8 times, then counted as `exhausted`. The case-agent job also runs every 10 minutes but remains off unless separately enabled after its provider and governance gates are resolved.
 7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
 8. Run one synthetic case end to end with program staff before any real file.
 

@@ -115,6 +115,6 @@ Next.js 16 / React 19, TypeScript, Prisma 7 + PostgreSQL, S3-compatible or local
 - **Hosting is split.** Railway is the public production deployment. The private demo is loopback-only on CT920 (port 3417). A separate `aeq-prod` stack is running on CT920 loopback as a parallel dry run; no public cutover has occurred. See `docs/ct920-standup.md`.
 - **Two parties only.** No multi-party membership.
 - **No retention or deletion service** and no translation-review workflow.
-- **Invitation delivery has no background retry scheduler.** Administrators can revoke stored invitations and retry pending notification delivery from the interface.
+- **Notification retry and case-agent scheduling are opt-in deployment services.** The CT920 `scheduled` Compose profile retries queued notifications every 15 minutes and invokes the case agent every 10 minutes; the agent still requires its own explicit runtime and provider gates.
 - **Storage cleanup after process death is manual.** Failed writes normally remove new objects, but no periodic storage sweeper is installed.
 - **CT920 cutover is gated.** A fresh Railway data copy, evidence verification, off-box backups, hostname/passkey decision and Martin's explicit cutover approval are required by the runbook.

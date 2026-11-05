@@ -10,6 +10,9 @@ docker compose -p aeq-prod build app
 docker compose -p aeq-prod up -d postgres clamav
 docker compose -p aeq-prod run --rm --no-deps app npx prisma migrate deploy
 docker compose -p aeq-prod up -d
+if [ -n "$(docker compose -p aeq-prod --profile scheduled ps -a -q scheduler)" ]; then
+  docker compose -p aeq-prod --profile scheduled up -d scheduler
+fi
 for i in $(seq 1 60); do
   body="$(curl -fsS http://127.0.0.1:18310/api/health 2>/dev/null || true)"
   if echo "$body" | grep -q "\"release\":\"$RELEASE_SHA\""; then echo "healthy: $body"; exit 0; fi
