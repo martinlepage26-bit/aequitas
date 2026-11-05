@@ -186,6 +186,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     return { ok: true, data };
   } catch (error) {
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
+    if (error instanceof IntakeNotReadyError) return { ok: false, step: "guard", reason: error.message, code: error.code };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
     if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
     if (error instanceof OutcomeNotIssuedError) return { ok: false, step: "guard", reason: "Outcome not yet available to you", code: "OUTCOME_NOT_ISSUED" };
@@ -225,6 +226,11 @@ async function requireDisplayedOutcome(
   return { id: outcomeId, version: outcomeVersion };
 }
 class StaleSubmissionError extends Error {}
+class IntakeNotReadyError extends Error {
+  constructor(readonly code: "INTAKE_EVIDENCE_PENDING_OR_REJECTED" | "INTAKE_CLEAN_EVIDENCE_REQUIRED", message: string) {
+    super(message);
+  }
+}
 
 // --- create_case: the first concrete mutation built on the pipeline,
 // used by M1's integration test to prove atomicity end to end. -----------
@@ -414,6 +420,27 @@ interface EvidenceFields {
   mimeType: string;
 }
 
+async function clearPartyIntakeReady(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  partyId: string,
+  complainantId: string,
+  respondentId: string,
+): Promise<WriteResult["eventPayloads"]> {
+  const readiness = await tx.case.findUniqueOrThrow({
+    where: { id: caseId },
+    select: { complainantIntakeReadyAt: true, respondentIntakeReadyAt: true },
+  });
+  if (partyId === complainantId && readiness.complainantIntakeReadyAt) {
+    await tx.case.update({ where: { id: caseId }, data: { complainantIntakeReadyAt: null } });
+  } else if (partyId === respondentId && readiness.respondentIntakeReadyAt) {
+    await tx.case.update({ where: { id: caseId }, data: { respondentIntakeReadyAt: null } });
+  } else {
+    return [];
+  }
+  return [{ type: "PARTY_INTAKE_READY_CLEARED", payload: { partyId, reason: "new_submission" } }];
+}
+
 export interface SubmitEvidenceInput extends EvidenceFields {
   actorId: string;
   actorRole: GlobalRole;
@@ -456,7 +483,10 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
       evidenceVisibilityRequiresCleanScan: {},
     },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", simulated: caseRow.simulated, OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
@@ -474,6 +504,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
           simulated: caseRow.simulated,
         },
       });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return {
         caseId: input.caseId,
         toState: caseRow.state,
@@ -482,6 +513,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
             type: "EVIDENCE_SUBMITTED",
             payload: { evidenceItemId: item.id, kind: item.kind, scanStatus: item.scanStatus, signature: scan.signature },
           },
+          ...readinessEvents,
         ],
         notifications: scan.clean
           ? []
@@ -539,7 +571,10 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
       supersedesOwnItem: { actorId: input.actorId, priorItemSubmittedById: priorItem.submittedById },
     },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", simulated: caseRow.simulated, OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
@@ -559,11 +594,13 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
           supersedesId: priorItem.id,
         },
       });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return {
         caseId: input.caseId,
         toState: caseRow.state,
         eventPayloads: [
           { type: "EVIDENCE_SUPERSEDED", payload: { newEvidenceItemId: item.id, priorEvidenceItemId: priorItem.id } },
+          ...readinessEvents,
         ],
         notifications: scan.clean
           ? []
@@ -599,16 +636,100 @@ export async function submitChronology(input: SubmitChronologyInput): Promise<Mu
     write: async (tx) => {
       // Serialize submissions and reject a manager closing intake after the
       // precheck. Holding the case row lock also serializes the event chain.
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const entry = await tx.chronologyEntry.create({ data: {
         caseId: input.caseId, submittedById: input.actorId, ...parsed.data,
         occurredOn: new Date(`${parsed.data.occurredOn}T00:00:00.000Z`),
       } });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [{
         type: "CHRONOLOGY_ENTRY_SUBMITTED",
         payload: { chronologyEntryId: entry.id, ...parsed.data },
-      }] };
+      }, ...readinessEvents] };
+    },
+  });
+}
+
+export interface SetPartyIntakeReadyInput {
+  actorId: string;
+  actorRole: GlobalRole;
+  caseId: string;
+  ready: boolean;
+}
+
+/** A party may finish or reopen their own intake while an opted-in case is active. */
+export async function setPartyIntakeReady(input: SetPartyIntakeReadyInput): Promise<MutationOutcome<WriteResult>> {
+  if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
+    return { ok: false, step: "authorize-role", reason: "Only a case party may change intake readiness." };
+  }
+  const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
+  if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+
+  const isComplainant = input.actorId === caseRow.complainantId;
+  return runMutation({
+    trigger: "mark_intake_ready",
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    fromState: caseRow.state,
+    guardContexts: {
+      isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
+      agentCaseIsActive: { agentManaged: caseRow.agentManaged, escalated: Boolean(caseRow.agentEscalatedAt) },
+    },
+    write: async (tx) => {
+      const locked = await tx.case.updateMany({
+        where: {
+          id: input.caseId,
+          state: "EVIDENCE_INTAKE",
+          agentManaged: true,
+          agentEscalatedAt: null,
+          ...(isComplainant ? { complainantId: input.actorId } : { respondentId: input.actorId }),
+        },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
+      if (locked.count !== 1) throw new StaleSubmissionError();
+
+      const latest = await tx.case.findUniqueOrThrow({
+        where: { id: input.caseId },
+        select: { complainantIntakeReadyAt: true, respondentIntakeReadyAt: true },
+      });
+      const alreadyReady = isComplainant ? latest.complainantIntakeReadyAt : latest.respondentIntakeReadyAt;
+      if (Boolean(alreadyReady) === input.ready) {
+        return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [] };
+      }
+
+      if (input.ready) {
+        const allItems = await tx.evidenceItem.findMany({ where: { caseId: input.caseId } });
+        const superseded = new Set(allItems.map((item) => item.supersedesId).filter((id): id is string => Boolean(id)));
+        const currentOwnItems = allItems.filter((item) => item.submittedById === input.actorId && !superseded.has(item.id));
+        if (currentOwnItems.some((item) => item.scanStatus === "PENDING" || item.scanStatus === "REJECTED")) {
+          throw new IntakeNotReadyError("INTAKE_EVIDENCE_PENDING_OR_REJECTED", "Resolve or replace each pending or rejected file before marking your intake complete.");
+        }
+        if (!currentOwnItems.some((item) => item.scanStatus === "CLEAN")) {
+          throw new IntakeNotReadyError("INTAKE_CLEAN_EVIDENCE_REQUIRED", "Submit at least one clean evidence item before marking your intake complete.");
+        }
+      }
+
+      const now = input.ready ? new Date() : null;
+      await tx.case.update({
+        where: { id: input.caseId },
+        data: isComplainant ? { complainantIntakeReadyAt: now } : { respondentIntakeReadyAt: now },
+      });
+      return {
+        caseId: input.caseId,
+        toState: "EVIDENCE_INTAKE",
+        eventPayloads: [{
+          type: input.ready ? "PARTY_INTAKE_READY_MARKED" : "PARTY_INTAKE_READY_CLEARED",
+          payload: { partyId: input.actorId, reason: "party_action" },
+        }],
+      };
     },
   });
 }

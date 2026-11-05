@@ -109,7 +109,9 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
         break;
       case "AGENT_ENROLLED":
       case "AGENT_ESCALATED":
-        // Case agent opt-in and hand-back to a person. Audit only.
+      case "PARTY_INTAKE_READY_MARKED":
+      case "PARTY_INTAKE_READY_CLEARED":
+        // Agent control and party readiness events. Audit only.
         break;
       default:
         // Audit-only events do not change the case projection.

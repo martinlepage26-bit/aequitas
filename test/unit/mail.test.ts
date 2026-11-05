@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ invitation: { update: vi.fn() }, notification: { findMany: vi.fn(), update: vi.fn() } }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
-import { CASE_AWAITING_MANAGER_KIND, CASE_REOPENED_KIND, OUTCOME_NEEDS_ANSWER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, CASE_REOPENED_KIND, CASE_AGENT_POSITIONS_REQUESTED_KIND, OUTCOME_NEEDS_ANSWER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 function configure() {
@@ -109,5 +109,17 @@ describe("Resend delivery", () => {
     expect(english.text).toContain("https://aequitas.example/en-CA/cases/case-1");
     expect(`${french.subject} ${french.text} ${english.subject} ${english.text}`).not.toContain("COMPLAINANT-V2");
     expect(english.text).not.toContain("outcome");
+  });
+  it("asks both parties to submit their positions after an agent closes intake", () => {
+    configure();
+    const french = notificationEmail({ kind: CASE_AGENT_POSITIONS_REQUESTED_KIND, locale: "fr-CA", caseId: "case-1" });
+    const english = notificationEmail({ kind: CASE_AGENT_POSITIONS_REQUESTED_KIND, locale: "en-CA", caseId: "case-1" });
+    expect(french.subject).toBe("La collecte de preuves est terminée");
+    expect(french.text).toContain("soumettre ou mettre à jour votre position");
+    expect(french.text).toContain("https://aequitas.example/fr-CA/cases/case-1");
+    expect(english.subject).toBe("Evidence intake is complete");
+    expect(english.text).toContain("submit or update your position");
+    expect(english.text).toContain("https://aequitas.example/en-CA/cases/case-1");
+    expect(`${french.text} ${english.text}`).not.toContain("dispute description");
   });
 });

@@ -88,6 +88,8 @@ enum EventType {
   EVIDENCE_ACCESSED
   EVIDENCE_SUPERSEDED
   EVIDENCE_INTAKE_CLOSED
+  PARTY_INTAKE_READY_MARKED
+  PARTY_INTAKE_READY_CLEARED
   POSITION_SUBMITTED
   CHRONOLOGY_ENTRY_SUBMITTED
   RECOMMENDATION_DRAFT_REQUESTED
@@ -243,6 +245,8 @@ model Case {
   agentManaged            Boolean   @default(false)
   agentEscalatedAt        DateTime?
   agentEscalationReason   String?
+  complainantIntakeReadyAt DateTime?
+  respondentIntakeReadyAt  DateTime?
   complainantId           String
   respondentId            String
   caseManagerId           String?

@@ -24,6 +24,7 @@ import OpenIntakeButton from "./OpenIntakeButton";
 import RequestDraftButton from "./RequestDraftButton";
 import AuthorDraftForm from "./AuthorDraftForm";
 import CaseAgentPanel from "./CaseAgentPanel";
+import IntakeReadyButton from "./IntakeReadyButton";
 import { caseAgentEnabled } from "../../../../domain/caseAgent/agent";
 import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
@@ -369,6 +370,14 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           ))}
         </ol>}
         <ChronologyForm caseId={caseId} disabled={!canSubmitChronology || !isParty} />
+        {isParty && caseRow.agentManaged && !caseRow.agentEscalatedAt && caseRow.state === "EVIDENCE_INTAKE" && (
+          <IntakeReadyButton
+            caseId={caseId}
+            ready={session.userId === caseRow.complainantId
+              ? Boolean(caseRow.complainantIntakeReadyAt)
+              : Boolean(caseRow.respondentIntakeReadyAt)}
+          />
+        )}
       </section>
 
       <section aria-labelledby="positions-heading" className={`${styles.section} ${styles.tile}`}>

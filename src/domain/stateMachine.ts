@@ -14,6 +14,7 @@ export const TRIGGERS = [
   "submit_evidence",
   "submit_chronology",
   "supersede_evidence",
+  "mark_intake_ready",
   "close_intake",
   "submit_position",
   "request_draft",
@@ -27,6 +28,7 @@ export const TRIGGERS = [
   "request_new_version",
   "withdraw",
   "close_case",
+  "agent_close_intake",
   "agent_issue",
   "agent_close",
 ] as const;
@@ -144,6 +146,14 @@ export const TRANSITIONS: TransitionDef[] = [
     events: ["EVIDENCE_INTAKE_CLOSED"],
   },
   {
+    trigger: "mark_intake_ready",
+    from: ["EVIDENCE_INTAKE"],
+    to: "EVIDENCE_INTAKE",
+    actorRoles: ["COMPLAINANT", "RESPONDENT"],
+    guards: ["isCaseParty", "agentCaseIsActive"],
+    events: ["PARTY_INTAKE_READY_MARKED", "PARTY_INTAKE_READY_CLEARED"],
+  },
+  {
     trigger: "submit_position",
     from: ["POSITIONS"],
     to: "POSITIONS",
@@ -246,6 +256,14 @@ export const TRANSITIONS: TransitionDef[] = [
   // transitions; every other trigger excludes it. It never drafts without
   // issuing in the same write, never approves, never consents, and closes
   // only consented or withdrawn cases (see src/domain/caseAgent.ts).
+  {
+    trigger: "agent_close_intake",
+    from: ["EVIDENCE_INTAKE"],
+    to: "POSITIONS",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "bothPartiesMarkedIntakeReady", "atLeastOneEvidenceItemPerPartyOrOverride"],
+    events: ["EVIDENCE_INTAKE_CLOSED"],
+  },
   {
     trigger: "agent_issue",
     from: ["POSITIONS"],

@@ -99,6 +99,15 @@ export function atLeastOneEvidenceItemPerPartyOrOverride(ctx: {
   return fail("Both parties must have at least one evidence item, or the case manager must record an override reason.");
 }
 
+export function bothPartiesMarkedIntakeReady(ctx: {
+  complainantReady: boolean;
+  respondentReady: boolean;
+}): GuardResult {
+  return ctx.complainantReady && ctx.respondentReady
+    ? OK
+    : fail("Both parties must mark their evidence intake complete before the case agent can close it.");
+}
+
 export function oneCurrentVersionPerParty(_ctx: Record<string, never>): GuardResult {
   // Descriptive invariant, not a precondition: submitting a position always
   // creates a new version for that party; there is no failure mode here.
@@ -189,6 +198,13 @@ export function agentMayAct(ctx: { agentManaged: boolean; escalated: boolean; ac
   return OK;
 }
 
+/** Party readiness controls are available only while an opted-in case is active. */
+export function agentCaseIsActive(ctx: { agentManaged: boolean; escalated: boolean }): GuardResult {
+  if (!ctx.agentManaged) return fail("This case is not managed by the case agent.");
+  if (ctx.escalated) return fail("This case was handed to a person; the case agent has stopped.");
+  return OK;
+}
+
 /**
  * Every guard name referenced in stateMachine.ts's TRANSITIONS table must
  * resolve here. Looked up by name so the mutation pipeline (and the
@@ -218,6 +234,7 @@ export const GUARD_REGISTRY: Record<string, (ctx: any) => GuardResult> = {
   evidenceVisibilityRequiresCleanScan,
   supersedesOwnItem,
   atLeastOneEvidenceItemPerPartyOrOverride,
+  bothPartiesMarkedIntakeReady,
   oneCurrentVersionPerParty,
   bothPartiesHaveCurrentPositions,
   explanationRecordValidatesAgainstSchema,
@@ -233,4 +250,5 @@ export const GUARD_REGISTRY: Record<string, (ctx: any) => GuardResult> = {
   exportBundleGeneratedAndHashed,
   resolutionNotBlocked,
   agentMayAct,
+  agentCaseIsActive,
 };

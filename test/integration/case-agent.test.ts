@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { DisputeCategory, GlobalRole } from "../../src/generated/prisma";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
@@ -10,11 +10,14 @@ import { authorDraft } from "../../src/domain/authoredDraft";
 import { enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import { readPartyOutcomeCitation } from "../../src/domain/partyOutcomeCitationAccess";
-import { closeCase, closeIntake, createCase, declineConsent, giveConsent, issueRecommendation, openIntake, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
+import { closeCase, closeIntake, createCase, declineConsent, giveConsent, issueRecommendation, openIntake, setPartyIntakeReady, submitCase, submitChronology, submitEvidence, submitPosition, withdrawCase } from "../../src/domain/mutate";
+import { saveCaseDetails } from "../../src/domain/caseDetails";
 import { issuePartyOutcome, readPartyOutcomes } from "../../src/domain/partyOutcome";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import { verifyCase } from "../../src/domain/verifyEvents";
+
+vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: true, signature: "synthetic-clean" })) }));
 
 /**
  * Prototype case agent. Synthetic data only; the model is a local stub and
@@ -41,6 +44,7 @@ const mk = (label: string, globalRole: GlobalRole, extra: { isApprover?: boolean
   prisma.user.create({ data: { email: `agent-${label}-${randomUUID()}@example.org`, displayName: `Agent test ${label}`, globalRole, locale: extra.locale ?? "fr-CA", isApprover: extra.isApprover ?? false } });
 
 beforeAll(async () => {
+  vi.stubEnv("RESEND_API_KEY", "");
   storageDir = mkdtempSync(path.join(tmpdir(), "aeq-agent-"));
   process.env.STORAGE_LOCAL_DIR = storageDir;
   const existingAgent = await prisma.user.findFirst({ where: { globalRole: "CASE_AGENT" } });
@@ -55,11 +59,12 @@ beforeAll(async () => {
 afterAll(async () => {
   rmSync(storageDir, { recursive: true, force: true });
   await prisma.$disconnect();
+  vi.unstubAllEnvs();
 });
 
 type Setup = { caseId: string; complainantId: string; respondentId: string; complainantEvidence: string; respondentEvidence: string };
 
-async function positionsCase(opts: { category?: DisputeCategory; amount?: number | null; enroll?: boolean } = {}): Promise<Setup> {
+async function positionsCase(opts: { category?: DisputeCategory; amount?: number | null; enroll?: boolean; keepIntakeOpen?: boolean } = {}): Promise<Setup> {
   const [c, r] = await Promise.all([mk("complainant", "COMPLAINANT", { locale: "fr-CA" }), mk("respondent", "RESPONDENT", { locale: "en-CA" })]);
   const created = await createCase({
     actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-AGENT-${randomUUID().slice(0, 8)}`,
@@ -83,6 +88,14 @@ async function positionsCase(opts: { category?: DisputeCategory; amount?: number
   };
   const complainantEvidence = await evidence(c.id, "Receipt dated 2026-10-02", "Shows the kettle purchase at full price.", COMPLAINANT_EVIDENCE_TEXT);
   const respondentEvidence = await evidence(r.id, "Clearance tag photo", "Shelf tag marked final sale clearance item.", RESPONDENT_EVIDENCE_TEXT);
+  const setup = { caseId, complainantId: c.id, respondentId: r.id, complainantEvidence, respondentEvidence };
+  if (opts.keepIntakeOpen) {
+    if (opts.enroll !== false) {
+      const enrolled = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId }, ENV);
+      if (!enrolled.ok) throw new Error(enrolled.reason);
+    }
+    return setup;
+  }
   if (!(await closeIntake({ actorId: managerId, actorRole: "CASE_MANAGER", caseId })).ok) throw new Error("close intake");
   if (!(await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: COMPLAINANT_POSITION, locale: "fr-CA" })).ok) throw new Error("position");
   if (!(await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: RESPONDENT_POSITION, locale: "en-CA" })).ok) throw new Error("position");
@@ -90,7 +103,7 @@ async function positionsCase(opts: { category?: DisputeCategory; amount?: number
     const enrolled = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId }, ENV);
     if (!enrolled.ok) throw new Error(enrolled.reason);
   }
-  return { caseId, complainantId: c.id, respondentId: r.id, complainantEvidence, respondentEvidence };
+  return setup;
 }
 
 type Output = Record<string, unknown>;
@@ -123,6 +136,81 @@ const consent = (s: Setup, partyId: string, role: "COMPLAINANT" | "RESPONDENT", 
 async function issuedOutcome(caseId: string, partyId: string) {
   return prisma.partyOutcome.findFirstOrThrow({ where: { caseId, partyId, status: "ISSUED" }, orderBy: { version: "desc" } });
 }
+
+describe("case agent: party-controlled intake", () => {
+  it("waits for both parties, then closes intake and requests both positions without calling a model", async () => {
+    const s = await positionsCase({ keepIntakeOpen: true });
+    const model = stub(() => { throw new Error("The model must not be called while the agent closes intake."); });
+
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect((await setPartyIntakeReady({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId, ready: true })).ok).toBe(false);
+    expect((await setPartyIntakeReady({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, ready: true })).ok).toBe(true);
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect((await setPartyIntakeReady({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId, ready: true })).ok).toBe(true);
+
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "intake_closed" });
+    expect(model.calls).toBe(0);
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(row).toMatchObject({ state: "POSITIONS" });
+    expect(row.complainantIntakeReadyAt).toBeInstanceOf(Date);
+    expect(row.respondentIntakeReadyAt).toBeInstanceOf(Date);
+    expect(await prisma.notification.findMany({ where: { caseId: s.caseId, kind: "case_agent_positions_requested" }, select: { userId: true, locale: true } }))
+      .toEqual(expect.arrayContaining([
+        { userId: s.complainantId, locale: "fr-CA" },
+        { userId: s.respondentId, locale: "en-CA" },
+      ]));
+    expect(await verifyCase(prisma, row)).toEqual([]);
+  });
+
+  it("requires current clean evidence and clears only the submitter's mark after new submissions", async () => {
+    const s = await positionsCase({ keepIntakeOpen: true });
+    expect((await setPartyIntakeReady({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, ready: true })).ok).toBe(true);
+    expect((await setPartyIntakeReady({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId, ready: true })).ok).toBe(true);
+
+    const chronology = await submitChronology({
+      actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId,
+      occurredOn: "2026-10-02", title: "Purchase date", description: "The kettle was purchased.", locale: "fr-CA",
+    });
+    expect(chronology.ok).toBe(true);
+    let row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(row.complainantIntakeReadyAt).toBeNull();
+    expect(row.respondentIntakeReadyAt).toBeInstanceOf(Date);
+
+    expect((await setPartyIntakeReady({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, ready: true })).ok).toBe(true);
+    const evidence = await submitEvidence({
+      actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId,
+      kind: "OTHER", title: "Additional synthetic note", description: "A synthetic intake test file.",
+      buffer: Buffer.from("Synthetic additional intake evidence."), mimeType: "text/plain",
+    });
+    expect(evidence.ok).toBe(true);
+    row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(row.complainantIntakeReadyAt).toBeNull();
+    expect(row.respondentIntakeReadyAt).toBeInstanceOf(Date);
+    expect(await prisma.event.count({ where: { caseId: s.caseId, type: "PARTY_INTAKE_READY_CLEARED" } })).toBe(2);
+
+    const noCleanEvidence = await positionsCase({ keepIntakeOpen: true });
+    await prisma.evidenceItem.update({ where: { id: noCleanEvidence.complainantEvidence }, data: { scanStatus: "REJECTED" } });
+    const refused = await setPartyIntakeReady({ actorId: noCleanEvidence.complainantId, actorRole: "COMPLAINANT", caseId: noCleanEvidence.caseId, ready: true });
+    expect(refused).toMatchObject({ ok: false, code: "INTAKE_CLEAN_EVIDENCE_REQUIRED" });
+  });
+
+  it("clears both readiness marks when the complainant changes the material case facts", async () => {
+    const s = await positionsCase({ keepIntakeOpen: true });
+    await setPartyIntakeReady({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, ready: true });
+    await setPartyIntakeReady({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId, ready: true });
+    const respondent = await prisma.user.findUniqueOrThrow({ where: { id: s.respondentId } });
+    const changed = await saveCaseDetails({
+      caseId: s.caseId, actorId: s.complainantId, actorRole: "COMPLAINANT", expectedRevision: null,
+      category: "RETAIL", disputeDescription: "Corrected synthetic dispute details.", amountAtStake: 8999,
+      respondentEmail: respondent.email, respondentDisplayName: respondent.displayName, simulated: true,
+    });
+    expect(changed).toMatchObject({ ok: true, changed: true });
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(row.complainantIntakeReadyAt).toBeNull();
+    expect(row.respondentIntakeReadyAt).toBeNull();
+    expect(await prisma.event.count({ where: { caseId: s.caseId, type: "PARTY_INTAKE_READY_CLEARED" } })).toBe(2);
+  });
+});
 
 describe("case agent: normal completion", () => {
   it("issues separate cited outcomes, resolves on both consents, then closes with a verified record", async () => {

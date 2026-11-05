@@ -65,6 +65,11 @@ describe("guards", () => {
     ).toBe(false);
   });
 
+  it("bothPartiesMarkedIntakeReady", () => {
+    expect(guards.bothPartiesMarkedIntakeReady({ complainantReady: true, respondentReady: true })).toEqual({ ok: true });
+    expect(guards.bothPartiesMarkedIntakeReady({ complainantReady: true, respondentReady: false }).ok).toBe(false);
+  });
+
   it("bothPartiesHaveCurrentPositions", () => {
     expect(guards.bothPartiesHaveCurrentPositions({ complainantHasPosition: true, respondentHasPosition: true })).toEqual({ ok: true });
     expect(guards.bothPartiesHaveCurrentPositions({ complainantHasPosition: true, respondentHasPosition: false }).ok).toBe(false);
@@ -115,6 +120,12 @@ describe("guards", () => {
   it("exportBundleGeneratedAndHashed", () => {
     expect(guards.exportBundleGeneratedAndHashed({ exportSha256: "abc123" })).toEqual({ ok: true });
     expect(guards.exportBundleGeneratedAndHashed({ exportSha256: null }).ok).toBe(false);
+  });
+
+  it("agentCaseIsActive", () => {
+    expect(guards.agentCaseIsActive({ agentManaged: true, escalated: false })).toEqual({ ok: true });
+    expect(guards.agentCaseIsActive({ agentManaged: false, escalated: false }).ok).toBe(false);
+    expect(guards.agentCaseIsActive({ agentManaged: true, escalated: true }).ok).toBe(false);
   });
 
   it("descriptive no-op guards always pass", () => {

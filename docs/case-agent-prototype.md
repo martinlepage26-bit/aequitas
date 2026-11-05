@@ -4,9 +4,10 @@ Status: **prototype, off by default, tested on synthetic data only.** It is not 
 
 ## What it does
 
-For one Québec program's `RETAIL` cases, after the assigned case manager closes intake and both parties have submitted positions, the agent does the routine steps a manager would otherwise do by hand:
+For one Québec program's `RETAIL` cases, the assigned manager still opens intake, records the conflict-of-interest declaration, and opts the case in. The agent then manages the remaining routine steps for parties who participate:
 
-1. **Checks the file.** It waits while a position is missing or a scan is pending. The case goes to a person if:
+1. **Manages evidence-intake completion.** Each party decides when their own evidence and dated entries are complete. A party can clear that mark while intake remains open; any new evidence or chronology entry clears that party's mark, and a material case-detail correction clears both marks. The agent closes intake only after both parties mark complete and both have current clean evidence. It queues a bilingual email to each party asking them to submit or update their position. A scan failure, open contestation, out-of-scope case, or evidence limit sends the case to a person. Silence never closes intake; there is no deadline or automatic non-response rule.
+2. **Checks the file.** After both parties submit positions, it waits while a position is missing or a scan is pending. The case goes to a person if:
    - the category is not `RETAIL`
    - the amount is missing or above the program's limit, or no limit is configured
    - a file failed scanning
@@ -14,8 +15,8 @@ For one Québec program's `RETAIL` cases, after the assigned case manager closes
    - a contestation is open
 
    No model is called until these checks pass.
-2. **Asks the configured model** for a neutral summary with citations to case evidence, and for one non-binding proposed outcome per party, written in that party's language.
-3. **Validates the reply deterministically** (`src/domain/caseAgent/output.ts`). The case goes to a person instead if any check fails. The reply must:
+3. **Asks the configured model** for a neutral summary with citations to case evidence, and for one non-binding proposed outcome per party, written in that party's language.
+4. **Validates the reply deterministically** (`src/domain/caseAgent/output.ts`). The case goes to a person instead if any check fails. The reply must:
    - follow a strict JSON shape, with no model-set reviewer or source fields
    - cite only current clean evidence in the case, each item at most once, with an exact excerpt from the hash-verified extraction
    - attach server-computed character offsets plus the source-file and extracted-text hashes for every citation
@@ -23,10 +24,10 @@ For one Québec program's `RETAIL` cases, after the assigned case manager closes
    - not repeat any six-word run from the other party's submissions in a party's outcome
    - avoid the forbidden terms and score patterns
    - not judge credibility, state what the law requires, use binding wording, or apply deadline pressure (English and French)
-4. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes, their outcome-version-specific citation pointers, and notifications. Each party can open the exact cited excerpt from their own evidence; the server re-extracts it and checks the source hash, extraction hash, and character range before returning it. The excerpt is not copied into a second database field. Parties see the evidence title and excerpt, while model-written citation rationale stays in the staff audit record because the model saw both parties' material. Citation digests are bound to the issuance events and checked by `verifyCase`. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
-5. **Records answers** through the existing consent flow, which binds consent to the outcome version. While the agent manages the case, both consents resolve it without approver sign-off.
-6. **Closes** (`agent_close`, with a sealed export) only after both parties consent or the complainant withdraws.
-7. **Hands the case back** to the assigned case manager if a party declines. It does not close declined cases.
+5. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes, their outcome-version-specific citation pointers, and notifications. Each party can open the exact cited excerpt from their own evidence; the server re-extracts it and checks the source hash, extraction hash, and character range before returning it. The excerpt is not copied into a second database field. Parties see the evidence title and excerpt, while model-written citation rationale stays in the staff audit record because the model saw both parties' material. Citation digests are bound to the issuance events and checked by `verifyCase`. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
+6. **Records answers** through the existing consent flow, which binds consent to the outcome version. While the agent manages the case, both consents resolve it without approver sign-off.
+7. **Closes** (`agent_close`, with a sealed export) only after both parties consent or the complainant withdraws.
+8. **Hands the case back** to the assigned case manager if a party declines. It does not close declined cases.
 
 Either party can press **"Ask for a person to review this case"** at any time before closure. The agent then stops, the assigned manager is notified, and approver sign-off applies again. Before the agent issues, a party can still correct their position; a correction during the model call makes that result stale. After issuance, a correction goes through a request for a person.
 
@@ -34,10 +35,10 @@ Either party can press **"Ask for a person to review this case"** at any time be
 
 - **Its own account.** The agent acts as a single `CASE_AGENT` service account, created by `npm run agent:provision`.
 - **No sign-in.** No session is ever issued for that role (`src/lib/session.ts` accepts only the four human roles), and it has no passkey.
-- **Two transitions only.** In the state machine it holds `agent_issue` (POSITIONS → ISSUED) and `agent_close` (RESOLVED_CONSENT or WITHDRAWN → CLOSED). A unit test asserts it holds nothing else.
+- **Three transitions only.** In the state machine it holds `agent_close_intake` (EVIDENCE_INTAKE → POSITIONS, after both parties mark ready), `agent_issue` (POSITIONS → ISSUED), and `agent_close` (RESOLVED_CONSENT or WITHDRAWN → CLOSED). A unit test asserts it holds nothing else.
 - **Every write is guarded.** Each step checks `agentMayAct`: the case is opted in, not escalated, and the actor is the agent.
 - **No case read access.** `caseReadAccess` returns nothing for it, so it cannot use party, manager, approver or admin routes. Tests confirm it cannot consent, approve, write outcomes, issue as a manager, close as a manager, or request a person.
-- **Opt-in is human.** Only the case's assigned case manager can opt a case in, during intake or positions. That manager stays accountable and receives every escalation.
+- **Start gate is human; intake completion is party-controlled.** A case manager must open intake, record the conflict-of-interest declaration, and opt the case in. Only each party can mark or clear their own intake-ready status. The agent does not invite a respondent; the complainant must confirm the exact recipient email before an invitation is sent. The assigned manager stays accountable and receives every escalation.
 - **Audit and integrity.** Every agent write appends hash-chained events attributed to the agent account, with origin `case_agent`, the model id, the prompt version and a digest of the material it saw. Replay and `verifyCase` pass on agent-closed cases.
 - **Evidence input.** The agent downloads current clean evidence, verifies its stored size and SHA-256, then extracts text from UTF-8, PDFs and supported images. It follows the existing caps of 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case. If any current evidence is empty, truncated, unsupported, unavailable, over the case limit or fails its integrity check, the model is not called and the case is handed to a person. Scanned PDFs remain unsupported. Exact excerpts prove only that matching text exists in the extraction, not that the document is authentic, accurate or relevant.
 
@@ -70,6 +71,8 @@ Example: `AEQUITAS_CASE_AGENT_EVAL_SYNTHETIC_ONLY=true AEQUITAS_CASE_AGENT_EVAL_
 - A matching excerpt proves traceability to machine-extracted text, not truth, relevance, authenticity, completeness or legal liability. OCR and PDF text may be wrong; the original must be reviewed when a case is handed to a person.
 - An issued citation may become unavailable if its source is replaced or fails integrity checks; the original evidence remains the source of record.
 - Any model failure escalates at once; there is no retry budget.
+- There is no deadline or automated non-response path. If a party never marks their intake complete or submits a position, the agent waits until a person or that party takes another action.
+- The complainant, not the agent, confirms the respondent's exact email address before the invitation is sent.
 - Only the complainant can withdraw (existing rule); the respondent's equivalent is to decline or ask for a person.
 - If the assigned manager drafts by hand on an opted-in case, the agent waits rather than taking over.
 - A failure between export generation and closure can leave an extra export bundle.

@@ -23,6 +23,66 @@ async function contextFor(browser: Browser, userId: string, globalRole: string):
 }
 
 for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
+  test(`parties control intake completion before the agent opens positions (${locale})`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const copy = messages.workspace.caseAgent;
+    if (!(await prisma.user.findFirst({ where: { globalRole: "CASE_AGENT" } }))) {
+      await prisma.user.create({ data: { email: `case-agent-${randomUUID()}@aequitas.invalid`, displayName: "Automated assistant", globalRole: "CASE_AGENT" } });
+    }
+    const mk = (label: string, globalRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER") =>
+      prisma.user.create({ data: { email: `agent-intake-e2e-${label}-${randomUUID()}@example.org`, displayName: `Intake ${label} ${locale}`, globalRole, locale } });
+    const [c, r, m] = await Promise.all([mk("c", "COMPLAINANT"), mk("r", "RESPONDENT"), mk("m", "CASE_MANAGER")]);
+    const statement = await prisma.consentStatementVersion.create({ data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale, body: "Synthetic.", effectiveFrom: new Date() } });
+    const created = await createCase({ actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-AGENT-INTAKE-${randomUUID().slice(0, 8)}`, complainantId: c.id, respondentId: r.id, simulated: true, category: "RETAIL", amountAtStakeCents: 5000, disputeDescription: "Synthetic kettle dispute.", requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
+    if (!created.ok) throw new Error(created.reason);
+    const caseId = created.data.caseId;
+    await submitCase({ actorId: c.id, actorRole: "COMPLAINANT", caseId });
+    await openIntake({ actorId: m.id, actorRole: "CASE_MANAGER", caseId, hasConflict: false });
+    for (const party of [c, r]) {
+      const id = randomUUID();
+      const body = Buffer.from(`Synthetic evidence for ${party.globalRole}.`);
+      const stored = await uploadEvidence({ caseId, evidenceId: id, simulated: true, buffer: body, mimeType: "text/plain" });
+      await prisma.evidenceItem.create({ data: { id, caseId, submittedById: party.id, kind: "OTHER", title: `Evidence ${party.globalRole}`, description: "Synthetic test evidence.", ...stored, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true } });
+    }
+    const enrolled = await enrollCaseAgent({ actorId: m.id, actorRole: "CASE_MANAGER", caseId }, ENV);
+    if (!enrolled.ok) throw new Error(enrolled.reason);
+
+    const [cc, rc] = await Promise.all([contextFor(browser, c.id, "COMPLAINANT"), contextFor(browser, r.id, "RESPONDENT")]);
+    const [cp, rp] = await Promise.all([cc.newPage(), rc.newPage()]);
+    await Promise.all([cp.goto(`/${locale}/cases/${caseId}`), rp.goto(`/${locale}/cases/${caseId}`)]);
+    await expect(cp.getByRole("heading", { name: copy.intakeReadyTitle })).toBeVisible();
+    await expect(rp.getByRole("heading", { name: copy.intakeReadyTitle })).toBeVisible();
+
+    const firstMark = cp.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/intake-ready` && res.request().method() === "POST");
+    await cp.getByRole("button", { name: copy.intakeReadyMark }).click();
+    expect((await firstMark).ok()).toBe(true);
+    await expect(cp.getByText(copy.intakeReadyMarked)).toBeVisible();
+    await expect(rp.getByText(copy.intakeReadyMarked)).toHaveCount(0);
+
+    await cp.getByRole("button", { name: copy.intakeReadyClear }).click();
+    await expect(cp.getByText(copy.intakeReadyMarked)).toHaveCount(0);
+    const secondComplainantMark = cp.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/intake-ready` && res.request().method() === "POST");
+    await cp.getByRole("button", { name: copy.intakeReadyMark }).click();
+    expect((await secondComplainantMark).ok()).toBe(true);
+    const waitingModel = { provider: "test", model: "never-called", calls: 0, async complete() { this.calls++; throw new Error("Unexpected model call"); } };
+    expect(await runCaseAgent({ caseId, env: ENV, model: waitingModel })).toEqual({ status: "waiting", reason: "party_intake_not_ready" });
+    expect(waitingModel.calls).toBe(0);
+
+    const respondentMark = rp.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/intake-ready` && res.request().method() === "POST");
+    await rp.getByRole("button", { name: copy.intakeReadyMark }).click();
+    expect((await respondentMark).ok()).toBe(true);
+    expect(await runCaseAgent({ caseId, env: ENV, model: waitingModel })).toEqual({ status: "intake_closed" });
+    expect(waitingModel.calls).toBe(0);
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(row.state).toBe("POSITIONS");
+    expect(await prisma.notification.count({ where: { caseId, kind: "case_agent_positions_requested" } })).toBe(2);
+
+    await cp.reload();
+    await expect(cp.getByRole("heading", { name: copy.intakeReadyTitle })).toHaveCount(0);
+    await expect(cp.getByText(messages.workspace.timeline.event.EVIDENCE_INTAKE_CLOSED)).toBeVisible();
+    await Promise.all([cc.close(), rc.close()]);
+  });
+
   test(`parties see the assistant notice and can ask for a person (${locale})`, async ({ browser }) => {
     test.setTimeout(120_000);
     const copy = messages.workspace.caseAgent;

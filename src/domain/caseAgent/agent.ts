@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { GlobalRole, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
-import { deliverPendingNotifications } from "../../lib/mail";
+import { CASE_AGENT_POSITIONS_REQUESTED_KIND, deliverPendingNotifications } from "../../lib/mail";
 import type { TextCompletion } from "../pipeline/provider";
 import { resolveFreeTextModel } from "../pipeline/provider";
 import { appendEvent } from "../events";
@@ -16,16 +16,17 @@ import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 /**
  * Prototype case agent for one Québec retail-dispute program.
  *
- * Scope: after intake closes and both positions are in, it checks the file,
- * asks the configured model for an evidence-cited summary and one
- * non-binding proposed outcome per party, validates that output, and issues
- * it. Each party then consents or declines through the existing consent
- * flow. It closes a case only after both parties consent or the complainant
- * withdraws. Anything else goes to the assigned human case manager.
+ * Scope: after a human opens intake, records the conflict declaration and
+ * opts the case in, it closes intake only after both parties mark their own
+ * submissions complete. It then waits for both positions, checks the file,
+ * asks the configured model for evidence-cited proposals, and validates and
+ * issues them. Parties answer through the existing consent flow. Anything
+ * outside the routine path goes to the assigned human case manager.
  *
  * It acts through its own CASE_AGENT account, which holds only the
- * agent_issue and agent_close transitions (stateMachine.ts). It cannot
- * approve, consent, open intake, read sessions, or act as an administrator.
+ * agent_close_intake, agent_issue and agent_close transitions
+ * (stateMachine.ts). It cannot approve, consent, open intake, invite a party,
+ * read sessions, or act as an administrator.
  */
 
 export const CASE_AGENT_EMAIL = "case-agent@aequitas.invalid";
@@ -49,6 +50,7 @@ export type AgentRunResult =
   | { status: "skipped"; reason: string }
   | { status: "waiting"; reason: string }
   | { status: "stale" }
+  | { status: "intake_closed" }
   | { status: "issued"; recommendationId: string }
   | { status: "closed" }
   | { status: "escalated"; reason: EscalationReason };
@@ -160,6 +162,63 @@ async function loadMaterial(caseId: string) {
 
 type Material = Awaited<ReturnType<typeof loadMaterial>>;
 
+async function closeIntakeAsAgent(material: Material, actorId: string): Promise<AgentRunResult> {
+  const complainantHasEvidence = material.current.some((item) => item.submittedById === material.caseRow.complainantId && item.scanStatus === "CLEAN");
+  const respondentHasEvidence = material.current.some((item) => item.submittedById === material.caseRow.respondentId && item.scanStatus === "CLEAN");
+  try {
+    const result = await runMutation({
+      trigger: "agent_close_intake",
+      actorId,
+      actorRole: "CASE_AGENT",
+      fromState: "EVIDENCE_INTAKE",
+      guardContexts: {
+        agentMayAct: { agentManaged: material.caseRow.agentManaged, escalated: Boolean(material.caseRow.agentEscalatedAt), actorIsCaseAgent: true },
+        bothPartiesMarkedIntakeReady: {
+          complainantReady: Boolean(material.caseRow.complainantIntakeReadyAt),
+          respondentReady: Boolean(material.caseRow.respondentIntakeReadyAt),
+        },
+        atLeastOneEvidenceItemPerPartyOrOverride: { complainantHasEvidence, respondentHasEvidence },
+      },
+      write: async (tx) => {
+        const locked = await tx.case.updateMany({
+          where: {
+            id: material.caseRow.id,
+            state: "EVIDENCE_INTAKE",
+            agentManaged: true,
+            agentEscalatedAt: null,
+            complainantIntakeReadyAt: { not: null },
+            respondentIntakeReadyAt: { not: null },
+          },
+          data: { state: "POSITIONS" },
+        });
+        if (locked.count !== 1) throw new StaleAgentWrite();
+
+        const allItems = await tx.evidenceItem.findMany({ where: { caseId: material.caseRow.id } });
+        const superseded = new Set(allItems.map((item) => item.supersedesId).filter((id): id is string => Boolean(id)));
+        const currentItems = allItems.filter((item) => !superseded.has(item.id));
+        const hasCleanFor = (partyId: string) => currentItems.some((item) => item.submittedById === partyId && item.scanStatus === "CLEAN");
+        if (!hasCleanFor(material.caseRow.complainantId) || !hasCleanFor(material.caseRow.respondentId)
+          || currentItems.some((item) => item.scanStatus === "PENDING" || item.scanStatus === "REJECTED")) {
+          throw new StaleAgentWrite();
+        }
+        return {
+          caseId: material.caseRow.id,
+          toState: "POSITIONS",
+          eventPayloads: [{ type: "EVIDENCE_INTAKE_CLOSED", payload: { origin: "case_agent", bothPartiesMarkedReady: true } }],
+          notifications: [
+            { userId: material.caseRow.complainantId, kind: CASE_AGENT_POSITIONS_REQUESTED_KIND, locale: material.caseRow.complainant.locale },
+            { userId: material.caseRow.respondentId, kind: CASE_AGENT_POSITIONS_REQUESTED_KIND, locale: material.caseRow.respondent.locale },
+          ],
+        };
+      },
+    });
+    return result.ok ? { status: "intake_closed" } : { status: "stale" };
+  } catch (error) {
+    if (error instanceof StaleAgentWrite) return { status: "stale" };
+    throw error;
+  }
+}
+
 type AgentEvidenceSource = {
   text: string;
   method: Exclude<EvidenceExtraction["method"], "none">;
@@ -201,6 +260,20 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   };
 
   switch (row.state) {
+    case "EVIDENCE_INTAKE": {
+      if (row.category !== "RETAIL") return escalate("out_of_scope_category");
+      const cap = caseAgentAmountCap(env);
+      if (cap === null || row.amountAtStakeCents === null || row.amountAtStakeCents > cap) return escalate("out_of_scope_amount");
+      if (first.openContestations > 0) return escalate("contestation_open");
+      if (first.current.some((item) => item.scanStatus === "PENDING")) return { status: "waiting", reason: "scan_pending" };
+      if (first.current.some((item) => item.scanStatus === "REJECTED")) return escalate("evidence_rejected");
+      if (first.current.length > MAX_EVIDENCE_FILES) return escalate("evidence_limit_exceeded");
+      const complainantHasEvidence = first.current.some((item) => item.submittedById === row.complainantId && item.scanStatus === "CLEAN");
+      const respondentHasEvidence = first.current.some((item) => item.submittedById === row.respondentId && item.scanStatus === "CLEAN");
+      if (!complainantHasEvidence || !respondentHasEvidence) return { status: "waiting", reason: "party_evidence_missing" };
+      if (!row.complainantIntakeReadyAt || !row.respondentIntakeReadyAt) return { status: "waiting", reason: "party_intake_not_ready" };
+      return closeIntakeAsAgent(first, agent.id);
+    }
     case "POSITIONS":
       break;
     case "ISSUED":

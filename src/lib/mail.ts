@@ -9,6 +9,8 @@ export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
 export const OUTCOME_NEEDS_ANSWER_KIND = "outcome_needs_answer";
 /** Queued for the other party when a resolved case returns to issued. No outcome text. */
 export const CASE_REOPENED_KIND = "case_reopened";
+/** Queued for both parties when an automated case agent opens the position stage. */
+export const CASE_AGENT_POSITIONS_REQUESTED_KIND = "case_agent_positions_requested";
 
 export function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.EMAIL_REPLY_TO && process.env.APP_URL);
@@ -85,6 +87,12 @@ export function notificationEmail(input: {
     return french
       ? { subject: "Le dossier a été rouvert", text: `Le dossier a été rouvert. Connectez-vous pour consulter le dossier :\n\n${link}` }
       : { subject: "The case was reopened", text: `The case was reopened. Sign in to read the record:\n\n${link}` };
+  }
+  if (input.kind === CASE_AGENT_POSITIONS_REQUESTED_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? { subject: "La collecte de preuves est terminée", text: `La collecte de preuves est terminée. Connectez-vous pour soumettre ou mettre à jour votre position dans le dossier :\n\n${link}` }
+      : { subject: "Evidence intake is complete", text: `Evidence intake is complete. Sign in to submit or update your position in the case:\n\n${link}` };
   }
   if (input.kind === CASE_AWAITING_MANAGER_KIND && input.referenceNumber && input.category) {
     const category = resolveCategoryLabel(input.category, input.locale);
