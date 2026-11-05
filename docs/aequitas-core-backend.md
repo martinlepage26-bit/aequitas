@@ -22,9 +22,11 @@ Every new AI draft includes a versioned Conflict Knowledge Map:
   conditions; repair options with prerequisites, accountability and consent.
 
 The method is `aequitas-core-v1`; the drafting prompt is `2026-09-22.1` (see
-`src/ai/prompts/CHANGELOG.md` for the full version history).
-It applies across all existing dispute categories. Human review and party consent
-remain separate from AI assessments.
+`src/ai/prompts/CHANGELOG.md` for the full version history). This map pipeline
+applies across the existing dispute categories. Its human review and issuance
+checklist remain separate from AI assessments. The distinct case-agent route
+handles only configured, eligible routine retail cases and does not use this
+knowledge-map workflow; it is off by default and has separate launch gates.
 
 ## Legal research (LegiPro)
 
@@ -47,11 +49,14 @@ pattern already used for `ANTHROPIC_API_KEY` and the database connection —
 see DECISIONS.md.
 
 **This is legal research support for a human reviewer, not adjudication.**
-Nothing in this pipeline determines liability, issues a binding ruling, or
-constitutes legal advice — the hard constraint against the word "decision"
-and the mandatory human-review-before-issuance gate (Section 9) are
-unchanged and apply to legal_research-informed drafts exactly as to any
-other draft.
+Nothing in this map pipeline determines liability, issues a binding ruling, or
+constitutes legal advice. Its human-review-before-issuance gate remains in
+force for map drafts, including drafts informed by `legal_research`. The
+separate case-agent route can issue a structured, non-binding proposal without
+case-manager action; both parties must consent to close, and exceptions go to
+staff. That route's no-approver policy is still an owner and counsel gate; it
+must remain disabled until the program's provider, oversight and legal reviews
+are complete.
 
 ## Persistence, provenance and validation
 

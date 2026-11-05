@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "Aequitas — espace de résolution",
-    "description": "Une plateforme de résolution des différends documentée et révisable par des humains. Les résultats proposés sont toujours distingués des décisions, chaque étape importante est attribuable, et aucune partie n'est jamais présentée comme ayant consenti avant de l'avoir fait."
+    "description": "Un service bilingue de résolution des différends avec gestion par le personnel et agent facultatif pour les dossiers de vente au détail configurés. L’agent prépare des propositions non contraignantes qui citent les preuves; les parties contrôlent leur consentement et peuvent demander une personne. Le mode agent est désactivé par défaut."
   },
   "banner": {
     "simulated": "Dossier simulé — données d'apprentissage"
@@ -203,12 +203,12 @@
       "positionHelp": "Expliquez votre point de vue, renvoyez à vos preuves et aux événements datés, puis décrivez le résultat recherché. Les versions précédentes sont conservées.",
       "availability": {
         "available": "Vous pouvez soumettre ici maintenant.",
-        "submitCaseFirst": "Soumettez d'abord ce dossier en brouillon. Un gestionnaire ouvrira ensuite la collecte de preuves.",
-        "waitingForManager": "En attente d'un gestionnaire pour ouvrir la collecte de preuves.",
-        "afterEvidence": "Vous pourrez soumettre votre position après la clôture de la collecte de preuves par le gestionnaire.",
+        "submitCaseFirst": "Soumettez d’abord ce dossier en brouillon. Le gestionnaire ou, si le programme l’a activé pour un dossier admissible, le service automatisé ouvrira ensuite la collecte de preuves.",
+        "waitingForManager": "En attente de l’ouverture de la collecte de preuves par le gestionnaire ou, si le programme l’a activé, par le service automatisé.",
+        "afterEvidence": "Vous pourrez soumettre votre position après la clôture de la collecte de preuves par le gestionnaire ou l’agent automatisé du programme.",
         "intakeClosed": "La collecte de preuves est close. Vous pouvez lire le dossier, mais pas ajouter de preuve ou d'événement daté à cette étape.",
         "readOnly": "Les soumissions sont closes à cette étape. Les éléments déjà soumis restent consultables.",
-        "partiesOnly": "Seules les parties au dossier peuvent soumettre. Les gestionnaires examinent leurs soumissions."
+        "partiesOnly": "Seules les parties au dossier peuvent soumettre. Le gestionnaire de dossier ou, si le programme l’a activé, le service automatisé assure ensuite le traitement."
       }
     },
     "chronology": {
@@ -924,14 +924,14 @@
   "landing": {
     "title": "Aequitas",
     "tagline": "Chaque partie ne voit que ses propres éléments.",
-    "lead": "Aequitas accompagne la résolution de différends : chaque partie dépose ses pièces et sa position, un gestionnaire de dossier neutre fait réviser un résultat proposé, et rien n'est conclu sans le consentement explicite de chaque partie.",
+    "lead": "Lorsqu’un programme active son agent, Aequitas peut traiter les dossiers admissibles de différend de consommation au détail, de la collecte des preuves à une proposition qui cite les preuves. Chaque partie garde le contrôle de ses propres soumissions et décide de consentir ou non. Chacune peut demander qu’une personne examine le dossier; les exceptions sont transmises au personnel du programme.",
     "signIn": "Se connecter avec une clé d'accès",
     "myCases": "Mes dossiers",
     "otherLocale": "English",
     "skipToContent": "Aller au contenu",
     "navigationLabel": "Navigation principale",
     "workspaceLabel": "Un espace pour résoudre les différends",
-    "intro": "Déposez vos pièces, faites entendre votre point de vue et avancez avec un gestionnaire de dossier neutre.",
+    "intro": "Dans un programme qui active l’agent, Aequitas peut gérer les étapes courantes des dossiers admissibles sans intervention d’un gestionnaire. Les parties déposent leurs preuves et leurs positions; le service prépare une proposition qui cite les preuves. Chacune peut consentir, refuser ou demander qu’une personne examine le dossier.",
     "imageCaption": "Deux perspectives. Un même dossier.",
     "processTitle": "Un chemin clair, ensemble.",
     "steps": {
@@ -941,7 +941,7 @@
       },
       "review": {
         "title": "Examiner une proposition",
-        "description": "Un gestionnaire de dossier neutre révise le résultat proposé avant de le partager avec les parties."
+        "description": "Dans un dossier admissible, l’agent d’Aequitas prépare une proposition non contraignante qui cite les preuves. Les exceptions et les demandes d’examen par une personne sont transmises au personnel du programme."
       },
       "consent": {
         "title": "Choisir de consentir",
@@ -961,14 +961,14 @@
       },
       "position": {
         "title": "Votre position",
-        "description": "Dans Positions, expliquez votre point de vue et le résultat recherché après la clôture de la collecte de preuves par le gestionnaire."
+        "description": "Dans Positions, expliquez votre point de vue et le résultat recherché après la clôture de la collecte de preuves par le gestionnaire ou, dans un dossier admissible où le programme l’active, le service automatisé."
       },
       "note": "Les parties soumettent leurs éléments dans leur dossier, pas sur cette page publique. Le dossier explique pourquoi une action n'est pas disponible."
     },
-    "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie.",
+    "footer": "Le mode automatisé est facultatif et réservé aux dossiers admissibles. Chaque partie décide de consentir ou non; chacune peut demander qu’une personne examine le dossier.",
     "pilot": {
       "title": "Vous gérez un programme de règlement des différends?",
-      "body": "Nous cherchons un programme québécois pour essayer cet espace de travail dans un projet pilote encadré. Il ne donne pas d’avis juridique et ne remplace pas vos gestionnaires de dossiers.",
+      "body": "Nous cherchons un programme québécois pour un projet pilote supervisé de l’agent facultatif d’Aequitas. Si le programme l’active et configure ses règles, l’agent gère les dossiers admissibles de consommation au détail, de la collecte jusqu’à une proposition non contraignante qui cite les preuves, sans action d’un gestionnaire. Chaque partie garde le contrôle de ses propres soumissions, décide de consentir ou non et peut demander qu’une personne examine le dossier; les exceptions vont au personnel. L’agent est désactivé par défaut. La qualité d’un modèle en direct et le fonctionnement en production n’ont pas encore été validés. Aequitas ne donne pas d’avis juridique.",
       "action": "Demander un projet pilote"
     }
   },

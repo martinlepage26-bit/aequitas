@@ -1,6 +1,8 @@
-# Aequitas — Evidence and Human Review for Dispute Resolution
+# Aequitas — Evidence-Grounded Dispute Resolution
 
-Aequitas is a research-led workspace prototype for organizing claims, evidence, competing interpretations, consent, and proposed repair. It keeps draft recommendations separate from decisions and makes human correction part of the workflow.
+Aequitas is a bilingual dispute-resolution workspace with staff-led cases and an optional autonomous workflow for configured, eligible retail cases. In agent-managed cases, it can handle intake, evidence and positions through a non-binding, evidence-cited proposal without case-manager action. Each party controls their submissions and consent; exceptions and requests for a person go to program staff.
+
+The case agent is off by default. Its current end-to-end proof uses synthetic cases and a stub model; live-provider quality and production operations remain unverified. It is not an adjudication engine and does not give legal advice.
 
 **Stack:** Next.js, TypeScript, React, Prisma/PostgreSQL, WebAuthn, Vitest, and Playwright.
 
@@ -8,18 +10,24 @@ Aequitas is a research-led workspace prototype for organizing claims, evidence, 
 
 ```mermaid
 flowchart LR
-  A["Case context"] --> B["Authorized claims and evidence"]
-  B --> C["Human review"]
-  B --> D["Optional AI proposals"]
-  D --> C
-  C --> E["Draft synthesis and events"]
+  A["Submitted case"] --> B["Party-controlled evidence and positions"]
+  B --> C{"Configured and eligible?"}
+  C -->|staff-led| D["Case manager reviews"]
+  C -->|opted-in routine case| E["Case agent processes"]
+  E --> F["Evidence-cited, non-binding proposal"]
+  D --> F
+  E -->|exception or request| G["Program staff review"]
+  F --> H["Each party chooses whether to consent"]
+  H -->|both consent| I["Resolve and export"]
+  H -->|decline or ask for a person| G
 ```
 
 ## Engineering highlights
 
 - Case-level access and claim-write permissions are expressed in domain code.
 - Evidence and interpretations retain provenance rather than becoming an unexplained generated answer.
-- The optional AI pipeline proposes structured material for review.
+- The case agent is restricted to explicit program rules, evidence-backed proposals, and a closed remedy set; it hands exceptions to staff.
+- Both parties make the consent decision, bound to the outcome version they saw.
 - Security tests exercise account-takeover prevention and invite-based account claiming.
 
 ## Review the implementation
@@ -27,12 +35,13 @@ flowchart LR
 | Question | Start here |
 | --- | --- |
 | Who can read a case or write a claim? | [Case access](src/domain/caseAccess.ts), [claim permissions](src/domain/claimWrites.ts) |
+| How does the autonomous routine path work? | [Case-agent prototype and launch gates](docs/case-agent-prototype.md) |
 | How are AI proposals authorized and recorded? | [Pipeline writes](src/domain/pipeline/writes.ts) |
 | How is account takeover tested? | [HTTP/WebAuthn regression tests](test/integration/auth-takeover.test.ts) |
 | How does the method map to the backend? | [Core backend contract](docs/aequitas-core-backend.md) |
 | Which checks run in CI? | [CI workflow](.github/workflows/ci.yml) |
 
-A useful review follows one case through evidence entry, competing claims, human correction, and a draft synthesis. The point of the prototype is to preserve those distinctions throughout the application.
+A useful review follows an eligible case through intake, evidence extraction, positions, a structured proposal, party consent, and a staff handoff when a rule or safety check requires one. Human-led cases remain supported. The agent must not turn a proposal into a binding decision or bypass either party's choice.
 
 ## Development and verification
 
@@ -47,6 +56,6 @@ Available checks include `npm run lint`, `npm run typecheck`, `npm test`, `npm r
 
 ## Scope
 
-This is a workspace prototype, not an automated legal decision-maker. Legal-context retrieval requires a separately configured source; missing configuration must remain visible to the user. Test sources document intended behavior, not a guarantee about every deployment.
+This remains a release candidate, not a production-ready automated service. The case agent is optional and disabled until program rules, provider terms, oversight, and legal review are resolved. Legal-context retrieval requires a separately configured source; missing configuration must remain visible. Synthetic tests demonstrate code paths, not live-model quality or readiness for real case data. See [paid-pilot readiness](docs/paid-pilot-readiness.md).
 
-[Detailed setup and operating guide](https://github.com/martinlepage26-bit/aequitas/blob/5898e6fa3e2b3ab43e5be20cb243844ee48d9356/README.md)
+[Paid-pilot readiness and operating gates](docs/paid-pilot-readiness.md)

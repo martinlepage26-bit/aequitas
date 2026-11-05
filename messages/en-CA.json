@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "Aequitas — resolution workspace",
-    "description": "A documented, human-reviewable dispute-resolution platform. Proposed outcomes are always distinguished from decisions, every material step is attributable, and no party is ever represented as having consented before it has done so."
+    "description": "A bilingual dispute-resolution service with staff-led cases and optional autonomous handling of configured retail cases. The agent prepares evidence-cited, non-binding proposals; parties control consent and can ask for a person. Agent mode is off by default."
   },
   "banner": {
     "simulated": "Simulated case — training data"
@@ -203,12 +203,12 @@
       "positionHelp": "Explain your account, refer to your evidence and dated events, and describe the outcome you are seeking. New submissions retain earlier versions.",
       "availability": {
         "available": "You can submit here now.",
-        "submitCaseFirst": "Submit this draft case first. A case manager then opens evidence intake.",
-        "waitingForManager": "Waiting for a case manager to open evidence intake.",
-        "afterEvidence": "Position submissions open after the case manager closes evidence intake.",
+        "submitCaseFirst": "Submit this draft case first. A case manager or, in an opted-in eligible case, the automated service then opens evidence intake.",
+        "waitingForManager": "Waiting for a case manager or, in an opted-in case, the automated service to open evidence intake.",
+        "afterEvidence": "Position submissions open after the case manager or enabled case agent closes evidence intake.",
         "intakeClosed": "Evidence intake is closed. You can read the record, but cannot add evidence or dated events at this stage.",
         "readOnly": "Submissions are closed at this stage. Previously submitted material remains available to read.",
-        "partiesOnly": "Only the parties to this case can submit. Case managers review their submissions."
+        "partiesOnly": "Only the parties to this case can submit. A case manager or, in an opted-in case, the automated service handles the next steps."
       }
     },
     "chronology": {
@@ -924,14 +924,14 @@
   "landing": {
     "title": "Aequitas",
     "tagline": "Each party sees only their own submissions.",
-    "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
+    "lead": "In an opted-in program, Aequitas can handle configured, eligible retail cases from intake through an evidence-cited proposal. Each party controls their submissions and chooses whether to consent; either party can ask for a person, and exceptions go to program staff.",
     "signIn": "Sign in with a passkey",
     "myCases": "My cases",
     "otherLocale": "Français",
     "skipToContent": "Skip to content",
     "navigationLabel": "Main navigation",
     "workspaceLabel": "A workspace for dispute resolution",
-    "intro": "Bring your evidence, share your perspective, and work toward a proposed outcome with a neutral case manager.",
+    "intro": "For eligible cases in an opted-in program, Aequitas can handle routine steps without case-manager action. Parties submit evidence and positions; the system prepares a cited proposal. Each party may consent, decline, or ask a person to review.",
     "imageCaption": "Two perspectives. One shared record.",
     "processTitle": "A clear process, together.",
     "steps": {
@@ -941,7 +941,7 @@
       },
       "review": {
         "title": "Review a proposal",
-        "description": "A neutral case manager reviews the proposed outcome before it is shared with the parties."
+        "description": "For an opted-in eligible case, Aequitas prepares a non-binding proposal with evidence citations. Exceptions and requests for a person go to program staff."
       },
       "consent": {
         "title": "Choose whether to consent",
@@ -961,14 +961,14 @@
       },
       "position": {
         "title": "Your position",
-        "description": "In Positions, explain your account and the outcome you are seeking once the case manager closes evidence intake."
+        "description": "In Positions, explain your account and the outcome you are seeking once the case manager or, in an opted-in eligible case, the automated service closes evidence intake."
       },
       "note": "Submissions are made by the parties inside their case, not on this public page. The case workspace explains any unavailable action."
     },
-    "footer": "Proposals are reviewed by a person. Consent belongs to each party.",
+    "footer": "Agent mode is optional and limited to eligible cases. Both parties choose whether to consent; either can ask for a person.",
     "pilot": {
       "title": "Running a dispute-resolution program?",
-      "body": "We are looking for one Québec program to try this workspace in a supervised pilot. It does not give legal advice and does not replace your case managers.",
+      "body": "We are seeking one Québec program for a supervised pilot of Aequitas's optional case agent. For configured, eligible retail cases, it manages intake through an evidence-cited, non-binding proposal without case-manager action. Each party controls their submissions, chooses whether to consent, and can ask for a person; exceptions go to staff. The agent is off by default, and live-model quality and production operations have not yet been validated. Aequitas does not give legal advice.",
       "action": "Ask about a pilot"
     }
   },
