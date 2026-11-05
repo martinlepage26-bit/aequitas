@@ -104,7 +104,7 @@ If program rules are missing or invalid, the agent takes no new case and hands a
 - **Test coverage:**
   - A stub stands in for the respondent's passkey enrolment.
   - Scanning in the routine integration tests is seeded; the browser test uploads through the real scanner in CI.
-  - Page-number citation is verified end to end for searchable multi-page PDFs. A multi-page scanned PDF has not yet been exercised through an issued agent citation.
+  - Page-number citation is verified end to end for searchable and OCR-extracted scanned multi-page PDFs.
 - **Heuristic checks.** The deny list catches forbidden phrasing in staff-only model text; it cannot prove that text is accurate or neutral.
 - **Escalation behaviour:**
   - Any model failure escalates at once; there is no retry budget.
