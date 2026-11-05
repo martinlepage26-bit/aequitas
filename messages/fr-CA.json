@@ -326,6 +326,8 @@
       "issueButton": "Rendre la recommandation",
       "issuing": "Émission en cours…",
       "error": "La recommandation n'a pas pu être rendue.",
+      "withheldForParty": "Le raisonnement complet de la personne gestionnaire reste au personnel, car il s'appuie sur les soumissions des deux parties. Votre propre résultat, ci-dessous, est le texte auquel vous devez répondre.",
+      "citedEvidenceFallback": "Preuve citée",
       "humanAuthoredLabel": "Rédigé par la personne gestionnaire du dossier. Aucun modèle n’a été utilisé."
     },
     "claims": {

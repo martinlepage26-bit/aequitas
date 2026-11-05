@@ -173,6 +173,11 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     }
   }
   const humanAuthored = recommendation ? isHumanAuthoredModel(recommendation.explanation.model.id) : false;
+  // A party's copy omits the shared text when it may draw on the other
+  // party's submissions (submissionVisibility). Say so instead of showing
+  // empty fields; the party's own outcome is what they answer.
+  const recommendationWithheld = access === "party" && recommendation !== null
+    && !recommendation.explanation.summary && !recommendation.explanation.proposed_outcome && !recommendation.explanation.reasoning;
   const canAuthorDraft = isAssignedManager && canRequestDraft
     && (caseRow.state === "POSITIONS" || caseRow.state === "DRAFTING")
     && (!recommendation || recommendation.status === "DRAFT");
@@ -407,41 +412,62 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           <h3>
             {recommendation.status === "ISSUED" ? t("recommendation.issuedHeading") : t("recommendation.draftHeading")}
           </h3>
-          <p>
-            <strong>{t("recommendation.summaryLabel")}:</strong> {recommendation.explanation.summary}
-          </p>
-          <p>
-            <strong>{t("recommendation.proposedOutcomeLabel")}:</strong> {recommendation.explanation.proposed_outcome}
-          </p>
-          <p>
-            <strong>{t("recommendation.reasoningLabel")}:</strong> {recommendation.explanation.reasoning}
-          </p>
-          <p>
-            <strong>{t("recommendation.citationsLabel")}:</strong>
-          </p>
-          <ul>
-            {recommendation.explanation.evidence_citations.map((c) => (
-              <li key={c.evidence_item_id}>
-                <a href={`#evidence-${c.evidence_item_id}`}>{c.relevance}</a>
-              </li>
-            ))}
-          </ul>
-          <p>
-            <strong>{t("recommendation.limitsLabel")}:</strong>
-          </p>
-          <ul>
-            {recommendation.explanation.limits.map((limit, i) => (
-              <li key={i}>{limit}</li>
-            ))}
-          </ul>
-          <p>
-            <strong>{t("recommendation.notConsideredLabel")}:</strong>
-          </p>
-          <ul>
-            {recommendation.explanation.not_considered.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
+          {recommendationWithheld && <p id="recommendation-withheld" role="note">{t("recommendation.withheldForParty")}</p>}
+          {recommendation.explanation.summary && (
+            <p>
+              <strong>{t("recommendation.summaryLabel")}:</strong> {recommendation.explanation.summary}
+            </p>
+          )}
+          {recommendation.explanation.proposed_outcome && (
+            <p>
+              <strong>{t("recommendation.proposedOutcomeLabel")}:</strong> {recommendation.explanation.proposed_outcome}
+            </p>
+          )}
+          {recommendation.explanation.reasoning && (
+            <p>
+              <strong>{t("recommendation.reasoningLabel")}:</strong> {recommendation.explanation.reasoning}
+            </p>
+          )}
+          {recommendation.explanation.evidence_citations.length > 0 && (
+            <>
+              <p>
+                <strong>{t("recommendation.citationsLabel")}:</strong>
+              </p>
+              <ul>
+                {recommendation.explanation.evidence_citations.map((c) => (
+                  <li key={c.evidence_item_id}>
+                    <a href={`#evidence-${c.evidence_item_id}`}>
+                      {c.relevance || caseRow.evidenceItems.find((e) => e.id === c.evidence_item_id)?.title || t("recommendation.citedEvidenceFallback")}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {recommendation.explanation.limits.length > 0 && (
+            <>
+              <p>
+                <strong>{t("recommendation.limitsLabel")}:</strong>
+              </p>
+              <ul>
+                {recommendation.explanation.limits.map((limit, i) => (
+                  <li key={i}>{limit}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {recommendation.explanation.not_considered.length > 0 && (
+            <>
+              <p>
+                <strong>{t("recommendation.notConsideredLabel")}:</strong>
+              </p>
+              <ul>
+                {recommendation.explanation.not_considered.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </>
+          )}
           <p className={styles.hint}>
             {humanAuthored
               ? t("recommendation.humanAuthoredLabel")

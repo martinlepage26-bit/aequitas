@@ -106,13 +106,24 @@ export function notificationEmail(input: {
   };
 }
 
-/** Transactional outbox: failures remain pending; retries use the same Resend idempotency key. */
+/**
+ * A queued notification is tried at most this many times. After that it
+ * stays unsent and is counted by notificationBacklog() for an operator.
+ */
+export const MAX_DELIVERY_ATTEMPTS = 8;
+
+/**
+ * Transactional outbox: failures remain pending; retries use the same Resend
+ * idempotency key. Least-recently-tried rows go first, so a few rows that
+ * keep failing cannot block newer ones, and each row is tried a bounded
+ * number of times.
+ */
 export async function deliverPendingNotifications(caseId?: string) {
   if (!emailConfigured()) return { accepted: 0, pending: true };
   const pending = await prisma.notification.findMany({
-    where: { sentAt: null, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) },
+    where: { sentAt: null, attempts: { lt: MAX_DELIVERY_ATTEMPTS }, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) },
     include: { user: { select: { email: true } }, case: { select: { referenceNumber: true, category: true } } },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ lastAttemptAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 20,
   });
   let accepted = 0;
@@ -126,12 +137,23 @@ export async function deliverPendingNotifications(caseId?: string) {
         category: notification.case?.category,
       });
       await sendEmail(notification.user.email, copy.subject, copy.text, `notification/${notification.id}`);
-      await prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date() } });
+      await prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date(), attempts: { increment: 1 }, lastAttemptAt: new Date() } });
       accepted++;
     } catch {
       // Keep recipient addresses, case contents and provider errors out of logs.
       console.error("Case notification delivery failed; retained for retry.");
+      try { await prisma.notification.update({ where: { id: notification.id }, data: { attempts: { increment: 1 }, lastAttemptAt: new Date() } }); }
+      catch { console.error("Notification attempt could not be recorded."); }
     }
   }
   return { accepted, pending: pending.length > accepted };
+}
+
+/** Counts only, for operators: no addresses or case content. */
+export async function notificationBacklog() {
+  const [retrying, exhausted] = await Promise.all([
+    prisma.notification.count({ where: { sentAt: null, attempts: { lt: MAX_DELIVERY_ATTEMPTS } } }),
+    prisma.notification.count({ where: { sentAt: null, attempts: { gte: MAX_DELIVERY_ATTEMPTS } } }),
+  ]);
+  return { retrying, exhausted };
 }

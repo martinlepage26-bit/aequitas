@@ -453,9 +453,14 @@ model Notification {
   locale    String
   sentAt    DateTime?
   createdAt DateTime  @default(now())
+  // Bounded retry: delivery stops after MAX_DELIVERY_ATTEMPTS (src/lib/mail.ts).
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
   case Case @relation(fields: [caseId], references: [id])
+
+  @@index([sentAt, attempts])
 }
 
 // Phase 1 traceable core. Additive on the dispute case model above.

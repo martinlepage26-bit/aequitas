@@ -31,8 +31,11 @@ describe("Resend delivery", () => {
     const fetch = vi.fn().mockResolvedValueOnce(Response.json({ error: "unavailable" }, { status: 503 })).mockResolvedValueOnce(Response.json({ id: "resend-2" }));
     vi.stubGlobal("fetch", fetch);
     expect(await deliverPendingNotifications("case-1")).toEqual({ accepted: 0, pending: true });
-    expect(db.notification.update).not.toHaveBeenCalled();
+    // A failure records the attempt but never marks the row sent.
+    expect(db.notification.update).toHaveBeenCalledTimes(1);
+    expect(db.notification.update.mock.calls[0][0].data).toEqual({ attempts: { increment: 1 }, lastAttemptAt: expect.any(Date) });
     expect(await deliverPendingNotifications("case-1")).toEqual({ accepted: 1, pending: false });
+    expect(db.notification.update.mock.calls[1][0].data).toMatchObject({ sentAt: expect.any(Date) });
     expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["notification/notification-1", "notification/notification-1"]);
   });
   it("tells case managers only the reference and category, in their language", async () => {

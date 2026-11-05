@@ -326,6 +326,8 @@
       "issueButton": "Issue recommendation",
       "issuing": "Issuing…",
       "error": "The recommendation could not be issued.",
+      "withheldForParty": "The case manager's full reasoning stays with staff because it draws on both parties' submissions. Your own outcome below is the text you are asked to answer.",
+      "citedEvidenceFallback": "Cited evidence",
       "humanAuthoredLabel": "Written by the case manager. No model was used."
     },
     "claims": {

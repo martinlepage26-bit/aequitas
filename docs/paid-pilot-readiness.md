@@ -1,49 +1,61 @@
-# Paid pilot readiness (2026-11-04)
+# Paid pilot readiness (updated 2026-11-05)
 
-Status: **not ready for a paid pilot with real case data.** This page records hypotheses and what the code supports. It is not market validation, legal advice or a production-readiness claim.
+Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
+
+## Release base
+
+- **Production commit: unverified.** The last repository record (2026-10-15/16, `docs/ct920-standup.md`) names CT920 release `2160eaf` behind a Cloudflare Worker, with Railway's app stopped. An older section of `docs/SPEC.md` says no cutover happened. Neither can be confirmed from the repository; `2160eaf` is historical evidence only.
+- `2160eaf` is an ancestor of `ct920-standup` (PR 13), not of `main`. `main` is the older line (phase 3 plus three docs commits).
+- The 2026-10-21 local snapshot (per-party outcomes, consent bound to the outcome version, party isolation) differs from `ct920-standup` head `34a00e0` in 59 paths only. It is imported as one commit.
+- **Candidate = `ct920-standup` + snapshot + this pilot work**, reviewed as PR 14 against `ct920-standup`. Nothing targets `main`: PR 13 states that merging to `main` auto-deploys to Railway.
 
 ## Buyer (hypothesis, not validated demand)
 
-One Québec program that runs voluntary consumer dispute resolution between a buyer and a seller, with its own staff acting as case managers. Category: `RETAIL` (supported; default category). No customer conversation, letter of intent or pricing evidence is in this repository.
+One Québec program that runs voluntary consumer dispute resolution between a buyer and a seller, with its own staff as case managers. Category: `RETAIL`. No customer conversation, letter of intent or pricing evidence is in this repository.
 
 ## Workflow problem (hypothesis)
 
-Staff assemble each file from email, attachments and phone notes. The parties cannot see a shared, dated record of what was submitted, and the written proposal is hard to trace back to evidence. Consent to the proposal is not tied to a specific version.
+Staff assemble each file from email, attachments and phone notes. Parties cannot see a dated record of what they submitted, and the written proposal is hard to trace to evidence. Consent is not tied to a specific version of what the party read.
 
 ## Proposed pilot offer
 
-- One program, one category (`RETAIL`), two-party cases only, fr-CA and en-CA.
-- Program staff are the case managers. One additional staff account holds approver sign-off (separation of duties is enforced).
-- **AI drafting off by default.** The assigned case manager writes the recommendation draft in the workspace (`author_draft`, added in this change). The model path stays available only if the program and operator decide to enable it after a privacy assessment.
-- Price, term and payment method: **not set.** No billing is built.
+- One program, one isolated deployment, `RETAIL`, two-party cases, fr-CA and en-CA.
+- Program staff are case managers; one other staff account holds approver sign-off.
+- **No AI.** The assigned case manager writes the recommendation, citing at least one clean evidence item from the case. Each party then receives their own written outcome and answers it. Leave `ANTHROPIC_API_KEY` and the pipeline flag unset.
+- Price, term and payment: **not set.** No billing is built.
 
 ## One measurable outcome
 
-Median elapsed time from `EVIDENCE_INTAKE_OPENED` to `RECOMMENDATION_ISSUED`, read from the case event log, compared with the program's own pre-pilot figure for comparable files. The program supplies its baseline before the pilot starts. No target is set here.
+Median elapsed time from `EVIDENCE_INTAKE_OPENED` to `RECOMMENDATION_ISSUED`, read from the event log, against the program's own pre-pilot figure for comparable files. The program supplies the baseline. No target is set here.
+
+## What works end to end (synthetic data, disposable database)
+
+Submission → evidence (scanned) → chronology and positions → case manager writes the recommendation with evidence citations (no model call) → issue checklist → per-party outcomes, each visible only to that party → independent approver sign-off (assigned manager and admin refused) → explicit consent bound to the party's outcome version (a re-issued outcome revokes earlier consent) → export → closure → event hash chain and replay verified. Covered by `test/integration/authored-draft.test.ts` and, in both locales through the browser, `e2e/authored-draft.spec.ts`.
 
 ## Onboarding steps
 
-1. Martin confirms which code line is the release (see blocker 1) and deploys it. Not done in this change.
-2. Admin issues invitations to the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`). Each enrols a passkey on the production hostname.
-3. Grant approver capability to one program staff member who will not manage the same cases (`scripts/grant-approver.ts`). Today Martin is the only approver (P3-D2).
-4. Publish current consent statement versions in fr-CA and en-CA.
-5. Set `AEQUITAS_PILOT_CONTACT_URL` (https booking page or `mailto:`) at build time so the landing page shows the pilot contact. Unset, the call to action is hidden.
-6. Leave `ANTHROPIC_API_KEY` unset unless the program and operator approve model use. Case managers use "Write the draft recommendation yourself".
-7. Run one synthetic case end to end with program staff before any real file.
+1. Martin chooses the release commit and deploys it to the single pilot host. Not done here.
+2. Run `npx prisma migrate deploy` (adds `20261105090000_notification_delivery_attempts`, additive).
+3. Invite the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`); each enrols a passkey on the production hostname.
+4. Grant approver to one staff member who will not manage the same cases (`scripts/grant-approver.ts`).
+5. Publish current consent statements in fr-CA and en-CA.
+6. Schedule `npm run notify:deliver` (for example every 15 minutes) so failed email notifications are retried; each is tried at most 8 times, then counted as `exhausted`.
+7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
+8. Run one synthetic case end to end with program staff before any real file.
 
-## Verified in this change (synthetic data, disposable database)
+## Launch gates (policy or manual; not decided in code)
 
-- Case manager writes, revises (reason required, prior version kept as SUPERSEDED), and issues a draft with no model call; approver signs off; both parties consent; export generated; case closed; event chain and replay verify. (`test/integration/authored-draft.test.ts`)
-- Refusals: parties (403), admin (403), unassigned manager (404), wrong stage (409), empty limits / not-considered, forbidden term, citation to another case's evidence, server-only fields (409). Nothing is written on refusal.
-- Browser journey in fr-CA and en-CA: party and unassigned manager refused over HTTP; draft hidden from the party until issued; issued text labelled as written by the case manager with no model. (`e2e/authored-draft.spec.ts`)
+1. **Release and hosting decision.** Confirm the deployed commit and host, and choose the pilot deployment. Merging into `main` may trigger Railway.
+2. **Retention and deletion policy.** No retention or deletion service exists. Events are append-only by database trigger, so erasure needs a design (for example, separating personal fields from the hash chain). Retention periods and the response to a deletion request need counsel and the program; none are set here.
+3. **Privacy assessment.** Whether any processing (hosting, email provider, backups off-box, any later model use) needs a privacy impact assessment or transfer analysis is a question for counsel. Not assessed.
+4. **Organization isolation.** Roles are global; any case manager sees unclaimed open cases; admins are global. Multi-organization use is blocked. One program per deployment.
+5. **Identity and access.** Real passkey enrolment on the production hostname; identity check before re-enrolling the six existing users.
+6. **Email.** Delivery through the configured provider and the retry job must be checked on the pilot host.
+7. **Party-facing wording.** Legal review of consent statements, outcome text guidance and the notice that withholds the shared recommendation.
+8. **Commercial.** Pricing, contract, data processing terms.
 
-## Unresolved blockers
+## Known defects and limits
 
-1. **Release line is split.** `main` lacks the 14 commits on `ct920-standup` (open PR 13), which is the line the CT920 production release `2160eaf` came from. A later local snapshot (2026-10-21) adds unpushed work: per-party outcomes, consent bound to a party outcome version, party isolation tests. This change is on `main`; it will need integration with both. Decision needed from Martin.
-2. **Hosted state unknown.** The last repository record (2026-10-15/16) says production moved to CT920 behind Cloudflare and Railway's app was stopped. An older spec section says no cutover had happened. Current state cannot be established from the repository. Six existing users still needed identity-verified passkey re-enrolment.
-3. **No organization-level data isolation.** Users have global roles; any case manager can see unclaimed open cases; admins are global. **Multi-organization use is blocked.** A pilot must be one program on its own deployment.
-4. **Personal information handling not assessed.** No retention/deletion service exists. Whether sending case material to a model provider outside Québec requires a privacy impact assessment has not been assessed (this is a question for counsel, not a conclusion).
-5. **Email delivery not verified** in this change; invitations have no background retry scheduler.
-6. **Evidence scanning not exercised here.** No ClamAV daemon was available; tests used a loopback stand-in. Native PDF/OCR extraction and S3 storage-rollback suites need their services.
-7. **Manual checks required:** real passkey enrolment on the production hostname, email delivery, owner identity verification before re-enrolment, live AI quality (if ever enabled), and legal review of party-facing wording.
-8. No pricing, contract, data processing terms or customer evidence.
+- Two parties only. No translation-review workflow.
+- Invitation and account-recovery emails are sent directly (`src/lib/mail.ts`), not through the retried outbox.
+- Storage cleanup after a crashed write is manual.

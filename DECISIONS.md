@@ -205,3 +205,11 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Replacing a draft** needs the id of the draft the manager saw and a reason; the old row becomes `SUPERSEDED` and a `NOTE_ADDED` event records the reason. Issued recommendations cannot be replaced here; `request_new_version` remains the path.
 - **Landing pilot contact** renders only when `AEQUITAS_PILOT_CONTACT_URL` is an `https:` or `mailto:` URL at build time. No address is committed.
 - **Not changed:** consent, approver sign-off, contestation, export format, the model path. This change is on `main`; `ct920-standup` and the 2026-10-21 local snapshot need integration (see `docs/paid-pilot-readiness.md`).
+
+## Pilot release candidate (2026-11-05)
+
+- **Base.** `2160eaf` (last recorded production release, unverified today) sits on `ct920-standup`, not `main`. The candidate merges `ct920-standup` and the 2026-10-21 local snapshot (imported verbatim as one commit; it differed from `ct920-standup` in 59 paths) into the PR 14 branch. PR 14 targets `ct920-standup`; `main` is untouched because PR 13 says merging to `main` auto-deploys to Railway.
+- **Citations required for human drafts.** `author_draft` needs at least one distinct citation to clean evidence in the same case. Issuance re-checks it. The conflict-map waiver now needs all four origin markers (row `modelId`, row `promptVersion`, record `model.id`, record `model.prompt_version`) to agree; a partial match blocks issuance.
+- **Party copy.** For a human draft the shared recommendation text is withheld from parties by the snapshot's isolation rule (it may draw on both sides). The page now says so instead of rendering empty fields; each party answers their own outcome.
+- **Notification outbox.** `Notification` gains `attempts` and `lastAttemptAt` (additive migration). Delivery tries least-recently-tried rows first, so failing rows no longer block newer ones, and stops after 8 attempts. `npm run notify:deliver` is the scheduled retry; it prints counts only.
+- **Not decided here:** retention periods, deletion design, privacy assessment, hosting. Listed as gates in `docs/paid-pilot-readiness.md`.
