@@ -26,7 +26,7 @@ vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: t
  * withdrawal, a party's request for a person, and model failure.
  */
 
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" };
+const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", GEMINI_API_KEY: "synthetic-test-only" };
 const COMPLAINANT_POSITION = "The kettle stopped heating after three days and the store refused an exchange at the counter.";
 const RESPONDENT_POSITION = "Our counter staff offered a repair voucher because the receipt showed a clearance purchase.";
 const COMPLAINANT_EVIDENCE_TEXT = "Receipt: kettle purchase on 2026-10-02; paid full price $89.99.";
@@ -191,7 +191,7 @@ describe("case agent: party-controlled intake", () => {
     const noCleanEvidence = await positionsCase({ keepIntakeOpen: true });
     await prisma.evidenceItem.update({ where: { id: noCleanEvidence.complainantEvidence }, data: { scanStatus: "REJECTED" } });
     const refused = await setPartyIntakeReady({ actorId: noCleanEvidence.complainantId, actorRole: "COMPLAINANT", caseId: noCleanEvidence.caseId, ready: true });
-    expect(refused).toMatchObject({ ok: false, code: "INTAKE_CLEAN_EVIDENCE_REQUIRED" });
+    expect(refused).toMatchObject({ ok: false, code: "INTAKE_EVIDENCE_PENDING_OR_REJECTED" });
   });
 
   it("clears both readiness marks when the complainant changes the material case facts", async () => {
@@ -343,6 +343,9 @@ describe("case agent: least privilege", () => {
       expect((await enrollCaseAgent({ actorId, actorRole, caseId: s.caseId }, ENV)).ok).toBe(false);
     }
     expect((await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, {})).ok).toBe(false);
+    const noProvider = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" };
+    const providerRefused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, noProvider);
+    expect(providerRefused).toEqual({ ok: false, status: 409, reason: "The case agent's model provider is not configured." });
     const tenancy = await positionsCase({ category: "TENANCY", enroll: false });
     const refused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: tenancy.caseId }, ENV);
     expect(refused.ok || refused.status).toBe(409);

@@ -54,7 +54,7 @@ The agent reuses the existing provider interface (`TextCompletion`, `src/domain/
 | `GEMINI_API_KEY`, optional `GEMINI_MODEL` | For Gemini. |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `AEQUITAS_WORKERS_AI_MODEL` | For Workers AI. |
 | `npm run agent:provision` | Creates the service account once. |
-| `npm run agent:run` | The scheduled pass, for example every 10 minutes. It prints counts only. |
+| `npm run agent:run` | The scheduled pass, for example every 10 minutes. Enrollment is refused unless the selected provider is configured; if a provider is later missing, the pass skips all cases without changing them. Each case is compare-and-set leased before processing, revisited no sooner than 10 minutes later, and released afterward; an expired 30-minute lease recovers after a crashed run. It prints counts only. |
 
 Not verified here: any live provider call, output quality on real disputes, latency and cost. Tests use a local stub.
 

@@ -97,8 +97,19 @@ export async function enrollCaseAgent(input: { actorId: string; actorRole: Globa
   if (caseRow.category !== "RETAIL") return { ok: false, status: 409, reason: "The case agent handles retail disputes only." };
   if (caseRow.state !== "EVIDENCE_INTAKE" && caseRow.state !== "POSITIONS") return { ok: false, status: 409, reason: "The case agent can be enabled during intake or positions only." };
   if (caseRow.agentManaged) return { ok: true };
+  if (!resolveCaseAgentModel(env).ok) return { ok: false, status: 409, reason: "The case agent's model provider is not configured." };
   await prisma.$transaction(async (tx) => {
-    const updated = await tx.case.updateMany({ where: { id: caseRow.id, agentManaged: false, state: caseRow.state }, data: { agentManaged: true } });
+    const enrolledAt = new Date();
+    const updated = await tx.case.updateMany({
+      where: { id: caseRow.id, agentManaged: false, state: caseRow.state },
+      data: {
+        agentManaged: true,
+        agentLastAttemptAt: null,
+        agentNextRunAt: enrolledAt,
+        agentLeaseUntil: null,
+        agentLeaseToken: null,
+      },
+    });
     if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: {} });
   });
   return { ok: true };

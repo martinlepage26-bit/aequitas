@@ -247,6 +247,10 @@ model Case {
   agentEscalationReason   String?
   complainantIntakeReadyAt DateTime?
   respondentIntakeReadyAt  DateTime?
+  agentLastAttemptAt       DateTime?
+  agentNextRunAt           DateTime?
+  agentLeaseUntil          DateTime?
+  agentLeaseToken          String?
   complainantId           String
   respondentId            String
   caseManagerId           String?
@@ -280,6 +284,8 @@ model Case {
   syntheses           SynthesisVersion[]
   contestations       Contestation[]
   partyOutcomes       PartyOutcome[]
+
+  @@index([agentManaged, agentEscalatedAt, agentNextRunAt, agentLeaseUntil, agentLastAttemptAt, createdAt])
 }
 
 model EvidenceItem {
