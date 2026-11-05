@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { issueAccountRecovery, revokeAccountRecovery } from "../../../../../lib/accountRecovery";
 import { signOutOriginAllowed } from "../../../../../lib/authPaths";
-import { emailConfigured, sendAccountRecoveryEmail } from "../../../../../lib/mail";
+import { EmailDeliveryError, emailConfigured, sendAccountRecoveryEmail } from "../../../../../lib/mail";
 
 const GENERIC = { message: "If this address belongs to an Aequitas account, a recovery link will be sent." };
 
@@ -16,8 +16,10 @@ export async function POST(request: Request) {
     try {
       const result = await sendAccountRecoveryEmail({ email: issued.email, locale: issued.locale, token: issued.token, recoveryId: issued.recovery.id });
       if (result !== "accepted") await revokeAccountRecovery(issued.recovery.id);
-    } catch {
-      await revokeAccountRecovery(issued.recovery.id).catch(() => {});
+    } catch (error) {
+      if (!(error instanceof EmailDeliveryError) || error.certainty === "rejected") {
+        await revokeAccountRecovery(issued.recovery.id).catch(() => {});
+      }
       console.error("Account recovery email delivery failed.");
     }
   });

@@ -209,9 +209,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const canEditDetails = session.globalRole === "COMPLAINANT" && session.userId === caseRow.complainantId && caseDetailsEditable(caseRow.state);
   const detailsRevision = canEditDetails ? await prisma.event.findFirst({ where: { caseId, type: "CASE_DETAILS_UPDATED" }, orderBy: { seq: "desc" }, select: { id: true } }) : null;
   const canManageInvite = canEditDetails && (caseRow.state === "OPEN" || caseRow.state === "EVIDENCE_INTAKE");
-  const [respondentPasskeys, sentInvitation] = canManageInvite ? await Promise.all([
+  const [respondentPasskeys, activeInvitation] = canManageInvite ? await Promise.all([
     prisma.webAuthnCredential.count({ where: { userId: caseRow.respondentId } }),
-    prisma.invitation.findFirst({ where: { userId: caseRow.respondentId, revokedAt: null, claimedAt: null, expiresAt: { gt: new Date() }, emailedAt: { not: null } }, select: { id: true } }),
+    prisma.invitation.findFirst({ where: { userId: caseRow.respondentId, revokedAt: null, claimedAt: null, expiresAt: { gt: new Date() } }, select: { emailedAt: true } }),
   ]) : [0, null];
   const partyRole = (userId: string): GlobalRole | null =>
     userId === caseRow.complainantId ? "COMPLAINANT" : userId === caseRow.respondentId ? "RESPONDENT" : null;
@@ -289,7 +289,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {canEditDetails && <CaseDetailsEditor key={detailsRevision?.id ?? "initial"} caseId={caseId} revision={detailsRevision?.id ?? null} category={caseRow.category} categoryOptions={DISPUTE_CATEGORIES.map(value => ({ value, label: resolveCategoryLabel(value, locale) }))} disputeDescription={caseRow.disputeDescription ?? ""} amountAtStakeCents={caseRow.amountAtStakeCents} respondentEmail={caseRow.respondent.email} respondentDisplayName={caseRow.respondent.displayName} simulated={caseRow.simulated} />}
       </section>
 
-      {canManageInvite && (respondentPasskeys > 0 ? <p>{t("inviteRespondent.active")}</p> : <RespondentInviteButton key={caseRow.respondentId} caseId={caseId} email={caseRow.respondent.email} name={caseRow.respondent.displayName} alreadySent={Boolean(sentInvitation)} />)}
+      {canManageInvite && (respondentPasskeys > 0 ? <p>{t("inviteRespondent.active")}</p> : <RespondentInviteButton key={caseRow.respondentId} caseId={caseId} email={caseRow.respondent.email} name={caseRow.respondent.displayName} alreadySent={Boolean(activeInvitation?.emailedAt)} deliveryUncertain={Boolean(activeInvitation && !activeInvitation.emailedAt)} />)}
 
       <h2 id="submission-heading">{t("submission.title")}</h2>
       <p>{t("submission.description")}</p>

@@ -118,7 +118,7 @@ For the first live evaluation, Cloudflare Workers AI is the preferred candidate 
 - **Escalation behaviour:**
   - Any model failure escalates at once; there is no retry budget.
   - The automated respondent invitation expires with the configured response period. Invitation and account-recovery emails remain outside the retry outbox.
-  - If provider acceptance succeeds but the emailed timestamp cannot be stored, the active token is kept and the case is handed to a person rather than rotating a link that may already be in the respondent's inbox.
+  - If delivery cannot be confirmed (including a lost provider response or a failed emailed-timestamp write), the active token is kept and the case is handed to a person rather than rotating a link that may already be in the respondent's inbox. This invitation is not automatically retried; staff must confirm the link is cancelled before issuing another one.
 - **Scope:**
   - One program per deployment. Roles are global, so this is not multi-organization software.
   - Two parties only. No retention or deletion service.

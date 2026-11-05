@@ -14,7 +14,7 @@ import { AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
 import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
 import { renderProposal } from "./proposal";
-import { CASE_AGENT_POSITIONS_REQUESTED_KIND, emailConfigured, sendInvitationEmail } from "../../lib/mail";
+import { CASE_AGENT_POSITIONS_REQUESTED_KIND, EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
 
@@ -621,8 +621,10 @@ async function inviteRespondent(caseId: string, agentId: string, program: CaseAg
   try {
     const delivery = await sendInvitationEmail({ email: prepared.email, locale: prepared.locale, claimPath: invitePath(prepared.locale, prepared.token), invitationId: prepared.invitationId, validForDays: program.responseDays });
     if (delivery !== "accepted") throw new Error("not accepted");
-  } catch {
-    await revokeInvitation(prepared.invitationId).catch(() => {});
+  } catch (error) {
+    if (!(error instanceof EmailDeliveryError) || error.certainty === "rejected") {
+      await revokeInvitation(prepared.invitationId).catch(() => {});
+    }
     return escalate("invitation_failed");
   }
   return { status: "respondent_invited" };

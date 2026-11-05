@@ -83,7 +83,8 @@
       "cancel": "Annuler",
       "sent": "Une invitation d'activation a été envoyée à cette adresse. Elle expire après 72 heures.",
       "active": "La partie intimée a déjà activé un compte Aequitas.",
-      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez."
+      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez.",
+      "uncertain": "La livraison du courriel d’invitation n’a pas pu être confirmée. Le lien a peut-être été reçu et demeure utilisable. Un nouveau lien ne peut pas être envoyé avant l’annulation ou l’expiration de celui-ci."
     },
     "state": {
       "DRAFT": "Brouillon",

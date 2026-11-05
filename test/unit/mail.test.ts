@@ -37,6 +37,22 @@ describe("Resend delivery", () => {
     expect(await sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-legacy" })).toBe("accepted");
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ reply_to: "legacy-reply@example.org" });
   });
+  it("marks a lost response after sending as uncertain, not rejected", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic network timeout")));
+    await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-uncertain" }))
+      .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+    expect(db.invitation.update).not.toHaveBeenCalled();
+  });
+  it("marks a definite provider rejection separately from an uncertain result", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ error: "invalid recipient" }, { status: 422 })).mockResolvedValueOnce(Response.json({ error: "server unavailable" }, { status: 503 })));
+    await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-rejected" }))
+      .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "rejected" });
+    await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-uncertain-500" }))
+      .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+    expect(db.invitation.update).not.toHaveBeenCalled();
+  });
   it("keeps failed notifications pending and retries with the same idempotency key", async () => {
     configure();
     db.notification.findMany.mockResolvedValue([{ id: "notification-1", caseId: "case-1", locale: "en-CA", user: { email: "recipient@example.com" } }]);

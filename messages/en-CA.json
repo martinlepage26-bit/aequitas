@@ -83,7 +83,8 @@
       "cancel": "Cancel",
       "sent": "An activation invitation was sent to this address. It expires after 72 hours.",
       "active": "The respondent has already activated an Aequitas account.",
-      "error": "The invitation could not be sent. Check the address and try again."
+      "error": "The invitation could not be sent. Check the address and try again.",
+      "uncertain": "We could not confirm whether the invitation email was delivered. It may have arrived, and this link remains usable. A new link cannot be issued until this one is cancelled or expires."
     },
     "state": {
       "DRAFT": "Draft",

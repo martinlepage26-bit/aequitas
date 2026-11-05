@@ -318,6 +318,8 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     stubEmail(true);
     await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
     expect(await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
+    const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
+    expect(invitation).toMatchObject({ emailedAt: null, revokedAt: null });
   });
 
   it("preserves an active invite if email acceptance is recorded but its timestamp write fails", async () => {

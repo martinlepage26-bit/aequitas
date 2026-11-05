@@ -26,15 +26,33 @@ function appUrl(path: string) {
   return new URL(path, base).toString();
 }
 
+export class EmailDeliveryError extends Error {
+  constructor(readonly certainty: "rejected" | "uncertain") {
+    super(certainty === "rejected" ? "Email provider rejected the message." : "Email delivery could not be confirmed.");
+    this.name = "EmailDeliveryError";
+  }
+}
+
 async function sendEmail(to: string, subject: string, text: string, idempotencyKey: string) {
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyToAddress(), to: [to], subject, text }),
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyToAddress(), to: [to], subject, text }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    // A timeout or lost connection can occur after the provider accepted and
+    // queued the message. Callers must not invalidate a link that may be in it.
+    throw new EmailDeliveryError("uncertain");
+  }
   const data = await response.json().catch(() => null);
-  if (!response.ok || typeof data?.id !== "string") throw new Error("Email provider did not accept the message");
+  if (!response.ok) {
+    const definitelyRejected = response.status >= 400 && response.status < 500 && ![408, 409, 425].includes(response.status);
+    throw new EmailDeliveryError(definitelyRejected ? "rejected" : "uncertain");
+  }
+  if (typeof data?.id !== "string") throw new EmailDeliveryError("uncertain");
 }
 
 export async function sendInvitationEmail(input: { email: string; locale: string; claimPath: string; invitationId: string; validForDays?: number }) {
