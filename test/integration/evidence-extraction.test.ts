@@ -27,7 +27,7 @@ describe("native PDF and image extraction", () => {
     } finally { await rm(dir, { recursive: true, force: true }); }
   }, 30000);
 
-  it("OCRs scanned pages in a mixed PDF while preserving its digital text", async () => {
+  it("OCRs scanned and image-bearing pages, including a page that also has selectable text", async () => {
     const source = await PDFDocument.create();
     const font = await source.embedFont(StandardFonts.Helvetica);
     source.addPage([600, 180]).drawText("SCANNED POLICY REVIEW 2026", { x: 30, y: 90, size: 28, font });
@@ -45,12 +45,16 @@ describe("native PDF and image extraction", () => {
       const scannedPdfPage = mixed.addPage([600, 180]);
       const image = await mixed.embedPng(scannedPage);
       scannedPdfPage.drawImage(image, { x: 0, y: 0, width: 600, height: 180 });
+      const mixedContentPage = mixed.addPage([600, 180]);
+      mixedContentPage.drawImage(image, { x: 0, y: 0, width: 600, height: 180 });
+      mixedContentPage.drawText("DIGITAL TEXT BESIDE SCAN 2026", { x: 20, y: 155, size: 15, font: mixedFont });
 
       const extracted = await extractEvidenceText(Buffer.from(await mixed.save()), "application/pdf");
       expect(extracted.status).toBe("extracted");
       expect(extracted.method).toBe("tesseract");
       expect(extracted.text).toContain("DIGITAL PAGE MARKER 2026");
       expect(extracted.text).toContain("SCANNED POLICY REVIEW 2026");
+      expect(extracted.text).toContain("DIGITAL TEXT BESIDE SCAN 2026");
     } finally { await rm(dir, { recursive: true, force: true }); }
   }, 60000);
 

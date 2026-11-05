@@ -50,11 +50,11 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 | Format | Method | Notes |
 |---|---|---|
 | `text/plain` | UTF-8 decode | |
-| PDF | `pdftotext`, then `pdftoppm` + `tesseract` for pages without a text layer | Up to 20 pages. A longer file is "partial" and goes to a person. The page number is recorded with each citation. OCR may misread text. |
+| PDF | `pdftotext` for text-only pages; `pdfimages` detects pages with embedded images, which are rendered with `pdftoppm` and OCRed with `tesseract` as a whole page | Up to 20 pages. A longer file is "partial" and goes to a person. The page number is recorded with each citation. OCR may misread text. |
 | PNG, JPEG, TIFF, WebP | `tesseract` OCR | Languages from `AEQUITAS_OCR_LANGUAGES`. OCR text is cited as extracted, not corrected. |
 
 - **Limits:** 25 MiB per file, 12,000 characters per source, 12 files and 60,000 characters per case. Exceeding any of them goes to a person.
-- **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. A scanned image on a page that already has selectable text may be omitted from OCR.
+- **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. When a page contains an embedded image, OCR replaces that page's text-layer extraction so visible text and scanned content are assessed together.
 - **Citations:** each records the evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. A party opening a cited excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
 - **What an exact excerpt proves:** only that the text exists in the extraction. It does not prove the document is authentic, accurate or relevant.
 
@@ -103,7 +103,7 @@ If program rules are missing or invalid, the agent takes no new case and hands a
 - **Test coverage:**
   - A stub stands in for the respondent's passkey enrolment.
   - Scanning in the routine integration tests is seeded; the browser test uploads through the real scanner in CI.
-  - PDF page numbers are computed from form-feed breaks and are not yet covered by a test with a real multi-page PDF.
+  - PDF page numbers in issued citation pointers are not yet verified end to end against a real multi-page PDF.
 - **Heuristic checks.** The deny list catches forbidden phrasing in staff-only model text; it cannot prove that text is accurate or neutral.
 - **Escalation behaviour:**
   - Any model failure escalates at once; there is no retry budget.

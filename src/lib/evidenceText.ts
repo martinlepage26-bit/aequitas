@@ -70,9 +70,17 @@ async function extractPdfText(input: string, dir: string, onOcr: () => void): Pr
   const { stdout } = await execute(pdftotext, ["-f", "1", "-l", String(MAX_PDF_PAGES), "-enc", "UTF-8", input, "-"], {
     timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8",
   });
+  // A page can contain selectable text and an embedded scan at the same time.
+  // OCR every page with image objects so the model does not silently miss the
+  // scanned portion; use that page's rendered OCR as its complete visible text.
+  const pdfimages = process.env.AEQUITAS_PDFIMAGES_PATH || "pdfimages";
+  const { stdout: imageList } = await execute(pdfimages, ["-list", input], {
+    timeout: 15000, maxBuffer: 128 * 1024, encoding: "utf8",
+  });
+  const pagesWithImages = new Set([...imageList.matchAll(/^\s*(\d+)\s+\d+\s+(?:image|smask)\b/gm)].map((match) => Number(match[1])));
   const pageTexts = stdout.split("\f").slice(0, pageCount);
   while (pageTexts.length < pageCount) pageTexts.push("");
-  const pagesNeedingOcr = pageTexts.flatMap((text, index) => text.trim() ? [] : [index + 1]);
+  const pagesNeedingOcr = pageTexts.flatMap((text, index) => text.trim() && !pagesWithImages.has(index + 1) ? [] : [index + 1]);
   if (!pagesNeedingOcr.length) return finish(stdout, "pdftotext", totalPages > MAX_PDF_PAGES);
 
   const startedAt = Date.now();
@@ -100,7 +108,8 @@ async function extractPdfText(input: string, dir: string, onOcr: () => void): Pr
         encoding: "utf8",
         env: { ...process.env, OMP_THREAD_LIMIT: "1" },
       });
-      pageTexts[pageNumber - 1] = ocrText.trimEnd();
+      const normalizedOcr = ocrText.trimEnd();
+      if (normalizedOcr || !pageTexts[pageNumber - 1].trim()) pageTexts[pageNumber - 1] = normalizedOcr;
       if (!ocrText.trim()) ocrIncomplete = true;
     } finally {
       await rm(imagePath, { force: true });
