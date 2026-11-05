@@ -238,6 +238,7 @@ type Material = Awaited<ReturnType<typeof loadMaterial>>;
 type AgentEvidenceSource = {
   text: string;
   method: Exclude<EvidenceExtraction["method"], "none">;
+  mimeType: string;
   sourceSha256: string;
   extractedTextSha256: string;
 };
@@ -336,6 +337,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     evidenceSources.set(item.id, {
       text: extraction.text,
       method: extraction.method,
+      mimeType: item.mimeType,
       sourceSha256: item.sha256,
       extractedTextSha256: createHash("sha256").update(extraction.text).digest("hex"),
     });
@@ -366,7 +368,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
         source_sha256: source.sourceSha256,
         extracted_text_sha256: source.extractedTextSha256,
         extraction_method: source.method,
-        ...(source.method === "pdftotext" ? { page: source.text.slice(0, start).split("\f").length } : {}),
+        ...(source.mimeType === "application/pdf" ? { page: source.text.slice(0, start).split("\f").length } : {}),
       },
     };
   });

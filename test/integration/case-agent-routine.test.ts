@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
@@ -25,6 +29,7 @@ import { verifyCase } from "../../src/domain/verifyEvents";
  */
 
 const DAY = 24 * 60 * 60 * 1000;
+const execFileAsync = promisify(execFile);
 const ENV = {
   AEQUITAS_CASE_AGENT_ENABLED: "true",
   AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
@@ -120,6 +125,38 @@ async function addEvidence(caseId: string, partyId: string, text: string, opts: 
   return id;
 }
 
+async function addTwoPageScannedPdfEvidence(caseId: string, partyId: string) {
+  const source = await PDFDocument.create();
+  const font = await source.embedFont(StandardFonts.Helvetica);
+  source.addPage([600, 180]).drawText("PAGE ONE SYNTHETIC RECEIPT HEADER", { x: 30, y: 90, size: 30, font });
+  source.addPage([600, 180]).drawText("PAGE TWO RECEIPT TOTAL 8999 CENTS", { x: 30, y: 90, size: 30, font });
+  const dir = await mkdtemp(path.join(tmpdir(), "aeq-scanned-agent-pdf-"));
+  let buffer: Buffer;
+  try {
+    const sourcePath = path.join(dir, "source.pdf");
+    const pagePrefix = path.join(dir, "rendered-page");
+    await writeFile(sourcePath, Buffer.from(await source.save()));
+    await execFileAsync("pdftoppm", ["-png", "-r", "150", sourcePath, pagePrefix], { timeout: 15000 });
+
+    const scanned = await PDFDocument.create();
+    for (const pageNumber of [1, 2]) {
+      const pageImage = await scanned.embedPng(await readFile(`${pagePrefix}-${pageNumber}.png`));
+      scanned.addPage([600, 180]).drawImage(pageImage, { x: 0, y: 0, width: 600, height: 180 });
+    }
+    buffer = Buffer.from(await scanned.save());
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+  const id = randomUUID();
+  const stored = await uploadEvidence({ caseId, evidenceId: id, simulated: true, buffer, mimeType: "application/pdf" });
+  await prisma.evidenceItem.create({ data: {
+    id, caseId, submittedById: partyId, kind: "DOCUMENT", title: "Synthetic scanned two-page receipt",
+    storageKey: stored.storageKey, sha256: stored.sha256, byteSize: stored.byteSize,
+    mimeType: "application/pdf", scanStatus: "CLEAN", simulated: true,
+  } });
+  return id;
+}
+
 /** Drives the agent from a submitted case to positions, with time passing by the configured periods. */
 async function toPositions(r: Routine, cText = C_TEXT, rText = R_TEXT, env = ENV) {
   stubEmail();
@@ -207,6 +244,40 @@ describe("routine path with no case-manager action", () => {
     expect((await runCaseAgent({ caseId: r.caseId, model, env })).status).toBe("closed");
     expect(await verifyCase(prisma, await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))).toEqual([]);
   });
+
+  it("records the correct page for an agent citation from an OCR-extracted scanned PDF", async () => {
+    const r = await submittedCase();
+    stubEmail();
+    expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("intake_opened");
+    expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("respondent_invited");
+    await joinRespondent(r);
+    const cId = await addTwoPageScannedPdfEvidence(r.caseId, r.complainantId);
+    const rId = await addEvidence(r.caseId, r.respondentId, R_TEXT);
+    expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("waiting");
+    expect((await setPartyIntakeReady({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId, ready: true })).ok).toBe(true);
+    expect((await setPartyIntakeReady({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId, ready: true })).ok).toBe(true);
+    expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("intake_closed");
+    await positions(r);
+
+    const model = stub((prompt) => {
+      const block = prompt.match(/<case_material>\s*([\s\S]+?)\s*<\/case_material>/);
+      if (!block) throw new Error("Case material was not included in the model prompt.");
+      const material = JSON.parse(block[1]);
+      const complainantEvidence = material.complainant.evidence[0];
+      const respondentEvidence = material.respondent.evidence[0];
+      expect(complainantEvidence.extracted_text).toContain("PAGE TWO RECEIPT TOTAL 8999 CENTS");
+      const secondPageText = complainantEvidence.extracted_text.split("\n").find((line: string) => line.includes("PAGE TWO"));
+      if (!secondPageText) throw new Error("The OCR result did not contain the page-two receipt text.");
+      return proposal(cId, rId, { citations: [
+        { evidence_item_id: complainantEvidence.evidence_item_id, relevance: "Receipt total on page two.", excerpt: secondPageText.trim() },
+        { evidence_item_id: respondentEvidence.evidence_item_id, relevance: "Respondent remedy account.", excerpt: "customer offered a repair voucher at the counter" },
+      ] });
+    });
+    expect((await runCaseAgent({ caseId: r.caseId, model, env: ENV })).status).toBe("issued");
+    const recommendation = await prisma.recommendation.findFirstOrThrow({ where: { caseId: r.caseId }, orderBy: { version: "desc" } });
+    const explanation = recommendation.explanation as { evidence_citations: Array<{ evidence_item_id: string; extracted_span: { page?: number; extraction_method: string } }> };
+    expect(explanation.evidence_citations.find((citation) => citation.evidence_item_id === cId)?.extracted_span).toMatchObject({ page: 2, extraction_method: "tesseract" });
+  }, 60000);
 
   it("leaves ineligible cases for the case-manager queue and takes nothing when program rules are incomplete", async () => {
     for (const opts of [{ amount: 900_000 }, { amount: null }, { category: "TENANCY" as const }]) {
