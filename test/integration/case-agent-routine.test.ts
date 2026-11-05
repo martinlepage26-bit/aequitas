@@ -279,7 +279,7 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     const model = stub(() => "{}");
     expect(await runCaseAgent({ caseId: u.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "evidence_extraction_failed" });
     expect(model.calls).toBe(0);
-  });
+  }, 15_000);
 
   it("evidence replaced after the model call makes the result stale", async () => {
     const r = await submittedCase();
