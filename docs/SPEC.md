@@ -114,7 +114,7 @@ Next.js 16 / React 19, TypeScript, Prisma 7 + PostgreSQL, S3-compatible or local
 ## 11. Known gaps (stated in the repo)
 
 - **Live AI quality is unverified.** Automated tests use synthetic records and a stub model. The live evaluation is explicitly gated and still required before any real case.
-- **Production host and deployed commit are unconfirmed.** Repository records disagree about the Railway-to-CT920 cutover; treat the last named commits as historical evidence until the actual host is inspected.
+- **Production source provenance is unconfirmed.** On 2026-11-05 the public site returned HTTP 200 and `/api/health` reported release `d74ed342693a96a6dc75d8907d288131c0148385`, but GitHub did not resolve that SHA in this repository. The live landing page still describes human review and not the PR 14 agent mode. These public checks do not establish provider settings, worker state, or data/backup health.
 - **Two parties only.** No multi-party membership. Roles are global, so the current product is one program per isolated deployment, not a multi-tenant SaaS.
 - **No retention or deletion service** and no translation-review workflow. The append-only event chain makes personal-data deletion a design decision.
 - **Notification retry and case-agent scheduling are opt-in deployment services.** The CT920 `scheduled` Compose profile retries queued notifications every 15 minutes and invokes the case agent every 10 minutes; neither is started by the default web stack. The agent also requires explicit program and provider settings.

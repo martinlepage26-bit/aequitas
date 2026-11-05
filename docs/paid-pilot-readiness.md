@@ -4,10 +4,12 @@ Status: **release candidate for review. Not approved for real pilot data.** This
 
 ## Release base
 
-- **Production commit: unverified.** The last repository record (2026-10-15/16, `docs/ct920-standup.md`) names CT920 release `2160eaf` behind a Cloudflare Worker, with Railway's app stopped. An older section of `docs/SPEC.md` says no cutover happened. Neither can be confirmed from the repository; `2160eaf` is historical evidence only.
+- **Public host observed 2026-11-05:** a read-only request to [the public site](https://aequitas.app.pharos-ai.ca/) returned HTTP 200. Its [health endpoint](https://aequitas.app.pharos-ai.ca/api/health) returned `status: ok` and release SHA `d74ed342693a96a6dc75d8907d288131c0148385`. GitHub does not resolve that SHA in `martinlepage26-bit/aequitas`, and the local repository has no object for it; the deployed source and commit provenance remain unverified.
+- **Public copy is behind this candidate.** The live landing page still says a neutral case manager reviews proposals and that proposals are reviewed by a person. It does not describe the optional autonomous routine path in PR 14. This is evidence about the public page only; it does not establish agent settings or worker state on the host.
+- **Historical deployment records still conflict.** The 2026-10-15/16 `docs/ct920-standup.md` names CT920 release `2160eaf` behind a Cloudflare Worker, with Railway's app stopped. An older section of `docs/SPEC.md` says no cutover happened. Treat those records as historical; the health SHA above is not mapped to source.
 - `2160eaf` is an ancestor of `ct920-standup` (PR 13), not of `main`. `main` is the older line (phase 3 plus three docs commits).
 - The 2026-10-21 local snapshot (per-party outcomes, consent bound to the outcome version, party isolation) differs from `ct920-standup` head `34a00e0` in 59 paths only. It is imported as one commit.
-- **Candidate = `ct920-standup` + snapshot + this pilot work**, reviewed as PR 14 against `ct920-standup`. Nothing targets `main`: PR 13 states that merging to `main` auto-deploys to Railway.
+- **Candidate = `ct920-standup` + snapshot + this pilot work**, reviewed as PR 14 against `ct920-standup`. Nothing targets `main`: PR 13 states that merging to `main` auto-deploys to Railway. PR 14 is still a draft and has not been merged or deployed.
 
 ## Buyer (hypothesis, not validated demand)
 
