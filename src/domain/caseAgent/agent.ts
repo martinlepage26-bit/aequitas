@@ -540,8 +540,12 @@ async function intakeStep(
     },
   });
   if (row.respondent._count.credentials === 0) {
-    const latest = await prisma.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null, emailedAt: { not: null } }, orderBy: { createdAt: "desc" } });
+    const latest = await prisma.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, orderBy: { createdAt: "desc" } });
     if (latest) {
+      // Provider acceptance can succeed while saving emailedAt fails. Keep
+      // that token valid and hand the uncertain delivery state to a person;
+      // creating another invitation could revoke a link already in the inbox.
+      if (!latest.emailedAt) return escalate("invitation_failed");
       return now.getTime() - latest.emailedAt!.getTime() > program.responseDays * DAY_MS ? escalate("respondent_no_response") : { status: "waiting", reason: "respondent_invited" };
     }
     return inviteRespondent(caseId, agentId, program, escalate);
@@ -605,7 +609,7 @@ async function inviteRespondent(caseId: string, agentId: string, program: CaseAg
     await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${caseId} FOR UPDATE`;
     const row = await tx.case.findUniqueOrThrow({ where: { id: caseId }, include: { respondent: { include: { _count: { select: { credentials: true } } } } } });
     if (row.state !== "EVIDENCE_INTAKE" || row.agentEscalatedAt || row.respondent._count.credentials > 0) return null;
-    const active = await tx.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null, emailedAt: { not: null } } });
+    const active = await tx.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null } });
     if (active) return null;
     const { token, expiresAt } = issueInviteToken(row.respondentId, program.responseDays * DAY_MS / 1000);
     await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: { revokedAt: new Date() } });

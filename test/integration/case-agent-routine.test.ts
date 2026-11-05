@@ -320,6 +320,26 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     expect(await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
   });
 
+  it("preserves an active invite if email acceptance is recorded but its timestamp write fails", async () => {
+    const r = await submittedCase();
+    sentTo.length = 0;
+    stubEmail();
+    await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
+    const timestampWrite = vi.spyOn(prisma.invitation, "update").mockRejectedValueOnce(new Error("synthetic database write failure"));
+    try {
+      expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "respondent_invited" });
+    } finally {
+      timestampWrite.mockRestore();
+    }
+
+    const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
+    expect(invitation.emailedAt).toBeNull();
+    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
+    const afterHandoff = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
+    expect(afterHandoff).toMatchObject({ tokenHash: invitation.tokenHash, emailedAt: null, revokedAt: null });
+    expect(sentTo).toEqual([r.respondentEmail]);
+  });
+
   it("missing evidence at the end of intake, or a missing position after the response period", async () => {
     const r = await submittedCase();
     stubEmail();
