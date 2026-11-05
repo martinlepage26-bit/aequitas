@@ -17,7 +17,7 @@ import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
-import { HUMAN_AUTHORED_PROMPT_VERSION } from "./humanAuthored";
+import { humanAuthoredIssueCheck } from "./humanAuthored";
 import { consentAnswerCounts, deriveGiveConsentState } from "./consent";
 import { BLOCKER_REASONS, loadResolutionBlockers, partyFacingBlockers, type ShownResolutionBlocker } from "./resolution";
 import {
@@ -955,8 +955,12 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
 
   const explanation = recommendation.explanation as unknown as ExplanationRecord;
   let schemaValidationError = validateExplanationRecord(explanation);
-  // A manager-authored draft has no model output, so no conflict map to check.
-  if (!schemaValidationError && (explanation.conflict_knowledge || (recommendation.promptVersion >= "2026-09-20.1" && recommendation.promptVersion !== HUMAN_AUTHORED_PROMPT_VERSION))) {
+  // A manager-authored draft has no model output, so no conflict map to
+  // check; it must instead cite clean evidence. The waiver needs every
+  // human-origin marker to agree (row and stored record).
+  const origin = humanAuthoredIssueCheck(recommendation, explanation);
+  if (!schemaValidationError && origin.error) schemaValidationError = origin.error;
+  if (!schemaValidationError && (explanation.conflict_knowledge || (recommendation.promptVersion >= "2026-09-20.1" && !origin.humanAuthored))) {
     schemaValidationError = validateConflictKnowledgeMap(explanation.conflict_knowledge, explanation.knowledge_sources ?? []);
   }
 

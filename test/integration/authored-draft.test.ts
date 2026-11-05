@@ -25,6 +25,7 @@ import {
 } from "../../src/domain/mutate";
 import { authorDraft } from "../../src/domain/authoredDraft";
 import { approveResolution } from "../../src/domain/resolution";
+import { issuePartyOutcome, readPartyOutcomes } from "../../src/domain/partyOutcome";
 import { generateExportBundle, buildExportRecord } from "../../src/domain/exportBundle";
 import { HUMAN_AUTHORED_MODEL_ID, HUMAN_AUTHORED_PROMPT_VERSION } from "../../src/domain/humanAuthored";
 import { verifyCase } from "../../src/domain/verifyEvents";
@@ -132,7 +133,8 @@ async function status(outcome: Awaited<ReturnType<typeof authorDraft>>) {
 describe("author_draft: refusals leave the case untouched", () => {
   it("refuses parties, an admin and an unassigned manager", async () => {
     const { caseId } = await caseAtPositions();
-    const fields = validFields();
+    const { evidenceIds } = await prisma.case.findUniqueOrThrow({ where: { id: caseId }, include: { evidenceItems: true } }).then(c => ({ evidenceIds: c.evidenceItems.map(e => e.id) }));
+    const fields = validFields([{ evidence_item_id: evidenceIds[0], relevance: "Relevant." }]);
     expect(await status(await authorDraft({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, fields }))).toBe(403);
     expect(await status(await authorDraft({ actorId: respondentId, actorRole: "RESPONDENT", caseId, fields }))).toBe(403);
     expect(await status(await authorDraft({ actorId: adminId, actorRole: "ADMIN", caseId, fields }))).toBe(403);
@@ -143,8 +145,8 @@ describe("author_draft: refusals leave the case untouched", () => {
   });
 
   it("refuses before positions are complete", async () => {
-    const { caseId } = await caseAtIntake();
-    const outcome = await authorDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, fields: validFields() });
+    const { caseId, evidenceIds } = await caseAtIntake();
+    const outcome = await authorDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, fields: validFields([{ evidence_item_id: evidenceIds[0], relevance: "Relevant." }]) });
     expect(outcome.ok).toBe(false);
     expect(await status(outcome)).toBe(409);
     expect(await prisma.recommendation.count({ where: { caseId } })).toBe(0);
@@ -153,12 +155,20 @@ describe("author_draft: refusals leave the case untouched", () => {
   it("refuses incomplete, overclaiming or mis-cited drafts", async () => {
     const { caseId } = await caseAtPositions();
     const { evidenceIds: foreign } = await caseAtIntake();
+    const own = (await prisma.evidenceItem.findMany({ where: { caseId }, select: { id: true } })).map(e => e.id);
+    const cite = [{ evidence_item_id: own[0], relevance: "Relevant." }];
     const attempts: unknown[] = [
-      { ...validFields(), limits: [] },
-      { ...validFields(), not_considered: [] },
-      { ...validFields(), reasoning: "This decision is final." },
+      validFields([]),
+      { ...validFields(cite), limits: [] },
+      { ...validFields(cite), not_considered: [] },
+      { ...validFields(cite), reasoning: "This decision is final." },
       validFields([{ evidence_item_id: foreign[0], relevance: "From another case." }]),
-      { ...validFields(), model: { id: "claude", prompt_version: "x" } },
+      validFields([...cite, ...cite]),
+      { ...validFields(cite), evidence_citations: [{ ...cite[0], verified: true }] },
+      { ...validFields(cite), model: { id: "claude", prompt_version: "x" } },
+      { ...validFields(cite), reviewer: { user_id: managerId, issued_at: new Date().toISOString() } },
+      { ...validFields(cite), knowledge_sources: [] },
+      { ...validFields(cite), conflict_knowledge: {} },
       null,
     ];
     for (const fields of attempts) {
@@ -204,18 +214,46 @@ describe("author_draft: the full synthetic journey without a model", () => {
     expect(v2.issuedById).toBe(managerId);
 
     // No new draft once issued; a new version goes through request_new_version.
-    expect(await status(await authorDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, fields: validFields(), reason: "x", replacesRecommendationId: v2Id }))).toBe(409);
+    expect(await status(await authorDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, fields: validFields(citations), reason: "x", replacesRecommendationId: v2Id }))).toBe(409);
 
-    // Consent cannot resolve before a separate approver signs off.
-    const consent = (actorId: string, actorRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER") =>
-      giveConsent({ actorId, actorRole, caseId, recommendationId: v2Id, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
-    const early = await consent(complainantId, "COMPLAINANT");
-    expect(early.ok).toBe(false);
-    expect((await consent(managerId, "CASE_MANAGER")).ok).toBe(false);
+    // Each party sees only their own issued outcome; consent binds to it.
+    const outcomeFor = async (partyId: string, body: string) => {
+      const issuedOutcome = await issuePartyOutcome({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, partyId, body, locale: "fr-CA" });
+      if (!issuedOutcome.ok) throw new Error(issuedOutcome.reason);
+      return issuedOutcome.data;
+    };
+    expect((await issuePartyOutcome({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, partyId: complainantId, body: "self", locale: "fr-CA" })).ok).toBe(false);
+    expect((await issuePartyOutcome({ actorId: otherManagerId, actorRole: "CASE_MANAGER", caseId, partyId: complainantId, body: "x", locale: "fr-CA" })).ok).toBe(false);
+    const c1 = await outcomeFor(complainantId, "COMPLAINANT-OUTCOME-V1");
+    const r1 = await outcomeFor(respondentId, "RESPONDENT-OUTCOME-V1");
+    const complainantView = JSON.stringify(await readPartyOutcomes(caseId, { userId: complainantId, globalRole: "COMPLAINANT" }));
+    expect(complainantView).toContain("COMPLAINANT-OUTCOME-V1");
+    expect(complainantView).not.toContain("RESPONDENT-OUTCOME-V1");
+    const respondentView = JSON.stringify(await readPartyOutcomes(caseId, { userId: respondentId, globalRole: "RESPONDENT" }));
+    expect(respondentView).not.toContain("COMPLAINANT-OUTCOME-V1");
+
+    const consent = (actorId: string, actorRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER", outcome: { id: string; version: number }) =>
+      giveConsent({ actorId, actorRole, caseId, recommendationId: v2Id, statementVersionId, currentStatementVersionId: statementVersionId, outcomeId: outcome.id, outcomeVersion: outcome.version, authContext: {} });
+
+    // Approval: required, and never by the case's own manager.
+    const early = await consent(complainantId, "COMPLAINANT", c1);
+    expect(!early.ok && early.code).toBe("APPROVAL_REQUIRED");
+    expect((await consent(managerId, "CASE_MANAGER", c1)).ok).toBe(false);
+    expect((await consent(complainantId, "COMPLAINANT", r1)).ok).toBe(false);
     expect((await approveResolution({ caseId, actorId: managerId, actorRole: "CASE_MANAGER", rationale: "Self-approval." })).ok).toBe(false);
+    expect((await approveResolution({ caseId, actorId: adminId, actorRole: "ADMIN", rationale: "Admin." })).ok).toBe(false);
     expect((await approveResolution({ caseId, actorId: approverId, actorRole: "CASE_MANAGER", rationale: "Reviewed the record and the written reasoning." })).ok).toBe(true);
-    expect((await consent(complainantId, "COMPLAINANT")).ok).toBe(true);
-    expect((await consent(respondentId, "RESPONDENT")).ok).toBe(true);
+
+    // Stale consent: the complainant's consent to v1 stops counting once v2 is issued.
+    expect((await consent(complainantId, "COMPLAINANT", c1)).ok).toBe(true);
+    const c2 = await outcomeFor(complainantId, "COMPLAINANT-OUTCOME-V2");
+    expect(c2.version).toBe(2);
+    const revoked = await prisma.consentRecord.findFirstOrThrow({ where: { recommendationId: v2Id, partyId: complainantId } });
+    expect(revoked).toMatchObject({ state: "REVOKED", revokedReason: "outcome_reissued" });
+    expect((await consent(respondentId, "RESPONDENT", r1)).ok).toBe(true);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).state).toBe("ISSUED");
+    expect((await consent(complainantId, "COMPLAINANT", c1)).ok).toBe(false);
+    expect((await consent(complainantId, "COMPLAINANT", c2)).ok).toBe(true);
     expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).state).toBe("RESOLVED_CONSENT");
 
     const record = await buildExportRecord(caseId);
@@ -231,5 +269,45 @@ describe("author_draft: the full synthetic journey without a model", () => {
     expect(drafted.map(e => (e.payload as { origin?: string }).origin)).toEqual(["case_manager_authored", "case_manager_authored"]);
     expect(await prisma.event.count({ where: { caseId, type: "NOTE_ADDED", payload: { path: ["kind"], equals: "authored_draft_replacement" } } })).toBe(1);
     expect(draftSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("issuance re-checks a human-written draft", () => {
+  async function draftedCase() {
+    const { caseId, evidenceIds } = await caseAtPositions();
+    const drafted = await authorDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, fields: validFields([{ evidence_item_id: evidenceIds[0], relevance: "Relevant." }]) });
+    if (!drafted.ok) throw new Error(drafted.reason);
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    return { caseId, recommendationId: row.currentRecommendationId! };
+  }
+  async function tamper(recommendationId: string, change: (e: Record<string, unknown>) => Record<string, unknown>, rowData: Record<string, unknown> = {}) {
+    const rec = await prisma.recommendation.findUniqueOrThrow({ where: { id: recommendationId } });
+    await prisma.recommendation.update({ where: { id: recommendationId }, data: { explanation: change(rec.explanation as Record<string, unknown>) as never, ...rowData } });
+  }
+
+  it("refuses a stored draft whose citations were removed", async () => {
+    const { caseId, recommendationId } = await draftedCase();
+    await tamper(recommendationId, e => ({ ...e, evidence_citations: [] }));
+    const issued = await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId });
+    expect(issued.ok).toBe(false);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).state).toBe("DRAFTING");
+  });
+
+  it("refuses a draft whose origin markers disagree", async () => {
+    const relabelled = await draftedCase();
+    await tamper(relabelled.recommendationId, e => ({ ...e, model: { id: "claude-opus-5", prompt_version: "2026-09-22.1" } }));
+    expect((await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: relabelled.caseId })).ok).toBe(false);
+
+    const rowOnly = await draftedCase();
+    await tamper(rowOnly.recommendationId, e => e, { modelId: "claude-opus-5" });
+    expect((await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: rowOnly.caseId })).ok).toBe(false);
+  });
+
+  it("refuses a citation to evidence that is not clean", async () => {
+    const { caseId, recommendationId } = await draftedCase();
+    const rec = await prisma.recommendation.findUniqueOrThrow({ where: { id: recommendationId } });
+    const cited = (rec.explanation as { evidence_citations: Array<{ evidence_item_id: string }> }).evidence_citations[0].evidence_item_id;
+    await prisma.evidenceItem.update({ where: { id: cited }, data: { scanStatus: "REJECTED" } });
+    expect((await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId })).ok).toBe(false);
   });
 });

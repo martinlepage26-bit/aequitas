@@ -43,6 +43,10 @@ export default function AuthorDraftForm({ caseId, evidence, replacesRecommendati
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (Object.keys(citations).length === 0) {
+      setStatus({ kind: "error", message: t("citationRequired") });
+      return;
+    }
     setStatus({ kind: "busy" });
     try {
       const res = await fetch(`/api/cases/${caseId}/authored-draft`, {

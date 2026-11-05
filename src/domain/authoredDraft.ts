@@ -3,7 +3,7 @@ import type { GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { caseReadAccess } from "./caseAccess";
 import { aiGeneratedFieldsSchema, type ExplanationRecord, validateExplanationRecord } from "./explanationRecord";
-import { HUMAN_AUTHORED_MODEL_ID, HUMAN_AUTHORED_PROMPT_VERSION } from "./humanAuthored";
+import { HUMAN_AUTHORED_MIN_CITATIONS, HUMAN_AUTHORED_MODEL_ID, HUMAN_AUTHORED_PROMPT_VERSION } from "./humanAuthored";
 import { type MutationOutcome, runMutation, StaleDraftError, type WriteResult } from "./mutate";
 import { isFromStateAllowed, transitionsFor } from "./stateMachine";
 
@@ -29,7 +29,8 @@ export const authoredDraftFieldsSchema = aiGeneratedFieldsSchema.extend({
   evidence_citations: z.array(z.object({
     evidence_item_id: z.string().uuid(),
     relevance: z.string().trim().min(1).max(2000),
-  })).max(100),
+  }).strict()).min(HUMAN_AUTHORED_MIN_CITATIONS, "cite at least one piece of clean evidence from this case").max(100)
+    .refine(list => new Set(list.map(c => c.evidence_item_id)).size === list.length, "each evidence item can be cited once"),
 }).strict();
 
 export interface AuthorDraftInput {
@@ -84,7 +85,7 @@ export async function authorDraft(input: AuthorDraftInput): Promise<MutationOutc
       }
     : null;
   if (explanation && !schemaValidationError) schemaValidationError = validateExplanationRecord(explanation);
-  if (explanation && !schemaValidationError && explanation.evidence_citations.length > 0) {
+  if (explanation && !schemaValidationError) {
     const clean = await prisma.evidenceItem.findMany({ where: { caseId: caseRow.id, scanStatus: "CLEAN" }, select: { id: true } });
     const cleanIds = new Set(clean.map(e => e.id));
     if (explanation.evidence_citations.some(c => !cleanIds.has(c.evidence_item_id))) {
