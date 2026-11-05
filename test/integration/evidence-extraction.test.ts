@@ -14,7 +14,7 @@ describe("native PDF and image extraction", () => {
     pdf.addPage([600, 180]).drawText("POLICY REVIEW 2026", { x: 30, y: 90, size: 30, font });
     const buffer = Buffer.from(await pdf.save());
     const extracted = await extractEvidenceText(buffer, "application/pdf");
-    expect(extracted.status).toBe("bounded");
+    expect(extracted.status).toBe("extracted");
     expect(extracted.text).toContain("POLICY REVIEW 2026");
     const dir = await mkdtemp(join(tmpdir(), "aequitas-ocr-test-"));
     try {
@@ -25,5 +25,17 @@ describe("native PDF and image extraction", () => {
       expect(ocr.status).toBe("extracted");
       expect(ocr.text).toContain("POLICY REVIEW 2026");
     } finally { await rm(dir, { recursive: true, force: true }); }
+  }, 30000);
+
+  it("marks a PDF bounded only when it exceeds the twenty-page extraction cap", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (let page = 1; page <= 21; page += 1) {
+      pdf.addPage([300, 120]).drawText(`Page marker ${page}`, { x: 20, y: 60, size: 12, font });
+    }
+    const extracted = await extractEvidenceText(Buffer.from(await pdf.save()), "application/pdf");
+    expect(extracted.status).toBe("bounded");
+    expect(extracted.text).toContain("Page marker 1");
+    expect(extracted.text).not.toContain("Page marker 21");
   }, 30000);
 });

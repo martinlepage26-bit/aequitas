@@ -11,7 +11,8 @@ import { scanForForbiddenContent } from "../explanationRecord";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-05.1";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-05.2";
+export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const ids = z.array(z.string().uuid()).max(50);
@@ -22,7 +23,11 @@ export const agentOutputSchema = z.object({
   reasoning: text(4000),
   limits: z.array(text(500)).min(1).max(10),
   not_considered: z.array(text(500)).min(1).max(10),
-  citations: z.array(z.object({ evidence_item_id: z.string().uuid(), relevance: text(500) }).strict()).min(1).max(50),
+  citations: z.array(z.object({
+    evidence_item_id: z.string().uuid(),
+    relevance: text(500),
+    excerpt: z.string().min(12).max(MAX_CITATION_EXCERPT_CHARACTERS).refine((value) => value.trim().length > 0),
+  }).strict()).min(1).max(50),
   outcomes: z.object({
     complainant: z.object({ text: text(4000), evidence_item_ids: ids.min(1) }).strict(),
     respondent: z.object({ text: text(4000), evidence_item_ids: ids.min(1) }).strict(),
@@ -75,7 +80,9 @@ export function sharesPassage(candidate: string, source: string): boolean {
 export interface OutputContext {
   complainantEvidenceIds: ReadonlySet<string>;
   respondentEvidenceIds: ReadonlySet<string>;
-  /** Everything the complainant submitted (position, evidence titles and descriptions, chronology). */
+  /** Exact extracted text from each current clean evidence object. */
+  evidenceSources: ReadonlyMap<string, { text: string }>;
+  /** Everything the complainant submitted (position, evidence text, titles, descriptions, chronology). */
   complainantCorpus: string;
   respondentCorpus: string;
 }
@@ -107,11 +114,22 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   if (new Set(cited).size !== cited.length || cited.some((id) => !all.has(id))) {
     return { ok: false, escalation: "model_output_rejected", detail: "citation not in current clean case evidence" };
   }
+  for (const citation of out.citations) {
+    const source = ctx.evidenceSources.get(citation.evidence_item_id);
+    const start = source?.text.indexOf(citation.excerpt) ?? -1;
+    if (start < 0 || source?.text.lastIndexOf(citation.excerpt) !== start) {
+      return { ok: false, escalation: "model_output_rejected", detail: "citation excerpt is absent or ambiguous in the current evidence extract" };
+    }
+  }
   // Isolation: each party's outcome may rest only on that party's own evidence
   // and must not repeat the other party's words.
   if (out.outcomes.complainant.evidence_item_ids.some((id) => !ctx.complainantEvidenceIds.has(id))
     || out.outcomes.respondent.evidence_item_ids.some((id) => !ctx.respondentEvidenceIds.has(id))) {
     return { ok: false, escalation: "model_output_rejected", detail: "outcome cites the other party's evidence" };
+  }
+  const citedIds = new Set(cited);
+  if ([...out.outcomes.complainant.evidence_item_ids, ...out.outcomes.respondent.evidence_item_ids].some((id) => !citedIds.has(id))) {
+    return { ok: false, escalation: "model_output_rejected", detail: "an outcome cites evidence without an exact excerpt" };
   }
   if (sharesPassage(out.outcomes.complainant.text, ctx.respondentCorpus) || sharesPassage(out.outcomes.respondent.text, ctx.complainantCorpus)) {
     return { ok: false, escalation: "model_output_rejected", detail: "outcome repeats the other party's submission" };

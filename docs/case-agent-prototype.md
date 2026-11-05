@@ -17,12 +17,13 @@ For one Québec program's `RETAIL` cases, after the assigned case manager closes
 2. **Asks the configured model** for a neutral summary with citations to case evidence, and for one non-binding proposed outcome per party, written in that party's language.
 3. **Validates the reply deterministically** (`src/domain/caseAgent/output.ts`). The case goes to a person instead if any check fails. The reply must:
    - follow a strict JSON shape, with no model-set reviewer or source fields
-   - cite only current clean evidence in the case, each item at most once
+   - cite only current clean evidence in the case, each item at most once, with an exact excerpt from the hash-verified extraction
+   - attach server-computed character offsets plus the source-file and extracted-text hashes for every citation
    - have each party's outcome cite only that party's own evidence
    - not repeat any six-word run from the other party's submissions in a party's outcome
    - avoid the forbidden terms and score patterns
    - not judge credibility, state what the law requires, use binding wording, or apply deadline pressure (English and French)
-4. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes and notifications. If any position, evidence item, scan status or chronology entry changed during the model call, the result is discarded ("stale") and the next pass starts over.
+4. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes and notifications. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
 5. **Records answers** through the existing consent flow, which binds consent to the outcome version. While the agent manages the case, both consents resolve it without approver sign-off.
 6. **Closes** (`agent_close`, with a sealed export) only after both parties consent or the complainant withdraws.
 7. **Hands the case back** to the assigned case manager if a party declines. It does not close declined cases.
@@ -38,6 +39,7 @@ Either party can press **"Ask for a person to review this case"** at any time be
 - **No case read access.** `caseReadAccess` returns nothing for it, so it cannot use party, manager, approver or admin routes. Tests confirm it cannot consent, approve, write outcomes, issue as a manager, close as a manager, or request a person.
 - **Opt-in is human.** Only the case's assigned case manager can opt a case in, during intake or positions. That manager stays accountable and receives every escalation.
 - **Audit and integrity.** Every agent write appends hash-chained events attributed to the agent account, with origin `case_agent`, the model id, the prompt version and a digest of the material it saw. Replay and `verifyCase` pass on agent-closed cases.
+- **Evidence input.** The agent downloads current clean evidence, verifies its stored size and SHA-256, then extracts text from UTF-8, PDFs and supported images. It follows the existing caps of 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case. If any current evidence is empty, truncated, unsupported, unavailable, over the case limit or fails its integrity check, the model is not called and the case is handed to a person. Scanned PDFs remain unsupported. Exact excerpts prove only that matching text exists in the extraction, not that the document is authentic, accurate or relevant.
 
 ## Runtime provider and configuration
 
@@ -57,8 +59,9 @@ Not verified here: any live provider call, output quality on real disputes, late
 
 ## Known limits
 
-- The model sees positions, evidence titles and descriptions, chronology and the dispute description. It does not read evidence file contents.
+- The model sees extracted text from the parties' clean evidence. Text from both parties is sent in one provider call; exact-quote checks and six-word overlap checks do not prove that an outcome is neutral or free from paraphrased information about the other party.
 - The output checks are heuristics. They cannot prove that free text is accurate, neutral or free of the other party's information. Paraphrase that avoids a six-word overlap would pass.
+- A matching excerpt proves traceability to machine-extracted text, not truth, relevance, authenticity, completeness or legal liability. OCR and PDF text may be wrong; the original must be reviewed when a case is handed to a person.
 - Any model failure escalates at once; there is no retry budget.
 - Only the complainant can withdraw (existing rule); the respondent's equivalent is to decline or ask for a person.
 - If the assigned manager drafts by hand on an opted-in case, the agent waits rather than taking over.

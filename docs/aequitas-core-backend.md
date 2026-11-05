@@ -124,7 +124,7 @@ create a new version; they do not overwrite the original AI draft.
 - Extraction is limited to 25 MiB per file, 20 PDF pages, 12,000 characters per
   source, 12 files and 60,000 characters per case. Native processes have a 15-second
   timeout and 512 KiB output cap. Extracted quotations require original-file review.
-- Configure `AEQUITAS_PDFTOTEXT_PATH`, `AEQUITAS_TESSERACT_PATH` and
+- Configure `AEQUITAS_PDFINFO_PATH`, `AEQUITAS_PDFTOTEXT_PATH`, `AEQUITAS_TESSERACT_PATH` and
   `AEQUITAS_OCR_LANGUAGES` as needed. OCR defaults to `eng`; bilingual installations
   should install French language data and select `eng+fra`. There is no external
   web research or general image interpretation.

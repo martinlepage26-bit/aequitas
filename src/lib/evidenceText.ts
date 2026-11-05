@@ -10,6 +10,9 @@ import { downloadBuffer } from "./storage";
 const execute = promisify(execFile);
 export const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 export const MAX_EXTRACTED_CHARACTERS = 12000;
+export const MAX_EVIDENCE_FILES = 12;
+export const MAX_CASE_EXTRACTED_CHARACTERS = 60000;
+export const MAX_PDF_PAGES = 20;
 const SUPPORTED_EVIDENCE_MIME_TYPES = new Set([
   "text/plain", "application/pdf", "image/png", "image/jpeg", "image/tiff", "image/webp",
 ]);
@@ -64,11 +67,22 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
   try {
     const input = join(dir, "source");
     await writeFile(input, buffer, { mode: 0o600 });
-    const command = pdf ? process.env.AEQUITAS_PDFTOTEXT_PATH || "pdftotext" : process.env.AEQUITAS_TESSERACT_PATH || "tesseract";
-    const args = pdf ? ["-f", "1", "-l", "20", "-enc", "UTF-8", input, "-"]
-      : [input, "stdout", "-l", process.env.AEQUITAS_OCR_LANGUAGES || "eng", "--psm", "6"];
-    const { stdout } = await execute(command, args, { timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8", env: { ...process.env, OMP_THREAD_LIMIT: "1" } });
-    return finish(stdout, pdf ? "pdftotext" : "tesseract", pdf);
+    if (pdf) {
+      const pdfinfo = process.env.AEQUITAS_PDFINFO_PATH || "pdfinfo";
+      const { stdout: info } = await execute(pdfinfo, [input], { timeout: 15000, maxBuffer: 64 * 1024, encoding: "utf8" });
+      const pages = /^Pages:\s+(\d+)\s*$/m.exec(info)?.[1];
+      if (!pages || Number(pages) < 1) throw new Error("PDF page count could not be established.");
+      const pdftotext = process.env.AEQUITAS_PDFTOTEXT_PATH || "pdftotext";
+      const { stdout } = await execute(pdftotext, ["-f", "1", "-l", String(MAX_PDF_PAGES), "-enc", "UTF-8", input, "-"], {
+        timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8",
+      });
+      return finish(stdout, "pdftotext", Number(pages) > MAX_PDF_PAGES);
+    }
+    const tesseract = process.env.AEQUITAS_TESSERACT_PATH || "tesseract";
+    const { stdout } = await execute(tesseract, [input, "stdout", "-l", process.env.AEQUITAS_OCR_LANGUAGES || "eng", "--psm", "6"], {
+      timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8", env: { ...process.env, OMP_THREAD_LIMIT: "1" },
+    });
+    return finish(stdout, "tesseract");
   } catch {
     return { status: "unavailable", method: pdf ? "pdftotext" : "tesseract", text: "", note: "Extraction failed or exceeded a resource limit. Check the configured binary and language packs; metadata only." };
   } finally {

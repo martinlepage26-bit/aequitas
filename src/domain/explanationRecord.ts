@@ -25,6 +25,22 @@ import { FORBIDDEN_TERMS } from "../i18n/glossary";
 
 const NUMERIC_SCORE_PATTERN = /\d+\s*%|\b\d+(?:\.\d+)?\s*\/\s*(?:5|10)\b|\bstar rating\b|\bstars?\s+out of\b/i;
 
+const extractedSpanSchema = z.object({
+  start_char: z.number().int().nonnegative(),
+  end_char: z.number().int().positive(),
+  source_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  extracted_text_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  extraction_method: z.enum(["utf8", "pdftotext", "tesseract"]),
+}).strict();
+
+const evidenceCitationSchema = z.object({
+  evidence_item_id: z.string().uuid("evidence_item_id must be a UUID"),
+  relevance: z.string().min(1, "relevance is required"),
+  // The autonomous agent adds a server-computed pointer into a hash-verified
+  // extraction. Older AI and human-authored records remain valid without it.
+  extracted_span: extractedSpanSchema.optional(),
+});
+
 export function scanForForbiddenContent(value: string): string | null {
   if (NUMERIC_SCORE_PATTERN.test(value)) {
     return "contains a percentage or star-rating pattern, which Section 9 forbids";
@@ -85,6 +101,7 @@ export type AiGeneratedFields = z.infer<typeof aiGeneratedFieldsSchema>;
 
 /** The full stored explanation record — AI-generated fields plus model/reviewer metadata our own code attaches. */
 export const explanationRecordSchema = aiGeneratedFieldsSchema.extend({
+  evidence_citations: z.array(evidenceCitationSchema),
   conflict_knowledge: conflictKnowledgeMapSchema.optional(),
   knowledge_sources: z.array(knowledgeSourceSchema).optional(),
   model: z.object({
