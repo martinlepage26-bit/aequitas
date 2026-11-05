@@ -1,7 +1,8 @@
 import "../src/lib/loadEnv";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { test, expect, type Browser, type BrowserContext } from "@playwright/test";
 import { prisma } from "../src/lib/prisma";
+import { uploadEvidence } from "../src/lib/storage";
 import { signPayload } from "../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../src/lib/session";
 import { closeIntake, createCase, openIntake, submitCase, submitPosition } from "../src/domain/mutate";
@@ -37,10 +38,16 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const caseId = created.data.caseId;
     await submitCase({ actorId: c.id, actorRole: "COMPLAINANT", caseId });
     await openIntake({ actorId: m.id, actorRole: "CASE_MANAGER", caseId, hasConflict: false });
+    const evidence = [
+      { party: c, text: "Receipt: kettle purchase $89.99 on 2026-10-02. Return period: 30 days.", excerpt: "kettle purchase $89.99 on 2026-10-02" },
+      { party: r, text: "Store note: final-sale item; repair voucher offered on 2026-10-05.", excerpt: "repair voucher offered on 2026-10-05" },
+    ];
     const ids: string[] = [];
-    for (const party of [c, r]) {
-      const body = Buffer.from(randomUUID());
-      ids.push((await prisma.evidenceItem.create({ data: { caseId, submittedById: party.id, kind: "RECEIPT", title: `File ${party.globalRole}`, storageKey: `simulated/e2e/${randomUUID()}`, sha256: createHash("sha256").update(body).digest("hex"), byteSize: body.byteLength, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true } })).id);
+    for (const { party, text } of evidence) {
+      const id = randomUUID();
+      const stored = await uploadEvidence({ caseId, evidenceId: id, simulated: true, buffer: Buffer.from(text), mimeType: "text/plain" });
+      await prisma.evidenceItem.create({ data: { id, caseId, submittedById: party.id, kind: "RECEIPT", title: `File ${party.globalRole}`, ...stored, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true } });
+      ids.push(id);
     }
     await closeIntake({ actorId: m.id, actorRole: "CASE_MANAGER", caseId });
     await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: "Position A synthetic.", locale });
@@ -51,7 +58,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const outcomeR = `OUTCOME-R-${randomUUID()}`;
     const run = await runCaseAgent({ caseId, env: ENV, model: { provider: "test", model: "stub", complete: async () => JSON.stringify({
       needs_human: null, summary: "Summary.", reasoning: "Reasoning.", limits: ["Limit."], not_considered: ["Other losses."],
-      citations: [{ evidence_item_id: ids[0], relevance: "Receipt." }],
+      citations: [
+        { evidence_item_id: ids[0], relevance: "Receipt documents the purchase.", excerpt: evidence[0].excerpt },
+        { evidence_item_id: ids[1], relevance: "Store note records the offered remedy.", excerpt: evidence[1].excerpt },
+      ],
       outcomes: { complainant: { text: outcomeC, evidence_item_ids: [ids[0]] }, respondent: { text: outcomeR, evidence_item_ids: [ids[1]] } },
     }) } });
     expect(run.status).toBe("issued");
