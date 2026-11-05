@@ -1233,10 +1233,8 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
       }
 
       const otherPartyId = input.actorId === caseRow.complainantId ? caseRow.respondentId : caseRow.complainantId;
-      const [otherRecord, otherOutcome] = await Promise.all([
-        tx.consentRecord.findFirst({ where: { recommendationId, partyId: otherPartyId } }),
-        tx.partyOutcome.findFirst({ where: { caseId: input.caseId, partyId: otherPartyId, status: "ISSUED" }, orderBy: { version: "desc" }, select: { id: true, version: true } }),
-      ]);
+      const otherRecord = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: otherPartyId } });
+      const otherOutcome = await tx.partyOutcome.findFirst({ where: { caseId: input.caseId, partyId: otherPartyId, status: "ISSUED" }, orderBy: { version: "desc" }, select: { id: true, version: true } });
       const otherState = consentAnswerCounts(otherRecord, otherOutcome);
       const complainantState: ConsentState = input.actorId === caseRow.complainantId ? "GIVEN" : otherState;
       const respondentState: ConsentState = input.actorId === caseRow.respondentId ? "GIVEN" : otherState;

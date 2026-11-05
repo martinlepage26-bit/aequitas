@@ -468,15 +468,15 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
 }
 
 async function loadMaterialIn(tx: Prisma.TransactionClient, caseId: string): Promise<Material> {
-  const caseRow = await tx.case.findUniqueOrThrow({
-    where: { id: caseId },
-    include: {
-      complainant: { select: { id: true, locale: true } },
-      respondent: { select: { id: true, locale: true } },
-      evidenceItems: { orderBy: { createdAt: "asc" } },
-      chronologyEntries: { orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }] },
-    },
-  });
+  const caseRecord = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
+  // Keep relation reads explicit and sequential on the transaction-bound
+  // client. Prisma's query strategy can otherwise issue the included relation
+  // reads concurrently over the same pg Client connection.
+  const complainant = await tx.user.findUniqueOrThrow({ where: { id: caseRecord.complainantId }, select: { id: true, locale: true } });
+  const respondent = await tx.user.findUniqueOrThrow({ where: { id: caseRecord.respondentId }, select: { id: true, locale: true } });
+  const evidenceItems = await tx.evidenceItem.findMany({ where: { caseId }, orderBy: { createdAt: "asc" } });
+  const chronologyEntries = await tx.chronologyEntry.findMany({ where: { caseId }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }] });
+  const caseRow = { ...caseRecord, complainant, respondent, evidenceItems, chronologyEntries };
   const latestPosition = (partyId: string) => tx.positionStatement.findFirst({ where: { caseId, partyId }, orderBy: { version: "desc" } });
   // Transaction clients share one PostgreSQL connection; overlapping queries
   // on that client are deprecated by pg and are serialized internally anyway.
