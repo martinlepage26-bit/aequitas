@@ -65,15 +65,43 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       outcomes: { complainant: { text: outcomeC, evidence_item_ids: [ids[0]] }, respondent: { text: outcomeR, evidence_item_ids: [ids[1]] } },
     }) } });
     expect(run.status).toBe("issued");
+    const issuedC = await prisma.partyOutcome.findFirstOrThrow({
+      where: { caseId, partyId: c.id, status: "ISSUED" },
+      include: { citations: true },
+    });
+    const issuedR = await prisma.partyOutcome.findFirstOrThrow({
+      where: { caseId, partyId: r.id, status: "ISSUED" },
+      include: { citations: true },
+    });
+    const citationC = issuedC.citations[0];
+    const citationR = issuedR.citations[0];
+    if (!citationC || !citationR) throw new Error("Missing party citation");
 
     const [cc, rc, mc] = await Promise.all([contextFor(browser, c.id, "COMPLAINANT"), contextFor(browser, r.id, "RESPONDENT"), contextFor(browser, m.id, "CASE_MANAGER")]);
     const [cp, rp, mp] = await Promise.all([cc.newPage(), rc.newPage(), mc.newPage()]);
     await cp.goto(`/${locale}/cases/${caseId}`);
     await expect(cp.locator("#case-agent-notice")).toHaveText(copy.partyNotice);
     await expect(cp.locator("#your-outcome")).toHaveText(outcomeC);
+    const complainantCitations = cp.getByRole("region", { name: messages.workspace.partyOutcome.citationHeading });
+    await expect(complainantCitations).toBeVisible();
+    await expect(complainantCitations.getByRole("link", { name: "File COMPLAINANT" })).toBeVisible();
+    await complainantCitations.getByRole("button", { name: messages.workspace.partyOutcome.viewExcerpt }).click();
+    await expect(complainantCitations.locator("blockquote")).toHaveText(evidence[0].excerpt);
     expect(await cp.content()).not.toContain(outcomeR);
     await mp.goto(`/${locale}/cases/${caseId}`);
     await expect(mp.locator("#case-agent-status")).toHaveText(copy.managerActive);
+
+    await rp.goto(`/${locale}/cases/${caseId}`);
+    await expect(rp.locator("#your-outcome")).toHaveText(outcomeR);
+    expect(await rp.content()).not.toContain(outcomeC);
+    expect(await rp.content()).not.toContain("File COMPLAINANT");
+    const respondentCitations = rp.getByRole("region", { name: messages.workspace.partyOutcome.citationHeading });
+    await expect(respondentCitations.getByRole("link", { name: "File RESPONDENT" })).toBeVisible();
+    await respondentCitations.getByRole("button", { name: messages.workspace.partyOutcome.viewExcerpt }).click();
+    await expect(respondentCitations.locator("blockquote")).toHaveText(evidence[1].excerpt);
+    const crossPartyStatus = await rp.evaluate(async (url) => (await fetch(url)).status,
+      `/api/cases/${caseId}/party-outcomes/${issuedC.id}/citations/${citationC.id}`);
+    expect(crossPartyStatus).toBe(404);
 
     await cp.waitForLoadState("networkidle");
     const requested = cp.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/human-review`);
@@ -82,7 +110,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await expect(cp.locator("#case-agent-escalated")).toHaveText(copy.partyEscalated);
     await expect(cp.getByText(messages.workspace.timeline.event.AGENT_ESCALATED)).toBeVisible();
 
-    await rp.goto(`/${locale}/cases/${caseId}`);
+    await rp.reload();
     await expect(rp.locator("#case-agent-escalated")).toHaveText(copy.partyEscalated);
     await expect(rp.getByText(messages.workspace.timeline.event.AGENT_ESCALATED)).toHaveCount(0);
     expect(await rp.content()).not.toContain(outcomeC);

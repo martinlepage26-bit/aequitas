@@ -106,7 +106,7 @@ async function consent(
 }
 
 function zipJson(buffer: Buffer): {
-  partyOutcomes: { partyId: string; status: string; body: string }[];
+  partyOutcomes: { partyId: string; status: string; body: string; citations?: { evidenceItemId: string; relevance?: string }[] }[];
   timeline: { type: string; payload: { partyId?: string; outcomeId?: string; reason?: string } }[];
   consent: { partyId: string; state: string; revokedAt: string | null; partyOutcomeId: string | null; partyOutcomeVersion: number | null }[];
 } {
@@ -507,15 +507,39 @@ describe("party-facing outcomes", () => {
     await savePartyOutcomeDraft({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, partyId: complainantId, body: "EXPORT-COMPLAINANT-DRAFT", locale: "fr-CA" });
     await issuePartyOutcome({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, partyId: respondentId, body: "EXPORT-RESPONDENT", locale: "fr-CA" });
 
+    const [cOutcome, rOutcome] = await Promise.all([
+      prisma.partyOutcome.findFirstOrThrow({ where: { caseId, partyId: complainantId, status: "ISSUED" } }),
+      prisma.partyOutcome.findFirstOrThrow({ where: { caseId, partyId: respondentId, status: "ISSUED" } }),
+    ]);
+    const [cEvidence, rEvidence] = await Promise.all([
+      prisma.evidenceItem.create({ data: {
+        caseId, submittedById: complainantId, kind: "RECEIPT", title: "Complainant receipt", storageKey: `test/${randomUUID()}`,
+        sha256: "a".repeat(64), byteSize: 5, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true,
+      } }),
+      prisma.evidenceItem.create({ data: {
+        caseId, submittedById: respondentId, kind: "RECEIPT", title: "Respondent receipt", storageKey: `test/${randomUUID()}`,
+        sha256: "b".repeat(64), byteSize: 5, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true,
+      } }),
+    ]);
+    await prisma.partyOutcomeCitation.createMany({ data: [
+      { partyOutcomeId: cOutcome.id, evidenceItemId: cEvidence.id, relevance: "Supports complainant outcome", startChar: 0, endChar: 5, sourceSha256: "a".repeat(64), extractedTextSha256: "a".repeat(64), extractionMethod: "utf8" },
+      { partyOutcomeId: rOutcome.id, evidenceItemId: rEvidence.id, relevance: "Supports respondent outcome", startChar: 0, endChar: 5, sourceSha256: "b".repeat(64), extractedTextSha256: "b".repeat(64), extractionMethod: "utf8" },
+    ] });
+
     const sealed = await buildExportRecord(caseId);
     const sealedBodies = sealed.record.partyOutcomes.map((outcome) => outcome.body);
     expect(sealedBodies).toContain("EXPORT-COMPLAINANT");
     expect(sealedBodies).toContain("EXPORT-COMPLAINANT-DRAFT");
     expect(sealedBodies).toContain("EXPORT-RESPONDENT");
+    expect(sealed.record.partyOutcomes.find((outcome) => outcome.id === cOutcome.id)?.citations.map((citation) => citation.evidenceItemId)).toEqual([cEvidence.id]);
+    expect(sealed.record.partyOutcomes.find((outcome) => outcome.id === rOutcome.id)?.citations.map((citation) => citation.evidenceItemId)).toEqual([rEvidence.id]);
 
     const archive = zipJson(await buildPartyExportArchive(caseId, complainantId));
     expect(archive.partyOutcomes.map((outcome) => outcome.body)).toEqual(["EXPORT-COMPLAINANT"]);
+    expect(archive.partyOutcomes[0].citations?.map((citation) => citation.evidenceItemId)).toEqual([cEvidence.id]);
+    expect(archive.partyOutcomes[0].citations?.[0].relevance).toBe("");
     expect(JSON.stringify(archive)).not.toContain("EXPORT-RESPONDENT");
+    expect(JSON.stringify(archive)).not.toContain(rEvidence.id);
     expect(JSON.stringify(archive)).not.toContain("EXPORT-COMPLAINANT-DRAFT");
     expect(archive.timeline.filter((event) => event.type === "PARTY_OUTCOME_ISSUED").map((event) => event.payload.partyId)).toEqual([complainantId]);
     expect(archive.timeline.some((event) => event.type === "PARTY_OUTCOME_EDITED")).toBe(false);

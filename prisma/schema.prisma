@@ -298,6 +298,7 @@ model EvidenceItem {
   case        Case @relation(fields: [caseId], references: [id])
   submittedBy User @relation(fields: [submittedById], references: [id])
   citedBySources Source[]
+  outcomeCitations PartyOutcomeCitation[]
 }
 
 model PositionStatement {
@@ -371,9 +372,31 @@ model PartyOutcome {
   party      User @relation("PartyOutcomeParty", fields: [partyId], references: [id])
   authoredBy User @relation("PartyOutcomeAuthor", fields: [authoredById], references: [id])
   consentRecords ConsentRecord[]
+  citations       PartyOutcomeCitation[]
 
   @@unique([caseId, partyId, version])
   @@index([caseId, partyId, status])
+}
+
+// A citation belongs to one issued outcome version. It stores a verified
+// pointer into the source extraction, not a second copy of party evidence.
+model PartyOutcomeCitation {
+  id                    String   @id @default(uuid())
+  partyOutcomeId        String
+  evidenceItemId        String
+  relevance             String
+  startChar             Int
+  endChar               Int
+  sourceSha256          String
+  extractedTextSha256   String
+  extractionMethod      String
+  createdAt             DateTime @default(now())
+
+  partyOutcome PartyOutcome @relation(fields: [partyOutcomeId], references: [id], onDelete: Cascade)
+  evidenceItem EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Restrict)
+
+  @@unique([partyOutcomeId, evidenceItemId])
+  @@index([evidenceItemId])
 }
 
 model ConsentRecord {

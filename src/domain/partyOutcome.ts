@@ -41,6 +41,14 @@ export interface OutcomeVersionView {
   body: string;
   locale: string;
   issuedAt: string | null;
+  citations: OutcomeCitationView[];
+}
+
+export interface OutcomeCitationView {
+  id: string;
+  evidenceItemId: string;
+  evidenceTitle: string;
+  relevance: string;
 }
 
 export interface PartyOutcomePartyView {
@@ -63,13 +71,19 @@ type OutcomeRow = {
   body: string;
   locale: string;
   issuedAt: Date | null;
+  citations: { id: string; evidenceItemId: string; relevance: string }[];
 };
 
 function fail(step: "authorize-role" | "authorize-state" | "guard" | "not-found", reason: string, code?: string): Extract<CodedOutcome<never>, { ok: false }> {
   return { ok: false, step, reason, ...(code ? { code } : {}) };
 }
 
-function toView(row: OutcomeRow): OutcomeVersionView {
+function toView(
+  row: OutcomeRow,
+  evidenceById: ReadonlyMap<string, { title: string; submittedById: string }>,
+  canReadCitations: boolean,
+  canReadCitationRelevance: boolean,
+): OutcomeVersionView {
   return {
     id: row.id,
     version: row.version,
@@ -77,6 +91,19 @@ function toView(row: OutcomeRow): OutcomeVersionView {
     body: row.body,
     locale: row.locale,
     issuedAt: row.issuedAt?.toISOString() ?? null,
+    citations: canReadCitations ? row.citations.flatMap((citation) => {
+      const evidence = evidenceById.get(citation.evidenceItemId);
+      return evidence?.submittedById === row.partyId
+        ? [{
+            id: citation.id,
+            evidenceItemId: citation.evidenceItemId,
+            evidenceTitle: evidence.title,
+            // This text is model-written from both parties' submissions.
+            // Keep it in the sealed staff record, not in either party view.
+            relevance: canReadCitationRelevance ? citation.relevance : "",
+          }]
+        : [];
+    }) : [],
   };
 }
 
@@ -100,10 +127,18 @@ export async function readPartyOutcomes(
   const access = caseReadAccess(caseRow, viewer);
   if (!access || access === "claimable") return null;
 
-  const rows = await prisma.partyOutcome.findMany({
-    where: { caseId },
-    orderBy: [{ partyId: "asc" }, { version: "asc" }],
-  });
+  const [rows, evidenceRows] = await Promise.all([
+    prisma.partyOutcome.findMany({
+      where: { caseId },
+      include: { citations: true },
+      orderBy: [{ partyId: "asc" }, { version: "asc" }],
+    }),
+    prisma.evidenceItem.findMany({ where: { caseId, scanStatus: "CLEAN" }, select: { id: true, title: true, submittedById: true, supersedesId: true } }),
+  ]);
+  const superseded = new Set(evidenceRows.map((item) => item.supersedesId).filter((id): id is string => Boolean(id)));
+  const evidenceById = new Map(evidenceRows.filter((item) => !superseded.has(item.id)).map((item) => [item.id, item]));
+  const canReadCitations = access === "party" || access === "assigned-manager";
+  const canReadCitationRelevance = access === "assigned-manager";
   const people = [caseRow.complainant, caseRow.respondent];
   const visible = access === "party" ? people.filter((person) => person.id === viewer.userId) : people;
   return {
@@ -115,8 +150,8 @@ export async function readPartyOutcomes(
       return {
         partyId: person.id,
         displayName: person.displayName,
-        issued: issued ? toView(issued) : null,
-        draft: draft ? toView(draft) : null,
+        issued: issued ? toView(issued, evidenceById, canReadCitations, canReadCitationRelevance) : null,
+        draft: draft ? toView(draft, evidenceById, canReadCitations, canReadCitationRelevance) : null,
       };
     }),
   };

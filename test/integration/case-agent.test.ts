@@ -9,6 +9,7 @@ import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
 import { enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
+import { readPartyOutcomeCitation } from "../../src/domain/partyOutcomeCitationAccess";
 import { closeCase, closeIntake, createCase, declineConsent, giveConsent, issueRecommendation, openIntake, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
 import { issuePartyOutcome, readPartyOutcomes } from "../../src/domain/partyOutcome";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
@@ -158,6 +159,30 @@ describe("case agent: normal completion", () => {
     expect([c.authoredById, r.authoredById]).toEqual([agentId, agentId]);
     expect([c.locale, r.locale]).toEqual(["fr-CA", "en-CA"]);
 
+    const cCitation = await prisma.partyOutcomeCitation.findFirstOrThrow({ where: { partyOutcomeId: c.id } });
+    const rCitation = await prisma.partyOutcomeCitation.findFirstOrThrow({ where: { partyOutcomeId: r.id } });
+    expect(cCitation).toMatchObject({
+      evidenceItemId: s.complainantEvidence,
+      startChar: COMPLAINANT_EVIDENCE_TEXT.indexOf("kettle purchase"),
+      endChar: COMPLAINANT_EVIDENCE_TEXT.indexOf("kettle purchase") + Array.from("kettle purchase on 2026-10-02; paid full price $89.99.").length,
+    });
+    expect(rCitation.evidenceItemId).toBe(s.respondentEvidence);
+    const verifiedExcerpt = await readPartyOutcomeCitation({
+      actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId, outcomeId: c.id, citationId: cCitation.id,
+    });
+    expect(verifiedExcerpt).toEqual({ ok: true, excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." });
+    expect(await readPartyOutcomeCitation({
+      actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId, outcomeId: c.id, citationId: cCitation.id,
+    })).toEqual(verifiedExcerpt);
+    expect(await readPartyOutcomeCitation({
+      actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId, outcomeId: c.id, citationId: cCitation.id,
+    })).toEqual({ ok: false, status: 404 });
+    expect(await readPartyOutcomeCitation({
+      actorId: adminId, actorRole: "ADMIN", caseId: s.caseId, outcomeId: c.id, citationId: cCitation.id,
+    })).toEqual({ ok: false, status: 404 });
+    expect((await readPartyOutcomes(s.caseId, { userId: managerId, globalRole: "CASE_MANAGER" }))?.parties[0].issued?.citations).toHaveLength(1);
+    expect(JSON.stringify(await readPartyOutcomes(s.caseId, { userId: adminId, globalRole: "ADMIN" }))).not.toContain(cCitation.id);
+
     // Idempotent: a second pass while waiting for answers writes nothing.
     expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("waiting");
     expect(model.calls).toBe(1);
@@ -167,6 +192,10 @@ describe("case agent: normal completion", () => {
     const complainantView = JSON.stringify(await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" }));
     expect(complainantView).toContain(c.body);
     expect(complainantView).not.toContain(r.body);
+    const complainantCitationView = await readPartyOutcomes(s.caseId, { userId: s.complainantId, globalRole: "COMPLAINANT" });
+    expect(complainantCitationView?.parties[0].issued?.citations[0].relevance).toBe("");
+    const managerCitationView = await readPartyOutcomes(s.caseId, { userId: managerId, globalRole: "CASE_MANAGER" });
+    expect(managerCitationView?.parties[0].issued?.citations[0].relevance).toBeTruthy();
 
     // No approver is needed while the agent manages the case.
     expect(await loadResolutionBlockers(prisma, s.caseId)).toEqual([]);
@@ -181,6 +210,18 @@ describe("case agent: normal completion", () => {
     expect(await verifyCase(prisma, closed)).toEqual([]);
     expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("waiting");
     expect(model.calls).toBe(1);
+  });
+
+  it("detects a changed or missing party outcome citation in the audit record", async () => {
+    const s = await positionsCase();
+    expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(goodOutput(s))), env: ENV })).status).toBe("issued");
+    const outcome = await issuedOutcome(s.caseId, s.complainantId);
+    const citation = await prisma.partyOutcomeCitation.findFirstOrThrow({ where: { partyOutcomeId: outcome.id } });
+    await prisma.partyOutcomeCitation.delete({ where: { id: citation.id } });
+    const caseRow = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect((await verifyCase(prisma, caseRow)).map((issue) => issue.message).join(" ")).toContain("party outcome citation digest mismatch");
+    await prisma.partyOutcomeCitation.create({ data: citation });
+    expect(await verifyCase(prisma, caseRow)).toEqual([]);
   });
 
   it("does nothing while a position is missing, or while the agent is off", async () => {

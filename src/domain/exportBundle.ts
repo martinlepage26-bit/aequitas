@@ -114,7 +114,11 @@ export async function buildExportRecord(caseId: string) {
     prisma.chronologyEntry.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }] }),
     prisma.partyOutcome.findMany({
       where: { caseId },
-      include: { party: { select: { displayName: true } }, authoredBy: { select: { displayName: true } } },
+      include: {
+        party: { select: { displayName: true } },
+        authoredBy: { select: { displayName: true } },
+        citations: { include: { evidenceItem: { select: { title: true } } }, orderBy: { evidenceItemId: "asc" } },
+      },
       orderBy: [{ partyId: "asc" }, { version: "asc" }],
     }),
   ]);
@@ -208,6 +212,17 @@ export async function buildExportRecord(caseId: string) {
       authoredByName: outcome.authoredBy.displayName,
       issuedAt: outcome.issuedAt?.toISOString() ?? null,
       createdAt: outcome.createdAt.toISOString(),
+      citations: outcome.citations.map((citation) => ({
+        id: citation.id,
+        evidenceItemId: citation.evidenceItemId,
+        evidenceTitle: citation.evidenceItem.title,
+        relevance: citation.relevance,
+        startChar: citation.startChar,
+        endChar: citation.endChar,
+        sourceSha256: citation.sourceSha256,
+        extractedTextSha256: citation.extractedTextSha256,
+        extractionMethod: citation.extractionMethod,
+      })),
     })),
     consent: consentRecords.map((c) => ({
       id: c.id,
@@ -285,7 +300,11 @@ function filterPartyExportRecord<T extends {
   chronology?: { id: string; submittedById: string }[];
   timeline: { type: string; payload: unknown; actorId?: string }[];
   recommendations: { status: string; version: number; explanation: Parameters<typeof filterExplanationForParty>[0] }[];
-  partyOutcomes?: { partyId: string; status: string }[];
+  partyOutcomes?: {
+    partyId: string;
+    status: string;
+    citations?: { evidenceItemId: string; relevance?: string }[];
+  }[];
   consent?: { partyId: string; state: string; revokedAt: string | null; partyOutcomeId: string | null; partyOutcomeVersion: number | null }[];
 }>(record: T, viewerId: string): T {
   const hidden: HiddenSubmissionIds = {
@@ -302,6 +321,13 @@ function filterPartyExportRecord<T extends {
   );
   const issued = record.recommendations.filter((item) => item.status === "ISSUED");
   const finalIssued = issued.length === 0 ? [] : [issued.reduce((latest, item) => item.version > latest.version ? item : latest)];
+  const ownEvidenceIds = new Set(record.evidence.filter((item) => item.submittedById === viewerId).map((item) => item.id));
+  const ownOutcomes = visiblePartyOutcomesForExport(record.partyOutcomes ?? [], viewerId).map((outcome) => ({
+    ...outcome,
+    citations: (outcome.citations ?? [])
+      .filter((citation) => ownEvidenceIds.has(citation.evidenceItemId))
+      .map((citation) => ({ ...citation, relevance: "" })),
+  }));
   return {
     ...record,
     evidence: record.evidence.filter((item) => item.submittedById === viewerId),
@@ -312,7 +338,7 @@ function filterPartyExportRecord<T extends {
       const projected = projectPartyTimelineEvent(event, viewerId);
       return projected ? [projected] : [];
     }),
-    partyOutcomes: visiblePartyOutcomesForExport(record.partyOutcomes ?? [], viewerId),
+    partyOutcomes: ownOutcomes,
     ...(record.consent
       ? {
           consent: record.consent.map((entry) => entry.partyId === viewerId
@@ -607,6 +633,10 @@ export async function buildExportPdf(record: ExportRecord, options?: { partyView
   for (const outcome of outcomes) {
     cursor = paragraph(cursor, `${outcome.partyName} — v${outcome.version} — ${outcome.status} — ${outcome.locale} — issued:${outcome.issuedAt ?? "—"}`);
     cursor = paragraph(cursor, outcome.body);
+    for (const citation of outcome.citations ?? []) {
+      const relevance = citation.relevance ? ` — ${citation.relevance}` : "";
+      cursor = paragraph(cursor, `Evidence citation / Citation de preuve: ${citation.evidenceTitle}${relevance} — extracted characters ${citation.startChar}-${citation.endChar} — source sha256:${citation.sourceSha256}`);
+    }
   }
 
   cursor = subheading(cursor, "Consent history / Historique du consentement");

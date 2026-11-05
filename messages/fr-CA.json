@@ -273,7 +273,12 @@
       "version": "Version {version}",
       "yourOutcome": "Votre résultat",
       "readOnly": "Vous pouvez lire ces résultats. Seul le médiateur assigné peut les rédiger.",
-      "revisionPending": "Une révision non émise est en attente. Le consentement est encore ouvert sur la version {version}."
+      "revisionPending": "Une révision non émise est en attente. Le consentement est encore ouvert sur la version {version}.",
+      "citationHeading": "Preuves citées dans ce résultat",
+      "viewExcerpt": "Afficher l’extrait vérifié",
+      "hideExcerpt": "Masquer l’extrait",
+      "loadingExcerpt": "Vérification de la source…",
+      "excerptUnavailable": "Impossible de vérifier l’extrait. Vous pouvez tout de même ouvrir la pièce originale."
     },
     "consent": {
       "title": "Consentement",

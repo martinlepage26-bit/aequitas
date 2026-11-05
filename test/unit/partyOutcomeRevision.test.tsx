@@ -19,8 +19,8 @@ function panel(locale: string, messages: typeof en, pending: boolean): string {
         parties={[{
           partyId: "party-1",
           displayName: "Northwind",
-          issued: { version: 1, body: "Issued text", locale },
-          draft: pending ? { version: 2, body: "Draft text", locale } : null,
+          issued: { id: "outcome-1", version: 1, status: "ISSUED", body: "Issued text", locale, issuedAt: null, citations: [] },
+          draft: pending ? { id: "outcome-2", version: 2, status: "DRAFT", body: "Draft text", locale, issuedAt: null, citations: [] } : null,
         }]}
       />
     </NextIntlClientProvider>,

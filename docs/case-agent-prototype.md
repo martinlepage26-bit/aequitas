@@ -23,7 +23,7 @@ For one Québec program's `RETAIL` cases, after the assigned case manager closes
    - not repeat any six-word run from the other party's submissions in a party's outcome
    - avoid the forbidden terms and score patterns
    - not judge credibility, state what the law requires, use binding wording, or apply deadline pressure (English and French)
-4. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes and notifications. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
+4. **Issues** in one locked write (`agent_issue`): the recommendation (shared text withheld from parties by the existing isolation rule), both party outcomes, their outcome-version-specific citation pointers, and notifications. Each party can open the exact cited excerpt from their own evidence; the server re-extracts it and checks the source hash, extraction hash, and character range before returning it. The excerpt is not copied into a second database field. Parties see the evidence title and excerpt, while model-written citation rationale stays in the staff audit record because the model saw both parties' material. Citation digests are bound to the issuance events and checked by `verifyCase`. If a case-scope field, party language, position, evidence item, scan status, or chronology entry changes during the model call, the result is discarded ("stale") and the next pass starts over.
 5. **Records answers** through the existing consent flow, which binds consent to the outcome version. While the agent manages the case, both consents resolve it without approver sign-off.
 6. **Closes** (`agent_close`, with a sealed export) only after both parties consent or the complainant withdraws.
 7. **Hands the case back** to the assigned case manager if a party declines. It does not close declined cases.
@@ -62,6 +62,7 @@ Not verified here: any live provider call, output quality on real disputes, late
 - The model sees extracted text from the parties' clean evidence. Text from both parties is sent in one provider call; exact-quote checks and six-word overlap checks do not prove that an outcome is neutral or free from paraphrased information about the other party.
 - The output checks are heuristics. They cannot prove that free text is accurate, neutral or free of the other party's information. Paraphrase that avoids a six-word overlap would pass.
 - A matching excerpt proves traceability to machine-extracted text, not truth, relevance, authenticity, completeness or legal liability. OCR and PDF text may be wrong; the original must be reviewed when a case is handed to a person.
+- An issued citation may become unavailable if its source is replaced or fails integrity checks; the original evidence remains the source of record.
 - Any model failure escalates at once; there is no retry budget.
 - Only the complainant can withdraw (existing rule); the respondent's equivalent is to decline or ask for a person.
 - If the assigned manager drafts by hand on an opted-in case, the agent waits rather than taking over.

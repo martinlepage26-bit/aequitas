@@ -273,7 +273,12 @@
       "version": "Version {version}",
       "yourOutcome": "Your outcome",
       "readOnly": "You can read these outcomes. Only the assigned mediator can write them.",
-      "revisionPending": "An unissued revision is pending. Consent is still open on version {version}."
+      "revisionPending": "An unissued revision is pending. Consent is still open on version {version}.",
+      "citationHeading": "Evidence cited for this outcome",
+      "viewExcerpt": "Show verified excerpt",
+      "hideExcerpt": "Hide excerpt",
+      "loadingExcerpt": "Verifying source…",
+      "excerptUnavailable": "The source excerpt could not be verified. You can still open the original evidence."
     },
     "consent": {
       "title": "Consent",

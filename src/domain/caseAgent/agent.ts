@@ -8,6 +8,7 @@ import { appendEvent } from "../events";
 import { validateExplanationRecord, type ExplanationRecord } from "../explanationRecord";
 import { generateExportBundle } from "../exportBundle";
 import { extractStoredEvidence, MAX_CASE_EXTRACTED_CHARACTERS, MAX_EVIDENCE_FILES, type EvidenceExtraction } from "../../lib/evidenceText";
+import { digestPartyOutcomeCitations, type PartyOutcomeCitationPointer } from "../partyOutcomeCitations";
 import { runMutation, type MutationOutcome, type WriteResult } from "../mutate";
 import { AGENT_PROMPT_VERSION, checkAgentOutput, type OutputContext } from "./output";
 
@@ -367,15 +368,31 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
         });
         await tx.case.update({ where: { id: row.id }, data: { currentRecommendationId: recommendation.id } });
         const outcomeEvents: WriteResult["eventPayloads"] = [];
-        for (const [partyId, locale, body] of [
-          [row.complainantId, row.complainant.locale, out.outcomes.complainant.text],
-          [row.respondentId, row.respondent.locale, out.outcomes.respondent.text],
+        for (const [partyId, locale, body, evidenceItemIds] of [
+          [row.complainantId, row.complainant.locale, out.outcomes.complainant.text, out.outcomes.complainant.evidence_item_ids],
+          [row.respondentId, row.respondent.locale, out.outcomes.respondent.text, out.outcomes.respondent.evidence_item_ids],
         ] as const) {
+          const partyEvidenceIds = new Set(evidenceItemIds);
+          const citationPointers: PartyOutcomeCitationPointer[] = evidenceCitations
+            .filter((citation) => partyEvidenceIds.has(citation.evidence_item_id))
+            .map((citation) => ({
+              evidenceItemId: citation.evidence_item_id,
+              relevance: citation.relevance,
+              startChar: citation.extracted_span.start_char,
+              endChar: citation.extracted_span.end_char,
+              sourceSha256: citation.extracted_span.source_sha256,
+              extractedTextSha256: citation.extracted_span.extracted_text_sha256,
+              extractionMethod: citation.extracted_span.extraction_method,
+            }));
           const prior = await tx.partyOutcome.findFirst({ where: { caseId: row.id, partyId }, orderBy: { version: "desc" }, select: { version: true } });
           const outcome = await tx.partyOutcome.create({
             data: { caseId: row.id, partyId, version: (prior?.version ?? 0) + 1, status: "ISSUED", body, locale, authoredById: agent.id, issuedAt },
           });
-          outcomeEvents.push({ type: "PARTY_OUTCOME_ISSUED", payload: { partyId, outcomeId: outcome.id, version: outcome.version } });
+          await tx.partyOutcomeCitation.createMany({ data: citationPointers.map((citation) => ({ partyOutcomeId: outcome.id, ...citation })) });
+          outcomeEvents.push({
+            type: "PARTY_OUTCOME_ISSUED",
+            payload: { partyId, outcomeId: outcome.id, version: outcome.version, citationDigest: digestPartyOutcomeCitations(citationPointers) },
+          });
         }
         return {
           caseId: row.id,

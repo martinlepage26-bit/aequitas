@@ -29,6 +29,7 @@ import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
 import PartyOutcomePanel from "./PartyOutcomePanel";
+import PartyOutcomeCitations from "./PartyOutcomeCitations";
 import WithdrawButton from "./WithdrawButton";
 import CloseCaseButton from "./CloseCaseButton";
 import ChronologyForm from "./ChronologyForm";
@@ -503,6 +504,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <section aria-labelledby="your-outcome-heading" className={styles.section}>
           <h2 id="your-outcome-heading">{t("partyOutcome.yourOutcome")}</h2>
           <p id="your-outcome">{ownIssuedOutcome.body}</p>
+          <PartyOutcomeCitations caseId={caseId} outcomeId={ownIssuedOutcome.id} citations={ownIssuedOutcome.citations} />
         </section>
       )}
 

@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import PartyVisibleNotice from "./PartyVisibleNotice";
+import PartyOutcomeCitations from "./PartyOutcomeCitations";
+import type { OutcomeVersionView } from "../../../../domain/partyOutcome";
 
 export interface PartyOutcomeParty {
   partyId: string;
   displayName: string;
-  issued: { version: number; body: string; locale: string } | null;
-  draft: { version: number; body: string; locale: string } | null;
+  issued: OutcomeVersionView | null;
+  draft: OutcomeVersionView | null;
 }
 
 export default function PartyOutcomePanel({
@@ -106,7 +108,10 @@ function PartyOutcomeFields({
         </>
       ) : (
         <>
-          {party.issued && <p id={`party-outcome-issued-${party.partyId}`}>{party.issued.body}</p>}
+          {party.issued && <>
+            <p id={`party-outcome-issued-${party.partyId}`}>{party.issued.body}</p>
+            <PartyOutcomeCitations caseId={caseId} outcomeId={party.issued.id} citations={party.issued.citations} />
+          </>}
           {party.draft && <p id={`party-outcome-draft-${party.partyId}`}>{party.draft.body}</p>}
         </>
       )}
