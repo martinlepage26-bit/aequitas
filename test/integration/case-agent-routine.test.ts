@@ -128,8 +128,8 @@ async function addEvidence(caseId: string, partyId: string, text: string, opts: 
 async function addTwoPageScannedPdfEvidence(caseId: string, partyId: string) {
   const source = await PDFDocument.create();
   const font = await source.embedFont(StandardFonts.Helvetica);
-  source.addPage([600, 180]).drawText("PAGE ONE SYNTHETIC RECEIPT HEADER", { x: 30, y: 90, size: 30, font });
-  source.addPage([600, 180]).drawText("PAGE TWO RECEIPT TOTAL 8999 CENTS", { x: 30, y: 90, size: 30, font });
+  source.addPage([800, 240]).drawText("PAGE ONE RECEIPT HEADER", { x: 30, y: 120, size: 30, font });
+  source.addPage([800, 240]).drawText("PAGE TWO RECEIPT TOTAL 8999 CENTS", { x: 30, y: 120, size: 30, font });
   const dir = await mkdtemp(path.join(tmpdir(), "aeq-scanned-agent-pdf-"));
   let buffer: Buffer;
   try {
@@ -141,7 +141,7 @@ async function addTwoPageScannedPdfEvidence(caseId: string, partyId: string) {
     const scanned = await PDFDocument.create();
     for (const pageNumber of [1, 2]) {
       const pageImage = await scanned.embedPng(await readFile(`${pagePrefix}-${pageNumber}.png`));
-      scanned.addPage([600, 180]).drawImage(pageImage, { x: 0, y: 0, width: 600, height: 180 });
+      scanned.addPage([800, 240]).drawImage(pageImage, { x: 0, y: 0, width: 800, height: 240 });
     }
     buffer = Buffer.from(await scanned.save());
   } finally {
@@ -259,21 +259,24 @@ describe("routine path with no case-manager action", () => {
     expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("intake_closed");
     await positions(r);
 
+    let extractedPdfText = "";
     const model = stub((prompt) => {
       const block = prompt.match(/<case_material>\s*([\s\S]+?)\s*<\/case_material>/);
       if (!block) throw new Error("Case material was not included in the model prompt.");
       const material = JSON.parse(block[1]);
       const complainantEvidence = material.complainant.evidence[0];
       const respondentEvidence = material.respondent.evidence[0];
-      expect(complainantEvidence.extracted_text).toContain("PAGE TWO RECEIPT TOTAL 8999 CENTS");
-      const secondPageText = complainantEvidence.extracted_text.split("\n").find((line: string) => line.includes("PAGE TWO"));
-      if (!secondPageText) throw new Error("The OCR result did not contain the page-two receipt text.");
+      extractedPdfText = complainantEvidence.extracted_text;
+      const secondPageText = extractedPdfText.split("\f")[1]?.trim();
+      if (!secondPageText) throw new Error("The OCR result did not contain a second PDF page.");
       return proposal(cId, rId, { citations: [
-        { evidence_item_id: complainantEvidence.evidence_item_id, relevance: "Receipt total on page two.", excerpt: secondPageText.trim() },
+        { evidence_item_id: complainantEvidence.evidence_item_id, relevance: "Receipt total on page two.", excerpt: secondPageText },
         { evidence_item_id: respondentEvidence.evidence_item_id, relevance: "Respondent remedy account.", excerpt: "customer offered a repair voucher at the counter" },
       ] });
     });
-    expect((await runCaseAgent({ caseId: r.caseId, model, env: ENV })).status).toBe("issued");
+    const result = await runCaseAgent({ caseId: r.caseId, model, env: ENV });
+    expect(extractedPdfText).toContain("PAGE TWO RECEIPT TOTAL 8999 CENTS");
+    expect(result.status).toBe("issued");
     const recommendation = await prisma.recommendation.findFirstOrThrow({ where: { caseId: r.caseId }, orderBy: { version: "desc" } });
     const explanation = recommendation.explanation as { evidence_citations: Array<{ evidence_item_id: string; extracted_span: { page?: number; extraction_method: string } }> };
     expect(explanation.evidence_citations.find((citation) => citation.evidence_item_id === cId)?.extracted_span).toMatchObject({ page: 2, extraction_method: "tesseract" });
