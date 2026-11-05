@@ -26,7 +26,13 @@ vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: t
  * withdrawal, a party's request for a person, and model failure.
  */
 
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", GEMINI_API_KEY: "synthetic-test-only" };
+const ENV = {
+  AEQUITAS_CASE_AGENT_ENABLED: "true",
+  AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+  AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
+  AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true",
+  GEMINI_API_KEY: "synthetic-test-only",
+};
 const COMPLAINANT_POSITION = "The kettle stopped heating after three days and the store refused an exchange at the counter.";
 const RESPONDENT_POSITION = "Our counter staff offered a repair voucher because the receipt showed a clearance purchase.";
 const COMPLAINANT_EVIDENCE_TEXT = "Receipt: kettle purchase on 2026-10-02; paid full price $89.99.";
@@ -343,7 +349,7 @@ describe("case agent: least privilege", () => {
       expect((await enrollCaseAgent({ actorId, actorRole, caseId: s.caseId }, ENV)).ok).toBe(false);
     }
     expect((await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, {})).ok).toBe(false);
-    const noProvider = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" };
+    const noProvider = { ...ENV, GEMINI_API_KEY: "" };
     const providerRefused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, noProvider);
     expect(providerRefused).toEqual({ ok: false, status: 409, reason: "The case agent's model provider is not configured." });
     const tenancy = await positionsCase({ category: "TENANCY", enroll: false });

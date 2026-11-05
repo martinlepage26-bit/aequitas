@@ -53,10 +53,14 @@ The agent reuses the existing provider interface (`TextCompletion`, `src/domain/
 | `AEQUITAS_PIPELINE_PROVIDER` | `gemini` (default) or `workers-ai`. |
 | `GEMINI_API_KEY`, optional `GEMINI_MODEL` | For Gemini. |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `AEQUITAS_WORKERS_AI_MODEL` | For Workers AI. |
+| `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` | Required before any live case data is sent. Set only after reviewing the current terms for the selected provider, account and model; this is not legal or privacy approval. |
+| `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` | Also required for Gemini. Confirm the exact API key belongs to a project with active billing. Gemini's unpaid tier is unsuitable for case data under Google's current terms; the app cannot inspect the key's billing tier. |
 | `npm run agent:provision` | Creates the service account once. |
 | `npm run agent:run` | The scheduled pass, for example every 10 minutes. Enrollment is refused unless the selected provider is configured; if a provider is later missing, the pass skips all cases without changing them. Each case is compare-and-set leased before processing, revisited no sooner than 10 minutes later, and released afterward; an expired 30-minute lease recovers after a crashed run. It prints counts only. |
 
 Not verified here: any live provider call, output quality on real disputes, latency and cost. Tests use a local stub.
+
+Provider terms checked 2026-11-05: Google's Gemini API Additional Terms say Unpaid Services may use prompts and responses to improve products, may involve human review, and must not receive sensitive, confidential or personal information. Paid Gemini API use requires an active billing project and has different data terms. Cloudflare says standard Workers AI inference has zero retention and no model training, subject to stated exceptions; third-party model licenses still apply. These runtime flags do not assess Québec privacy law, transfers, or whether the provider is suitable for a specific program. See the [Gemini terms](https://ai.google.dev/gemini-api/terms), [Gemini billing tiers](https://ai.google.dev/gemini-api/docs/billing), and [Cloudflare Workers AI data-use terms](https://developers.cloudflare.com/workers-ai/platform/data-usage/).
 
 ## Synthetic provider check
 

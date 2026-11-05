@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { GEMINI_FLASH_MODEL, WORKERS_AI_MODEL, resolveFreeTextModel } from "../../src/domain/pipeline/provider";
+import { GEMINI_FLASH_MODEL, WORKERS_AI_MODEL, resolveCaseDataModel, resolveFreeTextModel } from "../../src/domain/pipeline/provider";
 import { pipelineEnabled } from "../../src/domain/pipeline/flag";
 
 describe("free pipeline provider", () => {
-  it("defaults to the current Gemini flash model and a Workers AI model on the free allocation", () => {
+  it("defaults to the configured Gemini Flash and Workers AI model IDs", () => {
     expect(GEMINI_FLASH_MODEL).toBe("gemini-3.8-flash");
     expect(WORKERS_AI_MODEL).toBe("@cf/meta/llama-3.1-8b-instruct-fp8");
   });
@@ -14,7 +14,7 @@ describe("free pipeline provider", () => {
     expect(pipelineEnabled({ AEQUITAS_PIPELINE_ENABLED: "true" })).toBe(true);
   });
 
-  it("does not call the network for a paid provider or a missing free key", async () => {
+  it("does not call the network for a refused provider or a missing API key", async () => {
     let calls = 0;
     const fetchImpl = (async () => {
       calls += 1;
@@ -34,5 +34,26 @@ describe("free pipeline provider", () => {
     expect(workers.ok).toBe(true);
     if (workers.ok) expect(workers.model.model).toBe(WORKERS_AI_MODEL);
     expect(calls).toBe(0);
+  });
+
+  it("fails closed for case data until provider terms and Gemini's paid tier are confirmed", () => {
+    const env = {
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      GEMINI_API_KEY: "synthetic-test-only",
+    };
+    expect(resolveCaseDataModel(env).ok).toBe(false);
+    expect(resolveCaseDataModel({ ...env, AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true" }).ok).toBe(false);
+    expect(resolveCaseDataModel({
+      ...env,
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
+      AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true",
+    }).ok).toBe(true);
+    expect(resolveCaseDataModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
+      CLOUDFLARE_ACCOUNT_ID: "account",
+      CLOUDFLARE_API_TOKEN: "token",
+    }).ok).toBe(true);
   });
 });

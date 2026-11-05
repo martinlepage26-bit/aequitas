@@ -55,7 +55,7 @@ From `Aequitas Core.txt`.
 
 **Traceable claim layer:** the assigned manager can record sources, typed claims, exact excerpts, claim relationships and review notes. Parties can inspect the provenance behind claims about their case. An impact statement remains reported experience. These writes append audit events without changing the case state.
 
-**Optional proposal pipeline:** when `AEQUITAS_PIPELINE_ENABLED=true`, an acknowledged assumption ledger gates model proposals for claim decomposition and context. Proposals remain separate from accepted claims. Synthesis validation requires provenance and flags disputed claims; it does not produce numeric credibility scores. The configured provider is Gemini or Workers AI.
+**Optional proposal pipeline:** when `AEQUITAS_PIPELINE_ENABLED=true`, an acknowledged assumption ledger gates model proposals for claim decomposition and context. Live case-data calls also require explicit provider-terms review; Gemini requires a separate operator confirmation that its API project uses the paid tier. Proposals remain separate from accepted claims. Synthesis validation requires provenance and flags disputed claims; it does not produce numeric credibility scores. The configured provider is Gemini or Workers AI.
 
 ## 5. The AI drafting pipeline
 

@@ -3,7 +3,7 @@ import type { GlobalRole, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, deliverPendingNotifications } from "../../lib/mail";
 import type { TextCompletion } from "../pipeline/provider";
-import { resolveFreeTextModel } from "../pipeline/provider";
+import { resolveCaseDataModel } from "../pipeline/provider";
 import { appendEvent } from "../events";
 import { validateExplanationRecord, type ExplanationRecord } from "../explanationRecord";
 import { generateExportBundle } from "../exportBundle";
@@ -75,7 +75,7 @@ export function caseAgentAmountCap(env: Env = process.env): number | null {
  */
 export function resolveCaseAgentModel(env: Env = process.env, fetchImpl: typeof fetch = fetch) {
   if (!caseAgentEnabled(env)) return { ok: false as const, reason: "The case agent is off. Set AEQUITAS_CASE_AGENT_ENABLED=true." };
-  return resolveFreeTextModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }, fetchImpl);
+  return resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }, fetchImpl);
 }
 
 export async function loadCaseAgentAccount() {

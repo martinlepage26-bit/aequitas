@@ -12,7 +12,9 @@ AEQUITAS_PIPELINE_ENABLED=true
 
 Any other value, including an unset variable, leaves the case page as it was and makes every pipeline write return without inserting a row or calling a model.
 
-## Free model
+Setting the flag alone does not authorize a provider call: live case data also requires the provider-terms review gate below, and Gemini additionally requires the paid-project confirmation.
+
+## Model provider and case-data gate
 
 This path does not use `ANTHROPIC_API_KEY` and it refuses `anthropic` and `openai` as the provider name.
 
@@ -20,15 +22,17 @@ This path does not use `ANTHROPIC_API_KEY` and it refuses `anthropic` and `opena
 | --- | --- |
 | `AEQUITAS_PIPELINE_ENABLED` | Must be `true` |
 | `AEQUITAS_PIPELINE_PROVIDER` | `gemini` (default) or `workers-ai` |
-| `GEMINI_API_KEY` | Google AI Studio key, free tier |
+| `GEMINI_API_KEY` | API key for the chosen Gemini project |
 | `GEMINI_MODEL` | Optional. Default `gemini-3.8-flash` |
+| `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED` | Set to `true` only after reviewing current terms for the selected provider and account. This is an operator attestation, not legal or privacy approval. |
+| `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED` | Required for Gemini case data. Confirm the exact API-key project has an active billing account and uses Paid Tier terms; a key by itself does not identify its billing tier. |
 | `CLOUDFLARE_ACCOUNT_ID` | Only for `workers-ai` |
 | `CLOUDFLARE_API_TOKEN` | Only for `workers-ai` |
 | `AEQUITAS_WORKERS_AI_MODEL` | Optional. Default `@cf/meta/llama-3.1-8b-instruct-fp8` |
 
-`gemini-3.8-flash` is the current Flash model. On 2026-10-09 the Gemini pricing page listed its free tier input and output as free of charge. The paid tier above those limits is real. Do not turn billing on.
+The app does not send live case data to a provider until its terms-review flag is set. Gemini's unpaid tier uses submitted content to improve Google products and may involve human review; Google's terms say not to submit sensitive, confidential, or personal information to unpaid services. The paid Gemini API terms apply only when the exact project has active billing. See [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms) and [billing tiers](https://ai.google.dev/gemini-api/docs/billing). The Gemini paid-tier flag is an operator assertion; the app cannot verify the key's billing project. A privacy assessment and other legal decisions remain separate.
 
-Workers AI includes 10,000 neurons per day at no charge. Usage above that is billed, so it is not the default.
+Cloudflare documents zero retention and no training for standard Workers AI inference, with exceptions for stateful features and operational metadata. Third-party model licenses still apply. Review [Workers AI data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/) and the selected model's license before setting the terms-review flag. This does not establish that data transfers or privacy obligations are satisfied.
 
 ## Stages
 

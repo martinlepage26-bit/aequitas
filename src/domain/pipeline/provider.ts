@@ -72,7 +72,7 @@ export function resolveFreeTextModel(
   if (!pipelineEnabled(env)) return { ok: false, reason: PIPELINE_OFF_REASON };
   const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
   if (PAID_PROVIDERS.has(provider)) {
-    return { ok: false, reason: "This pipeline does not call Anthropic or OpenAI. Use the Gemini free tier or Cloudflare Workers AI." };
+    return { ok: false, reason: "This pipeline does not call Anthropic or OpenAI. Choose an approved Gemini or Cloudflare Workers AI configuration." };
   }
   if (provider === "workers-ai" || provider === "cloudflare") {
     const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
@@ -80,7 +80,7 @@ export function resolveFreeTextModel(
     if (!accountId || !token) {
       return {
         ok: false,
-        reason: "Workers AI is not configured. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN. Stay inside the daily free allocation of 10,000 neurons.",
+        reason: "Workers AI is not configured. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.",
       };
     }
     const model = env.AEQUITAS_WORKERS_AI_MODEL?.trim() || WORKERS_AI_MODEL;
@@ -94,13 +94,34 @@ export function resolveFreeTextModel(
   }
   const apiKey = env.GEMINI_API_KEY?.trim() || env.GOOGLE_AI_API_KEY?.trim();
   if (!apiKey) {
-    return { ok: false, reason: "Gemini is not configured. Set GEMINI_API_KEY from Google AI Studio. The default model is gemini-3.8-flash on the free tier." };
+    return { ok: false, reason: "Gemini is not configured. Set GEMINI_API_KEY for the chosen Gemini API project." };
   }
   const model = env.GEMINI_MODEL?.trim() || GEMINI_FLASH_MODEL;
   if (!/^[A-Za-z0-9._-]+$/.test(model)) return { ok: false, reason: "GEMINI_MODEL must be a Gemini model id." };
   return { ok: true, model: geminiModel(apiKey, model, fetchImpl) };
 }
 
+/**
+ * Model access for live case material. Provider credentials alone do not
+ * establish acceptable data terms: Gemini's unpaid tier uses submitted
+ * content to improve products, so require an explicit paid-project check.
+ * Synthetic evaluations use resolveFreeTextModel directly and do not pass
+ * case data through this gate.
+ */
+export function resolveCaseDataModel(
+  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+  fetchImpl: typeof fetch = fetch,
+): { ok: true; model: TextCompletion } | { ok: false; reason: string } {
+  if (env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED !== "true") {
+    return { ok: false, reason: "Review the selected provider and account's current data terms before processing case data; set AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true after review." };
+  }
+  const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
+  if (provider === "gemini" && env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED !== "true") {
+    return { ok: false, reason: "Gemini case processing requires confirmation that this API key belongs to an active-billing Paid Tier project; set AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true after checking it." };
+  }
+  return resolveFreeTextModel(env, fetchImpl);
+}
+
 export function freeModelConfigured(env?: Record<string, string | undefined>): boolean {
-  return resolveFreeTextModel(env, fetch).ok;
+  return resolveCaseDataModel(env, fetch).ok;
 }

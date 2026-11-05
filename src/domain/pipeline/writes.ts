@@ -7,7 +7,7 @@ import type { MutationOutcome } from "../mutate";
 import { absoluteClaimHit } from "./absoluteClaims";
 import { parseAssumptionResponse, parseClaimResponse, parseContextResponse, type ProposedClaim, type ProposedContextFactor } from "./contracts";
 import { PIPELINE_OFF_REASON, pipelineEnabled } from "./flag";
-import { resolveFreeTextModel, type TextCompletion } from "./provider";
+import { resolveCaseDataModel, type TextCompletion } from "./provider";
 import { filterSynthesisForParty } from "../submissionVisibility";
 import { assembleSynthesis, validateSynthesis, type SynthesisDraft } from "./synthesis";
 import { excerptIsVerbatim } from "./verbatim";
@@ -244,7 +244,7 @@ export async function reviseAssumption(input: ActorInput & { assumptionId: strin
 async function completionFor(injected?: TextCompletion): Promise<{ ok: true; model: TextCompletion } | { ok: false; reason: string }> {
   if (!pipelineEnabled()) return { ok: false, reason: PIPELINE_OFF_REASON };
   if (injected) return { ok: true, model: injected };
-  return resolveFreeTextModel();
+  return resolveCaseDataModel();
 }
 
 export async function runAssumptionExtraction(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
