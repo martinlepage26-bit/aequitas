@@ -27,6 +27,8 @@ export const TRIGGERS = [
   "request_new_version",
   "withdraw",
   "close_case",
+  "agent_issue",
+  "agent_close",
 ] as const;
 
 export type Trigger = (typeof TRIGGERS)[number];
@@ -238,6 +240,26 @@ export const TRANSITIONS: TransitionDef[] = [
     to: "CLOSED",
     actorRoles: ["CASE_MANAGER"],
     guards: ["caseAssignedToManager", "exportBundleGeneratedAndHashed"],
+    events: ["EXPORT_GENERATED", "CASE_CLOSED"],
+  },
+  // Prototype case agent (CASE_AGENT service role). These are its only
+  // transitions; every other trigger excludes it. It never drafts without
+  // issuing in the same write, never approves, never consents, and closes
+  // only consented or withdrawn cases (see src/domain/caseAgent.ts).
+  {
+    trigger: "agent_issue",
+    from: ["POSITIONS"],
+    to: "ISSUED",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "bothPartiesHaveCurrentPositions", "explanationRecordValid", "citationsResolveToCaseEvidence"],
+    events: ["RECOMMENDATION_DRAFT_REQUESTED", "RECOMMENDATION_DRAFTED", "RECOMMENDATION_ISSUED", "PARTY_OUTCOME_ISSUED"],
+  },
+  {
+    trigger: "agent_close",
+    from: ["RESOLVED_CONSENT", "WITHDRAWN"],
+    to: "CLOSED",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "exportBundleGeneratedAndHashed"],
     events: ["EXPORT_GENERATED", "CASE_CLOSED"],
   },
 ];

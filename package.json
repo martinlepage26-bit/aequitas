@@ -19,7 +19,9 @@
     "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e && npm run test:e2e:pipeline",
     "smoke:core-ai": "tsx scripts/smoke-core-ai.ts",
     "seed:demo": "tsx prisma/seed-demo.ts",
-    "notify:deliver": "tsx scripts/deliver-notifications.ts"
+    "notify:deliver": "tsx scripts/deliver-notifications.ts",
+    "agent:provision": "tsx scripts/provision-case-agent.ts",
+    "agent:run": "tsx scripts/run-case-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

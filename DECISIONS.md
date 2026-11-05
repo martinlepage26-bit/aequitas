@@ -213,3 +213,13 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Party copy.** For a human draft the shared recommendation text is withheld from parties by the snapshot's isolation rule (it may draw on both sides). The page now says so instead of rendering empty fields; each party answers their own outcome.
 - **Notification outbox.** `Notification` gains `attempts` and `lastAttemptAt` (additive migration). Delivery tries least-recently-tried rows first, so failing rows no longer block newer ones, and stops after 8 attempts. `npm run notify:deliver` is the scheduled retry; it prints counts only.
 - **Not decided here:** retention periods, deletion design, privacy assessment, hosting. Listed as gates in `docs/paid-pilot-readiness.md`.
+
+## Case agent prototype (2026-11-05)
+
+- **Scope.** Opt-in, off by default (`AEQUITAS_CASE_AGENT_ENABLED`), `RETAIL` only, amount limit required (`AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS`, no default). Starts after intake closes and both positions exist. Details and open decisions: `docs/case-agent-prototype.md`.
+- **Identity and least privilege.** New `CASE_AGENT` role for one service account; sessions refuse it; `caseReadAccess` gives it nothing. State machine grants it only `agent_issue` (POSITIONS → ISSUED) and `agent_close` (RESOLVED_CONSENT | WITHDRAWN → CLOSED), each guarded by `agentMayAct`. The assigned human case manager opts a case in and receives every escalation.
+- **No new state.** Additive migration: `Case.agentManaged`, `agentEscalatedAt`, `agentEscalationReason`; event types `AGENT_ENROLLED`, `AGENT_ESCALATED` (replay no-ops). Agent issuance reuses `RECOMMENDATION_DRAFT_REQUESTED/DRAFTED/ISSUED` and `PARTY_OUTCOME_ISSUED`, so replay and visibility rules apply unchanged.
+- **Model is untrusted.** Existing `TextCompletion` provider (Gemini or Workers AI). Output passes strict deterministic checks or the case escalates; nothing partial is written. A change to the material during the call makes the result stale.
+- **Approval.** Consent alone resolves an agent-managed case while it is not escalated (`consentAloneResolves`). After escalation, approver sign-off applies again. This waives the Phase 3 independent check for agent cases and needs Martin's explicit decision before real use.
+- **Refusal.** A declined case is handed to a person, not closed.
+- **Isolation.** A request for a person (`AGENT_ESCALATED`) is visible to the requesting party and staff only; both parties see a neutral "a person will review" notice.

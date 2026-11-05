@@ -103,7 +103,8 @@
       "caseManager": "case manager",
       "admin": "administrator",
       "bothParties": "both parties",
-      "system": "the system"
+      "system": "the system",
+      "caseAgent": "automated assistant"
     },
     "action": {
       "submitCase": "submit this case",
@@ -587,7 +588,9 @@
         "CONTESTATION_WITHDRAWN": "Contestation withdrawn",
         "RESOLUTION_APPROVED": "Approver signed off on the recommendation",
         "PARTY_OUTCOME_EDITED": "Party outcome draft saved",
-        "PARTY_OUTCOME_ISSUED": "Party outcome issued"
+        "PARTY_OUTCOME_ISSUED": "Party outcome issued",
+        "AGENT_ENROLLED": "Automated assistant enabled",
+        "AGENT_ESCALATED": "Handed to a person"
       }
     },
     "resolution": {
@@ -648,6 +651,31 @@
         "CONTESTATION_NOT_OPEN": "This contestation is no longer open.",
         "TARGET_NOT_ON_CASE": "That item is not on this case.",
         "CASE_NOT_CONTESTABLE": "Contestations cannot be opened or changed at this stage of the case."
+      }
+    },
+    "caseAgent": {
+      "title": "Automated assistant",
+      "partyNotice": "An automated assistant handles the routine steps of this case. It proposes an outcome from the evidence on file. A proposal is not binding, is not legal advice, and does not judge who is telling the truth. You can consent, decline, or ask for a person at any time.",
+      "requestButton": "Ask for a person to review this case",
+      "requesting": "Sending…",
+      "partyEscalated": "A person will review this case. The automated assistant has stopped.",
+      "managerActive": "The automated assistant handles routine steps of this case. It hands the case back to you if a party asks or if it cannot proceed safely.",
+      "managerEscalated": "Handed back to you. Reason: {reason}",
+      "enrollHelp": "Retail cases only. You remain the accountable case manager. Either party can ask for you at any time.",
+      "enrollButton": "Let the automated assistant handle routine steps",
+      "error": "The request could not be completed.",
+      "reason": {
+        "party_request": "A party asked for a person to review the case.",
+        "out_of_scope_category": "The case is not a retail dispute.",
+        "out_of_scope_amount": "The amount at stake is missing or above the program's limit.",
+        "evidence_inadequate": "A party has no scanned evidence on file.",
+        "evidence_rejected": "A file failed the security scan.",
+        "contestation_open": "A contestation is open.",
+        "declined": "A party declined the proposed outcome.",
+        "model_unavailable": "No model is configured.",
+        "model_failed": "The model request failed.",
+        "model_requested_review": "The assistant could not propose an outcome safely.",
+        "model_output_rejected": "The assistant's proposal failed the safety checks."
       }
     }
   },

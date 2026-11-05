@@ -107,6 +107,10 @@ export function replayCaseState(events: Array<{ type: EventType; payload?: unkno
       case "PARTY_OUTCOME_ISSUED":
         // A party-facing outcome is an audit of text. It does not move Case.state.
         break;
+      case "AGENT_ENROLLED":
+      case "AGENT_ESCALATED":
+        // Case agent opt-in and hand-back to a person. Audit only.
+        break;
       default:
         // Audit-only events do not change the case projection.
         break;

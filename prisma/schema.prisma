@@ -28,6 +28,8 @@ enum GlobalRole {
   RESPONDENT
   CASE_MANAGER
   ADMIN
+  // Service account for the prototype case agent. Never signs in.
+  CASE_AGENT
 }
 
 enum CaseState {
@@ -131,6 +133,8 @@ enum EventType {
   RESOLUTION_APPROVED
   PARTY_OUTCOME_EDITED
   PARTY_OUTCOME_ISSUED
+  AGENT_ENROLLED
+  AGENT_ESCALATED
 }
 
 model User {
@@ -234,6 +238,11 @@ model Case {
   // migration; those keep the consent-only resolution path. New cases need
   // approver sign-off before consent can resolve them.
   consentOnlyResolution   Boolean   @default(false)
+  // Prototype case agent: the assigned manager opts a case in; any
+  // escalation hands it back to that manager under the normal rules.
+  agentManaged            Boolean   @default(false)
+  agentEscalatedAt        DateTime?
+  agentEscalationReason   String?
   complainantId           String
   respondentId            String
   caseManagerId           String?

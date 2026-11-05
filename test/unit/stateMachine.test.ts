@@ -11,7 +11,7 @@ import {
   type Trigger,
 } from "../../src/domain/stateMachine";
 
-const ROLES: GlobalRole[] = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN"];
+const ROLES: GlobalRole[] = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN", "CASE_AGENT"];
 const STATES_WITH_NONE: Array<CaseState | typeof NONE> = [NONE, ...ALL_STATES];
 const ACTORS: Array<GlobalRole | typeof SYSTEM> = [...ROLES, SYSTEM];
 
@@ -41,6 +41,8 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   request_new_version: { from: ["RESOLVED_DECLINED", "ISSUED"], roles: ["CASE_MANAGER"] },
   withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["COMPLAINANT"] },
   close_case: { from: ["RESOLVED_CONSENT", "RESOLVED_DECLINED", "WITHDRAWN"], roles: ["CASE_MANAGER"] },
+  agent_issue: { from: ["POSITIONS"], roles: ["CASE_AGENT"] },
+  agent_close: { from: ["RESOLVED_CONSENT", "WITHDRAWN"], roles: ["CASE_AGENT"] },
 };
 
 describe("state machine: exhaustive (state, trigger, role) coverage", () => {
@@ -84,6 +86,11 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
       }
     }
     expect(checked).toBe(TRIGGERS.length * STATES_WITH_NONE.length * ACTORS.length);
+  });
+
+  it("the case agent holds only its two agent transitions", () => {
+    const allowed = TRIGGERS.filter((trigger) => isActorRoleAllowed(transitionsFor(trigger), "CASE_AGENT"));
+    expect(allowed).toEqual(["agent_issue", "agent_close"]);
   });
 
   it("ADMIN is never a valid actor for any state-machine trigger (guardrail 10)", () => {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { CaseState, GlobalRole } from "../../src/generated/prisma";
+import type { CaseState, GlobalRole as AnyRole } from "../../src/generated/prisma";
+
+// Human roles only: the case agent service role never gets a workspace view.
+type GlobalRole = Exclude<AnyRole, "CASE_AGENT">;
 import { ALL_STATES } from "../../src/domain/stateMachine";
 import { getAuthorityView, type AuthorityView, type CaseProgress } from "../../src/domain/authorityView";
 

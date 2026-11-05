@@ -23,6 +23,8 @@ import SubmitCaseButton from "./SubmitCaseButton";
 import OpenIntakeButton from "./OpenIntakeButton";
 import RequestDraftButton from "./RequestDraftButton";
 import AuthorDraftForm from "./AuthorDraftForm";
+import CaseAgentPanel from "./CaseAgentPanel";
+import { caseAgentEnabled } from "../../../../domain/caseAgent/agent";
 import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
@@ -396,6 +398,17 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
 
       {canCloseIntake && <CloseIntakeButton caseId={caseId} />}
       {canRequestDraft && <RequestDraftButton caseId={caseId} />}
+      {(access === "party" || access === "assigned-manager") && (
+        <CaseAgentPanel
+          caseId={caseId}
+          viewer={access === "party" ? "party" : "manager"}
+          agentManaged={caseRow.agentManaged}
+          escalated={Boolean(caseRow.agentEscalatedAt)}
+          escalationReason={access === "assigned-manager" ? caseRow.agentEscalationReason : null}
+          closed={caseRow.state === "CLOSED"}
+          canEnroll={access === "assigned-manager" && !caseRow.agentManaged && caseAgentEnabled() && caseRow.category === "RETAIL" && (caseRow.state === "EVIDENCE_INTAKE" || caseRow.state === "POSITIONS")}
+        />
+      )}
       {canAuthorDraft && (
         <AuthorDraftForm
           key={`author-${recommendation?.id ?? "new"}`}
@@ -530,7 +543,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         id: event.id,
         type: event.type,
         createdAt: event.createdAt.toISOString(),
-        actorRole: (eventActorRoleById.get(event.actorId) ?? null) as "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER" | "ADMIN" | null,
+        actorRole: (eventActorRoleById.get(event.actorId) ?? null) as "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER" | "ADMIN" | "CASE_AGENT" | null,
         actorName: eventActorNameById.get(event.actorId) ?? null,
       }))} />
     </main>

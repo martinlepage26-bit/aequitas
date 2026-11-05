@@ -25,7 +25,7 @@ import { FORBIDDEN_TERMS } from "../i18n/glossary";
 
 const NUMERIC_SCORE_PATTERN = /\d+\s*%|\b\d+(?:\.\d+)?\s*\/\s*(?:5|10)\b|\bstar rating\b|\bstars?\s+out of\b/i;
 
-function scanForForbiddenContent(value: string): string | null {
+export function scanForForbiddenContent(value: string): string | null {
   if (NUMERIC_SCORE_PATTERN.test(value)) {
     return "contains a percentage or star-rating pattern, which Section 9 forbids";
   }

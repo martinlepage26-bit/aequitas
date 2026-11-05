@@ -43,6 +43,10 @@ Submission → evidence (scanned) → chronology and positions → case manager 
 7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
 8. Run one synthetic case end to end with program staff before any real file.
 
+## Case agent prototype
+
+An opt-in automated case agent exists on this branch (`docs/case-agent-prototype.md`). It is off by default, is not part of this offer, and needs the product, runtime and legal decisions listed there before any real case.
+
 ## Launch gates (policy or manual; not decided in code)
 
 1. **Release and hosting decision.** Confirm the deployed commit and host, and choose the pilot deployment. Merging into `main` may trigger Railway.
