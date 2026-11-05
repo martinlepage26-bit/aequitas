@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { APPROVAL_FAILURE_CODES, BLOCKER_REASONS, RESOLUTION_BLOCKERS, checkApproval, partyFacingBlockers, resolutionBlockers } from "../../src/domain/resolution";
+import { APPROVAL_FAILURE_CODES, BLOCKER_REASONS, RESOLUTION_BLOCKERS, checkApproval, consentAloneResolves, partyFacingBlockers, resolutionBlockers } from "../../src/domain/resolution";
 import { resolutionNotBlocked } from "../../src/domain/guards";
 import { transitionsFor } from "../../src/domain/stateMachine";
 
@@ -17,6 +17,14 @@ const baseInput = {
 };
 
 describe("resolution blockers", () => {
+  it("does not treat agent enrollment as an approval waiver unless the case records that explicit policy", () => {
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true, agentConsentOnlyResolution: true })).toBe(true);
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true, agentConsentOnlyResolution: true, agentEscalatedAt: new Date() })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: true, agentManaged: true, agentConsentOnlyResolution: false })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: true, agentManaged: false })).toBe(true);
+  });
+
   it("consent-only cases need no sign-off; new cases do", () => {
     expect(resolutionBlockers({ consentOnlyResolution: true, openContestations: 0, approvedForCurrentRecommendation: false })).toEqual([]);
     expect(resolutionBlockers({ consentOnlyResolution: false, openContestations: 0, approvedForCurrentRecommendation: false })).toEqual(["APPROVAL_REQUIRED"]);

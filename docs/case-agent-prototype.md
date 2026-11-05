@@ -24,7 +24,7 @@ All workflow decisions are deterministic code under the program's configured rul
 
    A failed check goes to a person; nothing is partially written.
 6. **Issue.** One locked write (`agent_issue`) stores the recommendation, both party outcomes, per-outcome citation pointers and notifications. If any material the model saw changed during the call, the result is discarded as stale and redone on the next pass.
-7. **Answers.** Parties consent or decline through the existing consent flow, which binds each answer to the outcome version. While the agent manages a case, both consents resolve it without approver sign-off. An unanswered proposal after the response period goes to a person.
+7. **Answers.** Parties consent or decline through the existing consent flow, which binds each answer to the outcome version. Independent approver sign-off remains required unless the program explicitly sets `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=true` after owner and governance approval. An unanswered proposal after the response period goes to a person.
 8. **Close.** After both parties consent, or after either party ends participation, the agent generates the sealed export and closes the case (`agent_close`). A decline goes to a person; the agent never closes a declined case.
 
 ## Handoffs to a person
@@ -81,6 +81,7 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 | `AEQUITAS_CASE_AGENT_INTAKE_DAYS` | Maximum time from opening intake to complete evidence and mark both sides ready; an incomplete case goes to a person when it expires. |
 | `AEQUITAS_CASE_AGENT_RESPONSE_DAYS` | Time to join after an invitation, to submit a position, and to answer a proposal. |
 | `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW` | `true` or `false`. |
+| `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION` | `true` only if the owner explicitly approves removing independent approver sign-off for routine agent-managed cases; `false` keeps sign-off. This setting is recorded on each enrolled case. Escalation always restores the normal approval requirement. |
 | `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` | Required before the agent sends case material to the chosen provider. Set only after reviewing the current terms for the exact provider, account and model; this is not privacy or legal approval. |
 | `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` | Also required for Gemini. Confirm the exact API key belongs to a project with active billing; the app cannot inspect the provider billing tier. |
 
@@ -115,7 +116,7 @@ If program rules are missing or invalid, the agent takes no new case and hands a
 ## Decisions still needed before real case data
 
 **Owner**
-- **Approval waiver.** Confirm that consent plus the right to a person replaces approver sign-off on agent cases. Phase 3 introduced that sign-off as an independent check.
+- **Approval waiver.** Decide whether to keep the default independent approver sign-off or explicitly waive it for routine agent-managed cases. The waiver is now a separate required program setting; enabling the agent alone does not waive it. Phase 3 introduced approver sign-off as an independent check.
 - **Remedies and limits.** Confirm the remedy list, the amount limit, the intake and response periods, and the respondent-withdrawal rule for the program.
 - **Accountability and oversight.** Who answers for agent proposals, how often staff sample them, the complaint process, and the human-review capacity needed to absorb escalations.
 

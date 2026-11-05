@@ -145,16 +145,17 @@ type Db = Prisma.TransactionClient | typeof prisma;
 /** Unscoped, this is the resolution gate: any open contestation blocks the case. Pass openedById only for a party's own blocker list. */
 /**
  * Whether both parties' consent resolves the case without approver
- * sign-off: migrated consent-only cases (P3-D1), and cases the case agent
- * manages while they have not been handed to a person. Once escalated, a
- * case needs approver sign-off again.
+ * sign-off: migrated consent-only cases (P3-D1), and agent-managed cases
+ * only when their persisted program policy explicitly allows it. Escalation
+ * always restores the independent approval requirement for agent cases.
  */
-export function consentAloneResolves(caseRow: { consentOnlyResolution: boolean; agentManaged?: boolean; agentEscalatedAt?: Date | null }): boolean {
-  return caseRow.consentOnlyResolution || (caseRow.agentManaged === true && !caseRow.agentEscalatedAt);
+export function consentAloneResolves(caseRow: { consentOnlyResolution: boolean; agentManaged?: boolean; agentConsentOnlyResolution?: boolean; agentEscalatedAt?: Date | null }): boolean {
+  if (caseRow.agentManaged === true) return caseRow.agentConsentOnlyResolution === true && !caseRow.agentEscalatedAt;
+  return caseRow.consentOnlyResolution;
 }
 
 export async function loadResolutionBlockers(db: Db, caseId: string, scope?: { openedById: string }): Promise<ResolutionBlocker[]> {
-  const caseRow = await db.case.findUnique({ where: { id: caseId }, select: { consentOnlyResolution: true, agentManaged: true, agentEscalatedAt: true, currentRecommendationId: true } });
+  const caseRow = await db.case.findUnique({ where: { id: caseId }, select: { consentOnlyResolution: true, agentManaged: true, agentConsentOnlyResolution: true, agentEscalatedAt: true, currentRecommendationId: true } });
   if (!caseRow) return [];
   const [openContestations, approvals] = await Promise.all([
     db.contestation.count({ where: { caseId, status: "OPEN", ...(scope ? { openedById: scope.openedById } : {}) } }),

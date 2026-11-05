@@ -99,15 +99,16 @@ type Outcome = { ok: true } | { ok: false; status: 403 | 404 | 409; reason: stri
 export async function enrollCaseAgent(input: { actorId: string; actorRole: GlobalRole; caseId: string }, env: Env = process.env): Promise<Outcome> {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow || input.actorRole !== "CASE_MANAGER" || caseRow.caseManagerId !== input.actorId) return { ok: false, status: 404, reason: "Case not found." };
-  if (!caseAgentEnabled(env)) return { ok: false, status: 409, reason: "The case agent is not enabled on this deployment." };
+  const config = caseAgentProgram(env);
+  if (!config.ok) return { ok: false, status: 409, reason: "The case agent is not fully configured on this deployment." };
   if (!resolveCaseAgentModel(env).ok) return { ok: false, status: 409, reason: "The case agent's approved model provider is not configured." };
   if (!(await loadCaseAgentAccount())) return { ok: false, status: 409, reason: "The case agent account is not provisioned." };
   if (caseRow.category !== "RETAIL") return { ok: false, status: 409, reason: "The case agent handles retail disputes only." };
   if (caseRow.state !== "EVIDENCE_INTAKE" && caseRow.state !== "POSITIONS") return { ok: false, status: 409, reason: "The case agent can be enabled during intake or positions only." };
   if (caseRow.agentManaged) return { ok: true };
   await prisma.$transaction(async (tx) => {
-    const updated = await tx.case.updateMany({ where: { id: caseRow.id, agentManaged: false, state: caseRow.state }, data: { agentManaged: true } });
-    if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: {} });
+    const updated = await tx.case.updateMany({ where: { id: caseRow.id, agentManaged: false, state: caseRow.state }, data: { agentManaged: true, agentConsentOnlyResolution: config.program.consentOnlyResolution } });
+    if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: { origin: "case_manager", consentOnlyResolution: config.program.consentOnlyResolution } });
   });
   return { ok: true };
 }
@@ -504,12 +505,12 @@ async function takeCase(caseId: string, agentId: string, program: CaseAgentProgr
     fromState: row.state,
     guardContexts: { agentMayAct: { agentManaged: true, escalated: false, actorIsCaseAgent: true } },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: caseId, state: "OPEN", caseManagerId: null, agentManaged: false, agentEscalatedAt: null }, data: { state: "EVIDENCE_INTAKE", agentManaged: true } });
+      const locked = await tx.case.updateMany({ where: { id: caseId, state: "OPEN", caseManagerId: null, agentManaged: false, agentEscalatedAt: null }, data: { state: "EVIDENCE_INTAKE", agentManaged: true, agentConsentOnlyResolution: program.consentOnlyResolution } });
       if (locked.count !== 1) throw new StaleAgentWrite();
       return {
         caseId, toState: "EVIDENCE_INTAKE",
         eventPayloads: [
-          { type: "AGENT_ENROLLED", payload: { origin: "program_rules" } },
+          { type: "AGENT_ENROLLED", payload: { origin: "program_rules", consentOnlyResolution: program.consentOnlyResolution } },
           { type: "EVIDENCE_INTAKE_OPENED", payload: { origin: "case_agent" } },
         ],
         notifications: [

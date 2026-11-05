@@ -14,6 +14,8 @@ export interface CaseAgentProgram {
   responseDays: number;
   /** Whether the respondent may end participation (the complainant always may). */
   respondentMayWithdraw: boolean;
+  /** Whether both parties' consent may resolve the agent-managed case without independent approver sign-off. */
+  consentOnlyResolution: boolean;
 }
 
 const positiveInt = (value: string | undefined) => {
@@ -27,14 +29,16 @@ export function caseAgentProgram(env: Env = process.env): { ok: true; program: C
   const intakeDays = positiveInt(env.AEQUITAS_CASE_AGENT_INTAKE_DAYS);
   const responseDays = positiveInt(env.AEQUITAS_CASE_AGENT_RESPONSE_DAYS);
   const withdraw = env.AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW;
+  const consentOnly = env.AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION;
   const missing = [
     maxAmountCents === null && "AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS",
     intakeDays === null && "AEQUITAS_CASE_AGENT_INTAKE_DAYS",
     responseDays === null && "AEQUITAS_CASE_AGENT_RESPONSE_DAYS",
     withdraw !== "true" && withdraw !== "false" && "AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW",
+    consentOnly !== "true" && consentOnly !== "false" && "AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION",
   ].filter((v): v is string => Boolean(v));
   if (missing.length > 0) return { ok: false, missing };
-  return { ok: true, program: { maxAmountCents: maxAmountCents!, intakeDays: intakeDays!, responseDays: responseDays!, respondentMayWithdraw: withdraw === "true" } };
+  return { ok: true, program: { maxAmountCents: maxAmountCents!, intakeDays: intakeDays!, responseDays: responseDays!, respondentMayWithdraw: withdraw === "true", consentOnlyResolution: consentOnly === "true" } };
 }
 
 export function caseAgentEnabled(env: Env = process.env): boolean {

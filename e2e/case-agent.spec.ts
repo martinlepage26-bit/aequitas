@@ -15,7 +15,7 @@ import en from "../messages/en-CA.json";
 
 const port = process.env.PLAYWRIGHT_PORT ?? 3000;
 // Synthetic program rules for tests only.
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true", AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true", GEMINI_API_KEY: "synthetic-test-only" };
+const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true", AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true", AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true", GEMINI_API_KEY: "synthetic-test-only" };
 
 async function contextFor(browser: Browser, userId: string, globalRole: string): Promise<BrowserContext> {
   const context = await browser.newContext();

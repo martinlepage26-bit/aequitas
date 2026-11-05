@@ -8,6 +8,7 @@ import { uploadEvidence } from "../../src/lib/storage";
 import { claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition } from "../../src/domain/mutate";
 import { readPartyOutcomes } from "../../src/domain/partyOutcome";
+import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { verifyCase } from "../../src/domain/verifyEvents";
 
@@ -30,6 +31,7 @@ const ENV = {
   AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
+  AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
 };
 const C_TEXT = "Receipt 4471: kettle bought 2026-10-02 for $89.99, paid by debit card.";
 const R_TEXT = "Store log: customer offered a repair voucher at the counter on 2026-10-06.";
@@ -40,6 +42,7 @@ let storageDir: string;
 let agentId: string;
 let queueManagerId: string;
 let secondManagerId: string;
+let approverId: string;
 let statementVersionId: string;
 const sentTo: string[] = [];
 
@@ -48,12 +51,12 @@ beforeAll(async () => {
   Object.assign(process.env, { SESSION_SECRET: "synthetic-case-agent-test-signing-secret", STORAGE_LOCAL_DIR: storageDir, RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: "http://localhost:3000" });
   agentId = (await prisma.user.findFirst({ where: { globalRole: "CASE_AGENT" } }))?.id
     ?? (await prisma.user.create({ data: { email: `case-agent-${randomUUID()}@aequitas.invalid`, displayName: "Automated assistant", globalRole: "CASE_AGENT" } })).id;
-  const manager = async (label: string) => {
-    const user = await prisma.user.create({ data: { email: `queue-${label}-${randomUUID()}@example.org`, displayName: `Queue ${label}`, globalRole: "CASE_MANAGER" } });
+  const manager = async (label: string, isApprover = false) => {
+    const user = await prisma.user.create({ data: { email: `queue-${label}-${randomUUID()}@example.org`, displayName: `Queue ${label}`, globalRole: "CASE_MANAGER", isApprover } });
     await prisma.webAuthnCredential.create({ data: { userId: user.id, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
     return user.id;
   };
-  [queueManagerId, secondManagerId] = [await manager("a"), await manager("b")];
+  [queueManagerId, secondManagerId, approverId] = [await manager("a"), await manager("b"), await manager("approver", true)];
   statementVersionId = (await prisma.consentStatementVersion.create({
     data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Énoncé synthétique.", effectiveFrom: new Date() },
   })).id;
@@ -118,17 +121,17 @@ async function addEvidence(caseId: string, partyId: string, text: string, opts: 
 }
 
 /** Drives the agent from a submitted case to positions, with time passing by the configured periods. */
-async function toPositions(r: Routine, cText = C_TEXT, rText = R_TEXT) {
+async function toPositions(r: Routine, cText = C_TEXT, rText = R_TEXT, env = ENV) {
   stubEmail();
-  expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("intake_opened");
-  expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("respondent_invited");
+  expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env })).status).toBe("intake_opened");
+  expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env })).status).toBe("respondent_invited");
   await joinRespondent(r);
   const cId = await addEvidence(r.caseId, r.complainantId, cText);
   const rId = await addEvidence(r.caseId, r.respondentId, rText);
-  expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("waiting");
+  expect((await runCaseAgent({ caseId: r.caseId, model: null, env })).status).toBe("waiting");
   expect((await setPartyIntakeReady({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId, ready: true })).ok).toBe(true);
   expect((await setPartyIntakeReady({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId, ready: true })).ok).toBe(true);
-  expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("intake_closed");
+  expect((await runCaseAgent({ caseId: r.caseId, model: null, env })).status).toBe("intake_closed");
   return { cId, rId };
 }
 
@@ -186,6 +189,23 @@ describe("routine path with no case-manager action", () => {
     const managers = await prisma.user.findMany({ where: { globalRole: "CASE_MANAGER" }, select: { id: true } });
     expect(await prisma.event.count({ where: { caseId: r.caseId, actorId: { in: managers.map((m) => m.id) } } })).toBe(0);
     expect(model.calls).toBe(1);
+  });
+
+  it("keeps approver sign-off when consent-only resolution is explicitly false", async () => {
+    const r = await submittedCase();
+    const env = { ...ENV, AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "false" };
+    const { cId, rId } = await toPositions(r, C_TEXT, R_TEXT, env);
+    await positions(r);
+    const model = stub(() => proposal(cId, rId));
+    expect((await runCaseAgent({ caseId: r.caseId, model, env })).status).toBe("issued");
+    expect(await loadResolutionBlockers(prisma, r.caseId)).toContain("APPROVAL_REQUIRED");
+    expect((await consent(r, r.complainantId, "COMPLAINANT")).ok).toBe(false);
+
+    expect((await approveResolution({ caseId: r.caseId, actorId: approverId, actorRole: "CASE_MANAGER", rationale: "Independent review of the synthetic proposal." })).ok).toBe(true);
+    expect((await consent(r, r.complainantId, "COMPLAINANT")).ok).toBe(true);
+    expect((await consent(r, r.respondentId, "RESPONDENT")).ok).toBe(true);
+    expect((await runCaseAgent({ caseId: r.caseId, model, env })).status).toBe("closed");
+    expect(await verifyCase(prisma, await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))).toEqual([]);
   });
 
   it("leaves ineligible cases for the case-manager queue and takes nothing when program rules are incomplete", async () => {

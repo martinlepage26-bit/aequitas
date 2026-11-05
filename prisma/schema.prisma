@@ -243,6 +243,9 @@ model Case {
   // Prototype case agent: the assigned manager opts a case in; any
   // escalation hands it back to that manager under the normal rules.
   agentManaged            Boolean   @default(false)
+  // Explicit program policy. Agent cases retain independent approval unless
+  // the operator sets this true after owner/governance approval.
+  agentConsentOnlyResolution Boolean @default(false)
   agentEscalatedAt        DateTime?
   agentEscalationReason   String?
   complainantIntakeReadyAt DateTime?

@@ -93,6 +93,7 @@ async function main() {
     AEQUITAS_CASE_AGENT_INTAKE_DAYS: "1",
     AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "1",
     AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
+    AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
   };
 
   let model: TextCompletion;

@@ -74,7 +74,10 @@ describe("program rules", () => {
     expect(caseAgentProgram({})).toEqual({ ok: false, missing: ["AEQUITAS_CASE_AGENT_ENABLED"] });
     const partial = caseAgentProgram({ AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" });
     expect(partial.ok).toBe(false);
-    expect(!partial.ok && partial.missing).toEqual(["AEQUITAS_CASE_AGENT_INTAKE_DAYS", "AEQUITAS_CASE_AGENT_RESPONSE_DAYS", "AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW"]);
-    expect(caseAgentProgram({ AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "1", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "0", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "2", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "yes" }).ok).toBe(false);
+    expect(!partial.ok && partial.missing).toEqual(["AEQUITAS_CASE_AGENT_INTAKE_DAYS", "AEQUITAS_CASE_AGENT_RESPONSE_DAYS", "AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW", "AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION"]);
+    const configured = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "false", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "false" };
+    expect(caseAgentProgram(configured)).toMatchObject({ ok: true, program: { respondentMayWithdraw: false, consentOnlyResolution: false } });
+    expect(caseAgentProgram({ ...configured, AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "yes" }).ok).toBe(false);
+    expect(caseAgentProgram({ ...configured, AEQUITAS_CASE_AGENT_INTAKE_DAYS: "0" }).ok).toBe(false);
   });
 });

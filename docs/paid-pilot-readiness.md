@@ -22,7 +22,7 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 ## Proposed pilot offer
 
 - One program, one isolated deployment, `RETAIL`, two-party cases, fr-CA and en-CA.
-- The agent handles the configured routine path without a case manager. Each party sees fixed bilingual proposal wording, can consent or decline, can ask for a person, and keeps control over their own evidence and outcome. Both parties' consent is required before a proposal takes effect.
+- The agent handles the configured routine path without a case manager. Each party sees fixed bilingual proposal wording, can consent or decline, can ask for a person, and keeps control over their own evidence and outcome. Independent approver sign-off remains required unless the program explicitly enables consent-only resolution after owner and governance approval.
 - Program staff remain available for every exception, request for review, decline, or case outside scope. Human-managed cases retain the separate approver step.
 - The agent remains off until the program rules, provider account and data terms, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
 - Price, term and payment: **not set.** No billing is built.
@@ -42,7 +42,7 @@ The manual journey is covered: submission → scanned evidence → positions →
 3. Invite the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`); each enrols a passkey on the production hostname.
 4. Grant approver to one staff member who will not manage the same cases (`scripts/grant-approver.ts`).
 5. Publish current consent statements in fr-CA and en-CA.
-6. Set the program's explicit amount limit, intake and response periods, and respondent-withdrawal rule. Review the selected provider's current terms; set `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` and, for Gemini, `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` only after verification. Start the CT920 scheduled profile so failed notifications retry every 15 minutes and the case agent runs every 10 minutes. The agent takes no new cases without complete program settings and an approved provider configuration.
+6. Set the program's explicit amount limit, intake and response periods, respondent-withdrawal rule, and consent-only resolution policy. Keep `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=false` unless the owner explicitly approves waiving independent sign-off. Review the selected provider's current terms; set `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` and, for Gemini, `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` only after verification. Start the CT920 scheduled profile so failed notifications retry every 15 minutes and the case agent runs every 10 minutes. The agent takes no new cases without complete program settings and an approved provider configuration.
 7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
 8. Run one synthetic case end to end with program staff before any real file.
 
