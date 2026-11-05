@@ -222,10 +222,17 @@ describe("traceable core writes", () => {
 
     const partyView = await readClaimGraph(caseId, { userId: complainantId, globalRole: "COMPLAINANT" });
     expect(partyView?.canAuthor).toBe(false);
-    expect(partyView?.view.rendered.map((item) => item.id).sort()).toEqual([impact.data.id, supported.data.id].sort());
-    expect(partyView?.view.needsEvidence.map((item) => item.id)).toEqual([bare.data.id]);
-    expect(partyView?.view.needsEvidence[0]?.renderedStatus).toBe("NEEDS_EVIDENCE");
-    expect(partyView?.view.rendered.find((item) => item.id === impact.data.id)?.shownAsFactClaim).toBe(false);
+    // A party sees a claim only when every link is their own evidence. The delivery-note claim stays. The impact claim cites a statute, and the bare claim has no link, so both are omitted.
+    expect(partyView?.view.rendered.map((item) => item.id)).toEqual([supported.data.id]);
+    expect(partyView?.view.needsEvidence).toEqual([]);
+    expect(JSON.stringify(partyView)).not.toContain(impact.data.id);
+    expect(JSON.stringify(partyView)).not.toContain(bare.data.id);
+
+    const managerView = await readClaimGraph(caseId, { userId: managerId, globalRole: "CASE_MANAGER" });
+    expect(managerView?.view.rendered.map((item) => item.id).sort()).toEqual([impact.data.id, supported.data.id].sort());
+    expect(managerView?.view.needsEvidence.map((item) => item.id)).toEqual([bare.data.id]);
+    expect(managerView?.view.needsEvidence[0]?.renderedStatus).toBe("NEEDS_EVIDENCE");
+    expect(managerView?.view.rendered.find((item) => item.id === impact.data.id)?.shownAsFactClaim).toBe(false);
 
     const caseRow = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
     expect(await verifyCase(prisma, caseRow)).toEqual([]);

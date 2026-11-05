@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { coreAiGeneratedFieldsSchema, type ExplanationRecord } from "../../../../domain/explanationRecord";
 import { validateConflictKnowledgeMap } from "../../../../domain/conflictKnowledge";
+import PartyVisibleNotice from "./PartyVisibleNotice";
 
 type Value = string | Value[] | { [key: string]: Value };
 const enums: Record<string, string[]> = {
@@ -98,6 +99,7 @@ export default function ReviewDraftForm({ caseId, recommendationId, explanation 
   }
 
   return <details style={{ marginTop: "1.5rem" }}><summary>{t("title")}</summary>
+    <PartyVisibleNotice />
     <p>{t("help")}</p>
     <form onSubmit={submit}>
       <fieldset disabled={busy} style={{ border: 0, padding: 0 }}>

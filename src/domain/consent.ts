@@ -37,3 +37,29 @@ export function nextConsentState(current: ConsentState, action: ConsentAction): 
 export function deriveGiveConsentState(complainantState: ConsentState, respondentState: ConsentState): CaseState {
   return complainantState === "GIVEN" && respondentState === "GIVEN" ? "RESOLVED_CONSENT" : "ISSUED";
 }
+
+/** An answer counts only when it is bound to that party's current issued outcome. */
+export function consentAnswerCounts(
+  record: { state: ConsentState; partyOutcomeId: string | null; partyOutcomeVersion: number | null } | null,
+  current: { id: string; version: number } | null,
+): ConsentState {
+  if (!record || !current) return "NOT_GIVEN";
+  if (record.partyOutcomeId !== current.id || record.partyOutcomeVersion !== current.version) return "NOT_GIVEN";
+  if (record.state === "GIVEN" || record.state === "DECLINED") return record.state;
+  return "NOT_GIVEN";
+}
+
+/**
+ * After one party's answer is revoked, keep a resolved state only when the
+ * answers still bound to the current outcomes justify it.
+ */
+export function stateAfterOutcomeReissue(
+  currentState: CaseState,
+  complainant: ConsentState,
+  respondent: ConsentState,
+): CaseState {
+  if (complainant === "DECLINED" || respondent === "DECLINED") return "RESOLVED_DECLINED";
+  if (complainant === "GIVEN" && respondent === "GIVEN") return "RESOLVED_CONSENT";
+  if (currentState === "RESOLVED_CONSENT" || currentState === "RESOLVED_DECLINED") return "ISSUED";
+  return currentState;
+}

@@ -17,8 +17,8 @@ import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
-import { deriveGiveConsentState } from "./consent";
-import { BLOCKER_REASONS, loadResolutionBlockers, type ResolutionBlocker } from "./resolution";
+import { consentAnswerCounts, deriveGiveConsentState } from "./consent";
+import { BLOCKER_REASONS, loadResolutionBlockers, partyFacingBlockers, type ShownResolutionBlocker } from "./resolution";
 import {
   NONE,
   SYSTEM,
@@ -187,15 +187,41 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
     if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
+    if (error instanceof OutcomeNotIssuedError) return { ok: false, step: "guard", reason: "Outcome not yet available to you", code: "OUTCOME_NOT_ISSUED" };
+    if (error instanceof OutcomeSupersededError) return { ok: false, step: "guard", reason: "A new outcome was issued, please review it.", code: "OUTCOME_SUPERSEDED" };
     throw error;
   }
 }
 
 class StaleDraftError extends Error {}
 class ResolutionBlockedError extends Error {
-  constructor(readonly blocker: ResolutionBlocker) {
+  constructor(readonly blocker: ShownResolutionBlocker) {
     super(blocker);
   }
+}
+class OutcomeNotIssuedError extends Error {}
+class OutcomeSupersededError extends Error {}
+
+/**
+ * The party submits the outcome id and version their page displayed.
+ * The transaction stores that pair only when it is still the current issued
+ * outcome. A newer version is a rejection, never a silent rebinding.
+ */
+async function requireDisplayedOutcome(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  partyId: string,
+  outcomeId: string,
+  outcomeVersion: number,
+) {
+  const issued = await tx.partyOutcome.findFirst({
+    where: { caseId, partyId, status: "ISSUED" },
+    orderBy: { version: "desc" },
+    select: { id: true, version: true },
+  });
+  if (!issued) throw new OutcomeNotIssuedError();
+  if (issued.id !== outcomeId || issued.version !== outcomeVersion) throw new OutcomeSupersededError();
+  return { id: outcomeId, version: outcomeVersion };
 }
 class StaleSubmissionError extends Error {}
 
@@ -480,14 +506,13 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   const priorItem = await prisma.evidenceItem.findUnique({ where: { id: input.priorEvidenceItemId } });
-  if (!priorItem || priorItem.caseId !== input.caseId) {
-    return { ok: false, step: "not-found", reason: "Prior evidence item not found in this case." };
+  if (!priorItem || priorItem.caseId !== input.caseId || priorItem.submittedById !== input.actorId) {
+    return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   }
   if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
     return { ok: false, step: "not-found", reason: "Case not found." };
   }
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
-  if (priorItem.submittedById !== input.actorId) return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
   const scanAttempt = await safeScan(input.buffer);
@@ -1004,6 +1029,9 @@ export interface ConsentActionInput {
   currentStatementVersionId: string | null;
   /** The recommendation id the party saw and is acting on — echoed back so a version issued after page load is caught, not assumed. */
   recommendationId: string;
+  /** The party-facing outcome id and version the page displayed. Not the latest row on the server. */
+  outcomeId: string;
+  outcomeVersion: number;
   /** Section 7: session id, auth method, salted IP hash — built by the route, opaque here. */
   authContext: Prisma.InputJsonValue;
 }
@@ -1020,7 +1048,8 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
   }
   const recommendationId = caseRow.currentRecommendationId;
   const actorLocale = input.actorId === caseRow.complainantId ? caseRow.complainant.locale : caseRow.respondent.locale;
-  const blockers = await loadResolutionBlockers(prisma, input.caseId);
+  const otherPartyOpen = await prisma.contestation.count({ where: { caseId: input.caseId, status: "OPEN", openedById: { not: input.actorId } } });
+  const blockers = partyFacingBlockers(await loadResolutionBlockers(prisma, input.caseId), otherPartyOpen);
 
   return runMutation({
     trigger: "give_consent",
@@ -1041,16 +1070,24 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
     },
     write: async (tx) => {
       // Re-check under the case row lock: a contestation opened between the
-      // guard and this transaction must still block the consent.
+      // guard and this transaction must still block the consent. Consent is
+      // also refused until this party has an issued outcome.
       await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
-      const lockedBlockers = await loadResolutionBlockers(tx, input.caseId);
+      const actorOutcome = await requireDisplayedOutcome(tx, input.caseId, input.actorId, input.outcomeId, input.outcomeVersion);
+      const lockedOtherOpen = await tx.contestation.count({ where: { caseId: input.caseId, status: "OPEN", openedById: { not: input.actorId } } });
+      const lockedBlockers = partyFacingBlockers(await loadResolutionBlockers(tx, input.caseId), lockedOtherOpen);
       if (lockedBlockers.length > 0) throw new ResolutionBlockedError(lockedBlockers[0]);
       const givenAt = new Date();
+      const answerBinding = { partyOutcomeId: actorOutcome.id, partyOutcomeVersion: actorOutcome.version, revokedReason: null };
       const existing = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: input.actorId } });
+      if (existing?.state === "GIVEN" && existing.partyOutcomeId === actorOutcome.id && existing.partyOutcomeVersion === actorOutcome.version) {
+        const locked = await tx.case.findUniqueOrThrow({ where: { id: input.caseId }, select: { state: true } });
+        return { caseId: input.caseId, toState: locked.state, eventPayloads: [], notifications: [] };
+      }
       if (existing) {
         await tx.consentRecord.update({
           where: { id: existing.id },
-          data: { state: "GIVEN", givenAt, declinedAt: null, revokedAt: null, authContext: input.authContext, statementVersionId: input.statementVersionId },
+          data: { state: "GIVEN", givenAt, declinedAt: null, revokedAt: null, authContext: input.authContext, statementVersionId: input.statementVersionId, ...answerBinding },
         });
       } else {
         await tx.consentRecord.create({
@@ -1063,14 +1100,19 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
             locale: actorLocale,
             authContext: input.authContext,
             givenAt,
+            ...answerBinding,
           },
         });
       }
 
       const otherPartyId = input.actorId === caseRow.complainantId ? caseRow.respondentId : caseRow.complainantId;
-      const otherRecord = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: otherPartyId } });
-      const complainantState: ConsentState = input.actorId === caseRow.complainantId ? "GIVEN" : otherRecord?.state ?? "NOT_GIVEN";
-      const respondentState: ConsentState = input.actorId === caseRow.respondentId ? "GIVEN" : otherRecord?.state ?? "NOT_GIVEN";
+      const [otherRecord, otherOutcome] = await Promise.all([
+        tx.consentRecord.findFirst({ where: { recommendationId, partyId: otherPartyId } }),
+        tx.partyOutcome.findFirst({ where: { caseId: input.caseId, partyId: otherPartyId, status: "ISSUED" }, orderBy: { version: "desc" }, select: { id: true, version: true } }),
+      ]);
+      const otherState = consentAnswerCounts(otherRecord, otherOutcome);
+      const complainantState: ConsentState = input.actorId === caseRow.complainantId ? "GIVEN" : otherState;
+      const respondentState: ConsentState = input.actorId === caseRow.respondentId ? "GIVEN" : otherState;
       const toState = deriveGiveConsentState(complainantState, respondentState);
 
       await tx.case.update({ where: { id: input.caseId }, data: { state: toState } });
@@ -1079,7 +1121,7 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
         caseId: input.caseId,
         toState,
         eventPayloads: [
-          { type: "CONSENT_GIVEN", payload: { recommendationId, partyId: input.actorId } },
+          { type: "CONSENT_GIVEN", payload: { recommendationId, partyId: input.actorId, outcomeId: actorOutcome.id, outcomeVersion: actorOutcome.version } },
           ...(toState === "RESOLVED_CONSENT" ? [{ type: "CASE_RESOLVED" as EventType, payload: {} }] : []),
         ],
         notifications: [
@@ -1113,12 +1155,19 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
     },
     write: async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
+      const actorOutcome = await requireDisplayedOutcome(tx, input.caseId, input.actorId, input.outcomeId, input.outcomeVersion);
       const declinedAt = new Date();
+      const answerBinding = { partyOutcomeId: actorOutcome.id, partyOutcomeVersion: actorOutcome.version, revokedReason: null };
       const existing = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: input.actorId } });
+      if (existing?.state === "DECLINED" && existing.partyOutcomeId === actorOutcome.id && existing.partyOutcomeVersion === actorOutcome.version) {
+        const locked = await tx.case.findUniqueOrThrow({ where: { id: input.caseId }, select: { state: true } });
+        return { caseId: input.caseId, toState: locked.state, eventPayloads: [], notifications: [] };
+      }
       if (existing) {
         await tx.consentRecord.update({
           where: { id: existing.id },
-          data: { state: "DECLINED", declinedAt, authContext: input.authContext, statementVersionId: input.statementVersionId },
+          data: { state: "DECLINED", declinedAt, authContext: input.authContext, statementVersionId: input.statementVersionId, ...answerBinding },
         });
       } else {
         await tx.consentRecord.create({
@@ -1131,6 +1180,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
             locale: actorLocale,
             authContext: input.authContext,
             declinedAt,
+            ...answerBinding,
           },
         });
       }
@@ -1141,7 +1191,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
         caseId: input.caseId,
         toState: "RESOLVED_DECLINED",
         eventPayloads: [
-          { type: "CONSENT_DECLINED", payload: { recommendationId, partyId: input.actorId } },
+          { type: "CONSENT_DECLINED", payload: { recommendationId, partyId: input.actorId, outcomeId: actorOutcome.id, outcomeVersion: actorOutcome.version } },
           { type: "CASE_RESOLVED_DECLINED", payload: {} },
         ],
         notifications: [

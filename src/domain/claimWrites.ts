@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { caseReadAccess, type CaseReadAccess } from "./caseAccess";
+import { canReadPartySubmission } from "./submissionVisibility";
 import { appendEvent } from "./events";
 import type { MutationOutcome } from "./mutate";
 import {
@@ -497,11 +498,44 @@ export async function readClaimGraph(
     prisma.evidenceItem.findMany({
       where: { caseId, scanStatus: { not: "REJECTED" } },
       orderBy: { createdAt: "asc" },
-      select: { id: true, title: true },
+      select: { id: true, title: true, submittedById: true },
     }),
   ]);
+  const hiddenEvidenceIds = new Set(
+    evidenceItems
+      .filter((item) => !canReadPartySubmission({ access, viewerId: viewer.userId, authorId: item.submittedById }))
+      .map((item) => item.id),
+  );
+  const hiddenSourceIds = new Set(
+    sources.filter((source) => source.evidenceItemId && hiddenEvidenceIds.has(source.evidenceItemId)).map((source) => source.id),
+  );
+  const ownSourceIds = new Set(
+    sources.filter((source) => source.evidenceItemId && !hiddenEvidenceIds.has(source.evidenceItemId)).map((source) => source.id),
+  );
+  const linksByClaim = new Map<string, typeof links>();
+  for (const link of links) {
+    const list = linksByClaim.get(link.claimId) ?? [];
+    list.push(link);
+    linksByClaim.set(link.claimId, list);
+  }
+  const visibleClaimIds = new Set(
+    access === "party"
+      ? claims
+          .filter((claim) => {
+            const claimLinks = linksByClaim.get(claim.id) ?? [];
+            return claimLinks.length > 0 && claimLinks.every((link) => ownSourceIds.has(link.sourceId));
+          })
+          .map((claim) => claim.id)
+      : claims.map((claim) => claim.id),
+  );
+  const visibleClaims = claims.filter((claim) => visibleClaimIds.has(claim.id));
+  const visibleLinks = links.filter((link) => visibleClaimIds.has(link.claimId) && !hiddenSourceIds.has(link.sourceId));
+  const visibleRelationships = relationships.filter(
+    (row) => visibleClaimIds.has(row.fromClaimId) && visibleClaimIds.has(row.toClaimId) && !(row.evidenceId && hiddenEvidenceIds.has(row.evidenceId)),
+  );
+  const visibleSources = sources.filter((source) => !hiddenSourceIds.has(source.id));
 
-  const claimRecords: ClaimRecord[] = claims.map((claim) => ({
+  const claimRecords: ClaimRecord[] = visibleClaims.map((claim) => ({
     id: claim.id,
     claimType: claim.claimType,
     text: claim.text,
@@ -513,7 +547,7 @@ export async function readClaimGraph(
     createdById: claim.createdById,
     doNotSummarizeAsSettled: claim.doNotSummarizeAsSettled,
   }));
-  const linkRecords: LinkRecord[] = links.map((link) => ({
+  const linkRecords: LinkRecord[] = visibleLinks.map((link) => ({
     id: link.id,
     claimId: link.claimId,
     sourceId: link.sourceId,
@@ -524,7 +558,7 @@ export async function readClaimGraph(
     createdById: link.createdById,
     deletedAt: link.deletedAt ? iso(link.deletedAt) : null,
   }));
-  const sourceRecords: SourceRecord[] = sources.map((source) => ({
+  const sourceRecords: SourceRecord[] = visibleSources.map((source) => ({
     id: source.id,
     title: source.title,
     kind: source.kind,
@@ -537,7 +571,7 @@ export async function readClaimGraph(
     language: source.language,
     origin: source.origin,
   }));
-  const relationshipRecords: RelationshipRecord[] = relationships.map((row) => ({
+  const relationshipRecords: RelationshipRecord[] = visibleRelationships.map((row) => ({
     id: row.id,
     fromClaimId: row.fromClaimId,
     toClaimId: row.toClaimId,
@@ -553,7 +587,7 @@ export async function readClaimGraph(
     ? await prisma.user.findMany({ where: { id: { in: [...authorIds] } }, select: { id: true, displayName: true } })
     : [];
 
-  return {
+  const graph = {
     access,
     canAuthor: claimWritePermission({ access, globalRole: viewer.globalRole }).ok,
     viewerCanSeeRestricted,
@@ -565,8 +599,15 @@ export async function readClaimGraph(
       viewerCanSeeRestricted,
     }),
     authors,
-    sources: sources.map((source) => ({ id: source.id, title: source.title, kind: source.kind })),
-    claimOptions: claims.map((claim) => ({ id: claim.id, text: claim.text })),
-    evidenceOptions: evidenceItems,
+    sources: visibleSources.map((source) => ({
+      id: source.id,
+      title: source.title,
+      kind: source.kind,
+    })),
+    claimOptions: visibleClaims.map((claim) => ({ id: claim.id, text: claim.text })),
+    evidenceOptions: evidenceItems
+      .filter((item) => !hiddenEvidenceIds.has(item.id))
+      .map((item) => ({ id: item.id, title: item.title })),
   };
+  return graph;
 }

@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     currentRecommendationId: caseRow.currentRecommendationId,
     createdAt: caseRow.createdAt,
     closedAt: caseRow.closedAt,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

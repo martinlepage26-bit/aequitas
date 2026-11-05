@@ -27,6 +27,8 @@
   "workspace": {
     "title": "Case workspace",
     "caseReference": "Case {reference}",
+    "partyVisibleNotice": "Both parties may read this text. Write only what both parties should see.",
+    "partyOutcomeNotice": "Only {name} can read this outcome. Write only what that party should see.",
     "attribution": {
       "legend": "Colours by source",
       "by": "Source: {name}"
@@ -210,7 +212,7 @@
     },
     "chronology": {
       "title": "Dispute chronology",
-      "description": "Add events from the dispute using the date they happened, not the date you submit them. Both parties can read these accounts; they are reported events, not verified findings.",
+      "description": "Add events from the dispute using the date they happened, not the date you submit them. Only you, the case manager, an approver, and an administrator can read the events you add; they are reported events, not verified findings.",
       "empty": "No dispute events have been added yet.",
       "reportedBy": "Reported by {name}",
       "form": {
@@ -235,6 +237,24 @@
       "requesting": "Requesting…",
       "error": "The draft recommendation could not be requested."
     },
+    "partyOutcome": {
+      "title": "Outcomes for each party",
+      "description": "The mediator writes the outcome each party will read before they consent or decline. A party sees only their own issued outcome.",
+      "bodyLabel": "Outcome for {name}",
+      "saveDraft": "Save draft",
+      "saving": "Saving…",
+      "issueButton": "Issue this outcome",
+      "issuing": "Issuing…",
+      "issuedStatus": "Issued outcome",
+      "draftStatus": "Draft, not yet issued",
+      "saved": "Draft saved.",
+      "issuedAnnouncement": "Outcome issued.",
+      "error": "The outcome could not be saved.",
+      "version": "Version {version}",
+      "yourOutcome": "Your outcome",
+      "readOnly": "You can read these outcomes. Only the assigned mediator can write them.",
+      "revisionPending": "An unissued revision is pending. Consent is still open on version {version}."
+    },
     "consent": {
       "title": "Consent",
       "statementHeading": "Consent statement",
@@ -246,6 +266,9 @@
       "givenAnnouncement": "Your consent has been recorded.",
       "declinedAnnouncement": "Your decline has been recorded.",
       "revokedAnnouncement": "Your consent has been withdrawn.",
+      "outcomeUnavailable": "Outcome not yet available to you",
+      "outcomeNeedsAnswer": "A new outcome needs your answer.",
+      "outcomeSuperseded": "A new outcome was issued, please review it.",
       "error": "Your response could not be recorded."
     },
     "withdraw": {
@@ -537,7 +560,9 @@
         "CONTESTATION_RESPONDED": "Contestation answered",
         "CONTESTATION_OVERRULED": "Contestation overruled with a reason",
         "CONTESTATION_WITHDRAWN": "Contestation withdrawn",
-        "RESOLUTION_APPROVED": "Approver signed off on the recommendation"
+        "RESOLUTION_APPROVED": "Approver signed off on the recommendation",
+        "PARTY_OUTCOME_EDITED": "Party outcome draft saved",
+        "PARTY_OUTCOME_ISSUED": "Party outcome issued"
       }
     },
     "resolution": {
@@ -586,6 +611,7 @@
       "targetClaim": "Claim: {text}",
       "code": {
         "OPEN_CONTESTATION": "A contestation is still open. It must be answered, overruled, or withdrawn before the case can resolve.",
+        "RESOLUTION_PAUSED": "Resolution paused pending review",
         "APPROVAL_REQUIRED": "An approver must sign off on the current recommendation before consent can resolve the case.",
         "ADMIN_CANNOT_APPROVE": "Administrators cannot sign off or overrule.",
         "NOT_APPROVER": "Only a designated approver can sign off or overrule.",
@@ -814,7 +840,7 @@
   },
   "landing": {
     "title": "Aequitas",
-    "tagline": "A record both sides can read.",
+    "tagline": "Each party sees only their own submissions.",
     "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
     "signIn": "Sign in with a passkey",
     "myCases": "My cases",
@@ -859,7 +885,7 @@
     "footer": "Proposals are reviewed by a person. Consent belongs to each party."
   },
   "auth": {
-    "tagline": "a record both sides can read",
+    "tagline": "each party sees only their own submissions",
     "otherLanguage": "Français",
     "chooseMode": "Choose sign-in or registration",
     "signIn": "Sign in",

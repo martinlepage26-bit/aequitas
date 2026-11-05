@@ -1,7 +1,7 @@
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
-import { generateExportBundle } from "../../../../../domain/exportBundle";
+import { buildPartyExportArchive, generateExportBundle } from "../../../../../domain/exportBundle";
 import { downloadBuffer } from "../../../../../lib/storage";
 
 // Section 16: "GET /api/cases/[id]/export — generate/fetch bundle". Section
@@ -33,12 +33,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     bundle = await prisma.exportBundle.findUniqueOrThrow({ where: { storageKey: generated.storageKey } });
   }
 
+  if (isParty) {
+    const archive = await buildPartyExportArchive(caseId, session.userId);
+    return new Response(new Uint8Array(archive), {
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${caseRow.referenceNumber}-party-view.zip"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+
   const buffer = await downloadBuffer(bundle.storageKey);
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${caseRow.referenceNumber}-export.zip"`,
       "X-Export-Sha256": bundle.sha256,
+      "Cache-Control": "private, no-store",
     },
   });
 }

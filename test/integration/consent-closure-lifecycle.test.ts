@@ -18,6 +18,7 @@ import {
   withdrawCase,
 } from "../../src/domain/mutate";
 import { generateExportBundle } from "../../src/domain/exportBundle";
+import { issuePartyOutcome } from "../../src/domain/partyOutcome";
 import type { ExplanationRecord } from "../../src/domain/explanationRecord";
 import type { Prisma } from "../../src/generated/prisma";
 
@@ -128,13 +129,42 @@ async function seedIssuedCase(): Promise<{ caseId: string; recommendationId: str
   const issued = await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId });
   if (!issued.ok) throw new Error(`setup: issueRecommendation failed: ${issued.reason}`);
 
+  for (const partyId of [complainantId, respondentId]) {
+    const outcome = await issuePartyOutcome({
+      actorId: managerId,
+      actorRole: "CASE_MANAGER",
+      caseId,
+      partyId,
+      body: `Issued outcome for ${partyId}.`,
+      locale: "fr-CA",
+    });
+    if (!outcome.ok) throw new Error(`setup: party outcome failed: ${outcome.reason}`);
+  }
+
   return { caseId, recommendationId: recommendation.id };
+}
+
+async function shownOutcome(caseId: string, partyId: string) {
+  const outcome = await prisma.partyOutcome.findFirstOrThrow({
+    where: { caseId, partyId, status: "ISSUED" },
+    orderBy: { version: "desc" },
+    select: { id: true, version: true },
+  });
+  return { outcomeId: outcome.id, outcomeVersion: outcome.version };
+}
+
+function giveShown(input: Omit<Parameters<typeof giveConsent>[0], "outcomeId" | "outcomeVersion">) {
+  return shownOutcome(input.caseId, input.actorId).then((shown) => giveConsent({ ...input, ...shown }));
+}
+
+function declineShown(input: Omit<Parameters<typeof declineConsent>[0], "outcomeId" | "outcomeVersion">) {
+  return shownOutcome(input.caseId, input.actorId).then((shown) => declineConsent({ ...input, ...shown }));
 }
 
 describe("giveConsent / declineConsent — real state derivation", () => {
   it("a single party giving consent keeps the case ISSUED (waiting on the other party)", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const result = await giveConsent({
+    const result = await giveShown({
       actorId: complainantId,
       actorRole: "COMPLAINANT",
       caseId,
@@ -154,9 +184,9 @@ describe("giveConsent / declineConsent — real state derivation", () => {
 
   it("both parties giving consent resolves the case to RESOLVED_CONSENT", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const first = await giveConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const first = await giveShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(first.ok).toBe(true);
-    const second = await giveConsent({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const second = await giveShown({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(second.ok).toBe(true);
     if (!second.ok) return;
     expect(second.data.toState).toBe("RESOLVED_CONSENT");
@@ -167,7 +197,7 @@ describe("giveConsent / declineConsent — real state derivation", () => {
 
   it("rejects a non-party attempting to give consent", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const result = await giveConsent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const result = await giveConsent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, outcomeId: "none", outcomeVersion: 1, authContext: {} });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.step).toBe("authorize-role");
@@ -175,7 +205,7 @@ describe("giveConsent / declineConsent — real state derivation", () => {
 
   it("declining resolves the case to RESOLVED_DECLINED, regardless of the other party's state", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const result = await declineConsent({
+    const result = await declineShown({
       actorId: respondentId,
       actorRole: "RESPONDENT",
       caseId,
@@ -191,7 +221,7 @@ describe("giveConsent / declineConsent — real state derivation", () => {
 
   it("rejects consent bound to a stale recommendation id", async () => {
     const { caseId } = await seedIssuedCase();
-    const result = await giveConsent({
+    const result = await giveShown({
       actorId: complainantId,
       actorRole: "COMPLAINANT",
       caseId,
@@ -209,7 +239,7 @@ describe("giveConsent / declineConsent — real state derivation", () => {
 describe("revokeConsent — reopens the case", () => {
   it("revoking a given consent moves the case back to ISSUED and records CASE_REOPENED", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const given = await giveConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const given = await giveShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(given.ok).toBe(true);
 
     const revoked = await revokeConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId });
@@ -234,7 +264,7 @@ describe("revokeConsent — reopens the case", () => {
 describe("requestNewVersion — RESOLVED_DECLINED -> DRAFTING", () => {
   it("supersedes the prior recommendation and starts a new one at the next version number", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const declined = await declineConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const declined = await declineShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(declined.ok).toBe(true);
 
     const result = await requestNewVersion({ actorId: managerId, actorRole: "CASE_MANAGER", caseId });
@@ -251,7 +281,7 @@ describe("requestNewVersion — RESOLVED_DECLINED -> DRAFTING", () => {
 
   it("rejects a non-assigned case manager", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const declined = await declineConsent({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const declined = await declineShown({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(declined.ok).toBe(true);
 
     const otherManager = await prisma.user.create({
@@ -285,9 +315,9 @@ describe("withdrawCase — standing complainant capability", () => {
 describe("closeCase + generateExportBundle — Section 15 sealed export", () => {
   it("generates a real bundle (JSON + PDF + verification.txt zipped, uploaded, hashed) and closes the case", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    const first = await giveConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const first = await giveShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(first.ok).toBe(true);
-    const second = await giveConsent({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    const second = await giveShown({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
     expect(second.ok).toBe(true);
 
     const bundle = await generateExportBundle({ caseId, actorId: managerId });
@@ -308,8 +338,8 @@ describe("closeCase + generateExportBundle — Section 15 sealed export", () => 
 
   it("rejects close_case with no export hash", async () => {
     const { caseId, recommendationId } = await seedIssuedCase();
-    await giveConsent({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
-    await giveConsent({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    await giveShown({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+    await giveShown({ actorId: respondentId, actorRole: "RESPONDENT", caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
 
     const result = await closeCase({ actorId: managerId, actorRole: "CASE_MANAGER", caseId, exportSha256: "" });
     expect(result.ok).toBe(false);

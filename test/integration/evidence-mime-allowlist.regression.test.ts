@@ -5,7 +5,7 @@ import { prisma } from "../../src/lib/prisma";
 import { signPayload } from "../../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../../src/lib/session";
 import { createCase, openIntake, submitCase } from "../../src/domain/mutate";
-import { startNextDev, type DevServer } from "../helpers/nextDevServer";
+import { ensureDevRoute, startNextDev, type DevServer } from "../helpers/nextDevServer";
 
 /**
  * Regression for security-audit finding 5.4 (aequitas-audit-run1, Area 5,
@@ -132,6 +132,14 @@ describe("Evidence MIME allowlist (finding 5.4 regression)", () => {
     expect((await upload(caseId, Buffer.from("Original evidence", "utf8"), "original.txt")).status).toBe(200);
     const original = await prisma.evidenceItem.findFirstOrThrow({ where: { caseId } });
     const beforeObjects = await objectsFor(caseId);
+    // The dev server can HTML-404 this nested route on its first request
+    // (parent /evidence already works). Wait until the handler is registered;
+    // the handler itself rejects this PE with 400 and never reaches the
+    // party-visibility checks.
+    await ensureDevRoute(
+      `${base}/api/cases/00000000-0000-4000-8000-000000000000/evidence/00000000-0000-4000-8000-000000000001/supersede`,
+      "src/app/api/cases/[caseId]/evidence/[evidenceId]/supersede/route.ts",
+    );
     const res = await upload(caseId, PE_EXE, "replacement.exe", original.id);
     expect(res.status).toBe(400);
     expect(await prisma.evidenceItem.count({ where: { caseId } })).toBe(1);

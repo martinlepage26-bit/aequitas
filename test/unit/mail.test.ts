@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({ invitation: { update: vi.fn() }, notification: { findMany: vi.fn(), update: vi.fn() } }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
-import { CASE_AWAITING_MANAGER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, CASE_REOPENED_KIND, OUTCOME_NEEDS_ANSWER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 function configure() {
@@ -80,5 +80,31 @@ describe("Resend delivery", () => {
     expect(sent.text).toContain("Tenancy");
     expect(sent.text).not.toContain(description);
     expect(sent.text).not.toContain("case-secret");
+  });
+  it("tells one party, in French and English, that a new outcome needs their answer", () => {
+    configure();
+    const french = notificationEmail({ kind: OUTCOME_NEEDS_ANSWER_KIND, locale: "fr-CA", caseId: "case-1" });
+    const english = notificationEmail({ kind: OUTCOME_NEEDS_ANSWER_KIND, locale: "en-CA", caseId: "case-1" });
+    expect(french.subject).toBe("Un nouveau résultat demande votre réponse");
+    expect(french.text).toContain("Votre réponse précédente ne s'applique plus.");
+    expect(french.text).toContain("https://aequitas.example/fr-CA/cases/case-1");
+    expect(english.subject).toBe("A new outcome needs your answer");
+    expect(english.text).toContain("Your earlier answer no longer applies.");
+    expect(english.text).toContain("https://aequitas.example/en-CA/cases/case-1");
+    expect(english.text).not.toContain("COMPLAINANT-V2");
+    expect(french.text).not.toContain("COMPLAINANT-V2");
+  });
+  it("tells the other party, in French and English, that the case was reopened, without the outcome", () => {
+    configure();
+    const french = notificationEmail({ kind: CASE_REOPENED_KIND, locale: "fr-CA", caseId: "case-1" });
+    const english = notificationEmail({ kind: CASE_REOPENED_KIND, locale: "en-CA", caseId: "case-1" });
+    expect(french.subject).toBe("Le dossier a été rouvert");
+    expect(french.text).toContain("Le dossier a été rouvert.");
+    expect(french.text).toContain("https://aequitas.example/fr-CA/cases/case-1");
+    expect(english.subject).toBe("The case was reopened");
+    expect(english.text).toContain("The case was reopened.");
+    expect(english.text).toContain("https://aequitas.example/en-CA/cases/case-1");
+    expect(`${french.subject} ${french.text} ${english.subject} ${english.text}`).not.toContain("COMPLAINANT-V2");
+    expect(english.text).not.toContain("outcome");
   });
 });

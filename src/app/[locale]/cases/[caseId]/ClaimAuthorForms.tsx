@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import PartyVisibleNotice from "./PartyVisibleNotice";
 import styles from "./workspace.module.css";
 
 const SOURCE_KINDS = ["DOCUMENT", "MESSAGE", "TESTIMONY", "POLICY", "RECORD", "URL", "EVIDENCE_ITEM", "STATUTE"] as const;
@@ -33,6 +34,7 @@ export default function ClaimAuthorForms({
 
   return (
     <div className={styles.form}>
+      <PartyVisibleNotice />
       <SourceForm caseId={caseId} locale={locale} evidenceItems={evidenceItems} t={t} refresh={() => router.refresh()} />
       <ClaimForm caseId={caseId} locale={locale} t={t} refresh={() => router.refresh()} />
       <LinkForm caseId={caseId} sources={sources} claims={claims} t={t} refresh={() => router.refresh()} />

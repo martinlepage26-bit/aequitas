@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { validMap, sources } from "../fixtures/conflictKnowledge";
-const mocks = vi.hoisted(() => ({ session: vi.fn(), case: vi.fn(), recommendation: vi.fn() }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), case: vi.fn(), recommendation: vi.fn(), evidence: vi.fn(), positions: vi.fn(), chronology: vi.fn() }));
 vi.mock("../../src/lib/session", () => ({ requireSession: mocks.session }));
-vi.mock("../../src/lib/prisma", () => ({ prisma: { case: { findUnique: mocks.case }, recommendation: { findUnique: mocks.recommendation } } }));
+vi.mock("../../src/lib/prisma", () => ({ prisma: { case: { findUnique: mocks.case }, recommendation: { findUnique: mocks.recommendation }, evidenceItem: { findMany: mocks.evidence }, positionStatement: { findMany: mocks.positions }, chronologyEntry: { findMany: mocks.chronology } } }));
 import { GET } from "../../src/app/api/cases/[caseId]/knowledge-map/route";
 const read = () => GET(new Request("http://localhost/api/cases/case1/knowledge-map"), { params: Promise.resolve({ caseId: "case1" }) });
 beforeEach(() => {
@@ -10,6 +10,9 @@ beforeEach(() => {
   mocks.session.mockResolvedValue({ session: { userId: "manager", globalRole: "CASE_MANAGER" } });
   mocks.case.mockResolvedValue({ id: "case1", caseManagerId: "manager", complainantId: "party1", respondentId: "party2", currentRecommendationId: "rec1" });
   mocks.recommendation.mockResolvedValue({ id: "rec1", caseId: "case1", status: "DRAFT", version: 1, explanation: { conflict_knowledge: validMap(), knowledge_sources: sources, reviewer: { user_id: null, issued_at: null } } });
+  mocks.evidence.mockResolvedValue([]);
+  mocks.positions.mockResolvedValue([]);
+  mocks.chronology.mockResolvedValue([]);
 });
 describe("knowledge map confidentiality", () => {
   it("returns a draft only to its assigned manager, with no-store", async () => {

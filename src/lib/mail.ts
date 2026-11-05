@@ -5,6 +5,10 @@ import { RECOVERY_TTL_MINUTES } from "./accountRecovery";
 
 /** Queued when a complainant submits a case and a case manager should see it. */
 export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
+/** Queued for one party when a new outcome replaces the version they already answered. */
+export const OUTCOME_NEEDS_ANSWER_KIND = "outcome_needs_answer";
+/** Queued for the other party when a resolved case returns to issued. No outcome text. */
+export const CASE_REOPENED_KIND = "case_reopened";
 
 export function emailConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && process.env.EMAIL_REPLY_TO && process.env.APP_URL);
@@ -64,6 +68,24 @@ export function notificationEmail(input: {
   category?: DisputeCategory;
 }): { subject: string; text: string } {
   const french = input.locale === "fr-CA";
+  if (input.kind === OUTCOME_NEEDS_ANSWER_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? {
+          subject: "Un nouveau résultat demande votre réponse",
+          text: `Le médiateur a émis un nouveau résultat dans votre dossier. Votre réponse précédente ne s'applique plus. Connectez-vous pour lire le résultat et consentir ou refuser :\n\n${link}`,
+        }
+      : {
+          subject: "A new outcome needs your answer",
+          text: `The mediator issued a new outcome on your case. Your earlier answer no longer applies. Sign in to read the outcome and consent or decline:\n\n${link}`,
+        };
+  }
+  if (input.kind === CASE_REOPENED_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    return french
+      ? { subject: "Le dossier a été rouvert", text: `Le dossier a été rouvert. Connectez-vous pour consulter le dossier :\n\n${link}` }
+      : { subject: "The case was reopened", text: `The case was reopened. Sign in to read the record:\n\n${link}` };
+  }
   if (input.kind === CASE_AWAITING_MANAGER_KIND && input.referenceNumber && input.category) {
     const category = resolveCategoryLabel(input.category, input.locale);
     const reference = input.referenceNumber;

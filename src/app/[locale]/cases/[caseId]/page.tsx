@@ -7,8 +7,9 @@ import { getTranslations } from "next-intl/server";
 import { getSession } from "../../../../lib/session";
 import { prisma } from "../../../../lib/prisma";
 import { getAuthorityView, type AuthorityActionKey, type AuthorityRoleKey, type CaseProgress } from "../../../../domain/authorityView";
-import { filterEventsForRole } from "../../../../domain/eventTimeline";
+import { visibleCaseEvents } from "../../../../domain/eventTimeline";
 import { caseReadAccess } from "../../../../domain/caseAccess";
+import { canReadPartySubmission, filterExplanationForParty } from "../../../../domain/submissionVisibility";
 import { caseDetailsEditable } from "../../../../domain/caseDetails";
 import type { ExplanationRecord } from "../../../../domain/explanationRecord";
 import type { GlobalRole } from "../../../../generated/prisma";
@@ -23,6 +24,7 @@ import OpenIntakeButton from "./OpenIntakeButton";
 import RequestDraftButton from "./RequestDraftButton";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
+import PartyOutcomePanel from "./PartyOutcomePanel";
 import WithdrawButton from "./WithdrawButton";
 import CloseCaseButton from "./CloseCaseButton";
 import ChronologyForm from "./ChronologyForm";
@@ -30,6 +32,7 @@ import ClaimsPanel from "./ClaimsPanel";
 import PipelinePanel from "./PipelinePanel";
 import ResolutionPanel, { type ContestTargetOption } from "./ResolutionPanel";
 import { readResolutionView } from "../../../../domain/resolution";
+import { readPartyOutcomes } from "../../../../domain/partyOutcome";
 import { freeModelConfigured } from "../../../../domain/pipeline/provider";
 import { pipelineEnabled } from "../../../../domain/pipeline/flag";
 import { readPipeline } from "../../../../domain/pipeline/writes";
@@ -62,7 +65,17 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const consentRecords = caseRow.currentRecommendationId
     ? await prisma.consentRecord.findMany({ where: { recommendationId: caseRow.currentRecommendationId } })
     : [];
-  const consentStateFor = (partyId: string) => consentRecords.find((c) => c.partyId === partyId)?.state ?? "NOT_GIVEN";
+  const issuedOutcomes = await prisma.partyOutcome.findMany({
+    where: { caseId, status: "ISSUED" },
+    orderBy: [{ partyId: "asc" }, { version: "desc" }],
+  });
+  const currentIssuedFor = (partyId: string) => issuedOutcomes.find((outcome) => outcome.partyId === partyId) ?? null;
+  const consentStateFor = (partyId: string) => {
+    const record = consentRecords.find((entry) => entry.partyId === partyId);
+    const current = currentIssuedFor(partyId);
+    if (!record || !current || record.partyOutcomeId !== current.id || record.partyOutcomeVersion !== current.version) return "NOT_GIVEN" as const;
+    return record.state;
+  };
 
   // Section 16 RBAC-404 posture, applied to page access: a viewer with no
   // read access sees "not found", never a 403 that would confirm the case
@@ -76,6 +89,16 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const access = caseReadAccess(caseRow, viewer);
   if (!access) notFound();
   await recordStaffAccess(caseId, session, "workspace");
+
+  const visibleEvidence = caseRow.evidenceItems.filter((item) =>
+    canReadPartySubmission({ access, viewerId: session.userId, authorId: item.submittedById }),
+  );
+  const visiblePositions = caseRow.positionStatements.filter((item) =>
+    canReadPartySubmission({ access, viewerId: session.userId, authorId: item.partyId }),
+  );
+  const visibleChronology = caseRow.chronologyEntries.filter((entry) =>
+    canReadPartySubmission({ access, viewerId: session.userId, authorId: entry.submittedById }),
+  );
 
   const progress: CaseProgress = {
     complainantHasCleanEvidence: caseRow.evidenceItems.some((e) => e.submittedById === caseRow.complainantId && e.scanStatus === "CLEAN"),
@@ -136,14 +159,22 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   if (caseRow.currentRecommendationId) {
     const row = await prisma.recommendation.findUnique({ where: { id: caseRow.currentRecommendationId } });
     if (row && (row.status === "ISSUED" || isAssignedManager)) {
-      recommendation = { id: row.id, explanation: row.explanation as unknown as ExplanationRecord, status: row.status };
+      const explanation = row.explanation as unknown as ExplanationRecord;
+      const partyExplanation = access === "party"
+        ? filterExplanationForParty(explanation, {
+            evidenceIds: new Set(caseRow.evidenceItems.filter((item) => item.submittedById !== session.userId).map((item) => item.id)),
+            positionIds: new Set(caseRow.positionStatements.filter((item) => item.partyId !== session.userId).map((item) => item.id)),
+            chronologyIds: new Set(caseRow.chronologyEntries.filter((entry) => entry.submittedById !== session.userId).map((entry) => entry.id)),
+          })
+        : explanation;
+      recommendation = { id: row.id, explanation: partyExplanation, status: row.status };
     }
   }
   const reviewer = recommendation?.explanation.reviewer.user_id
     ? await prisma.user.findUnique({ where: { id: recommendation.explanation.reviewer.user_id }, select: { displayName: true } })
     : null;
 
-  const visibleEvents = filterEventsForRole(caseRow.events, session.globalRole, access === "assigned-manager");
+  const visibleEvents = visibleCaseEvents(caseRow.events, { globalRole: session.globalRole, userId: session.userId, access });
   const eventActorIds = [...new Set(visibleEvents.map((e) => e.actorId))];
   const eventActors = eventActorIds.length
     ? await prisma.user.findMany({ where: { id: { in: eventActorIds } }, select: { id: true, displayName: true, globalRole: true } })
@@ -166,6 +197,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const target = (kind: SubmissionKind) => kind === "position" ? "positions-heading" : `${kind}-heading`;
   const claimGraph = await readClaimGraph(caseId, viewer);
   const resolutionView = caseRow.state === "DRAFT" ? null : await readResolutionView(caseId, viewer);
+  const partyOutcomes = await readPartyOutcomes(caseId, viewer);
+  const ownIssuedOutcome = partyOutcomes?.parties.find((party) => party.partyId === session.userId)?.issued ?? null;
+  const ownConsentRecord = consentRecords.find((record) => record.partyId === session.userId) ?? null;
+  const outcomeNeedsAnswer = Boolean(
+    ownIssuedOutcome && ownConsentRecord?.revokedReason === "outcome_reissued"
+    && (ownConsentRecord.partyOutcomeId !== ownIssuedOutcome.id || ownConsentRecord.partyOutcomeVersion !== ownIssuedOutcome.version),
+  );
   if (!claimGraph) notFound();
   const contestTargets: ContestTargetOption[] = [
     ...(recommendation && recommendation.status === "ISSUED" ? [{ type: "RECOMMENDATION" as const, id: recommendation.id, label: t("resolution.target.RECOMMENDATION") }] : []),
@@ -270,11 +308,11 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <h2 id="evidence-heading">{t("evidence.title")}</h2>
         <p>{t("submission.evidenceHelp")}</p>
         <p className={styles.guidance} id="evidence-guidance">{guidance("evidence")}</p>
-        {caseRow.evidenceItems.length === 0 ? (
+        {visibleEvidence.length === 0 ? (
           <p>{t("evidence.empty")}</p>
         ) : (
           <ul>
-            {caseRow.evidenceItems
+            {visibleEvidence
               .filter((e) => e.scanStatus !== "REJECTED" || e.submittedById === session.userId)
               .map((e) => (
                 <li key={e.id} id={`evidence-${e.id}`} className={styles.originRecord} data-origin={partyRole(e.submittedById) ?? undefined}>
@@ -288,7 +326,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                       <a href={`/api/cases/${caseId}/evidence/${e.id}`}>{t("evidence.download", { title: e.title })}</a>
                     </>
                   )}
-                  {caseRow.evidenceItems.some((other) => other.supersedesId === e.id) && <> — {t("evidence.supersededNotice")}</>}
+                  {visibleEvidence.some((other) => other.supersedesId === e.id) && <> — {t("evidence.supersededNotice")}</>}
                 </li>
               ))}
           </ul>
@@ -300,8 +338,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <h2 id="chronology-heading">{t("chronology.title")}</h2>
         <p>{t("chronology.description")}</p>
         <p className={styles.guidance} id="chronology-guidance">{guidance("chronology")}</p>
-        {caseRow.chronologyEntries.length === 0 ? <p>{t("chronology.empty")}</p> : <ol className={styles.chronology}>
-          {caseRow.chronologyEntries.map(entry => <li key={entry.id} id={`chronology-${entry.id}`} className={styles.originRecord} data-origin={partyRole(entry.submittedById) ?? undefined}>
+        {visibleChronology.length === 0 ? <p>{t("chronology.empty")}</p> : <ol className={styles.chronology}>
+          {visibleChronology.map(entry => (
+            <li key={entry.id} id={`chronology-${entry.id}`} className={styles.originRecord} data-origin={partyRole(entry.submittedById) ?? undefined}>
             <time dateTime={entry.occurredOn.toISOString().slice(0, 10)}>{formatChronologyDate(entry.occurredOn, locale)}</time>
             <div>
               {partyRole(entry.submittedById) && <p className={styles.originMeta}><span className={styles.originLabel}>{sourceRoleLabel(partyRole(entry.submittedById)!)}</span>{t("attribution.by", { name: entry.submittedBy.displayName })}</p>}
@@ -309,7 +348,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
               <p lang={entry.locale}>{entry.description}</p>
               <p className={styles.hint}>{t("chronology.reportedBy", { name: entry.submittedBy.displayName })}</p>
             </div>
-          </li>)}
+          </li>
+          ))}
         </ol>}
         <ChronologyForm caseId={caseId} disabled={!canSubmitChronology || !isParty} />
       </section>
@@ -318,11 +358,11 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         <h2 id="positions-heading">{t("positions.title")}</h2>
         <p>{t("submission.positionHelp")}</p>
         <p className={styles.guidance} id="position-guidance">{guidance("position")}</p>
-        {caseRow.positionStatements.length === 0 ? (
+        {visiblePositions.length === 0 ? (
           <p>{t("positions.empty")}</p>
         ) : (
           <ul>
-            {caseRow.positionStatements.map((p) => (
+            {visiblePositions.map((p) => (
               <li key={p.id} className={styles.originRecord} data-origin={partyRole(p.partyId) ?? undefined}>
                 {partyRole(p.partyId) && <span className={styles.originLabel}>{sourceRoleLabel(partyRole(p.partyId)!)}</span>}{" "}
                 <strong>{p.party.displayName}</strong> — {t("positions.version", { version: p.version })}
@@ -396,6 +436,17 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         </section>
       )}
 
+      {partyOutcomes && access !== "party" && (partyOutcomes.canWrite || partyOutcomes.parties.some((party) => party.issued || party.draft)) && (
+        <PartyOutcomePanel caseId={caseId} parties={partyOutcomes.parties} canWrite={partyOutcomes.canWrite} locale={locale} />
+      )}
+
+      {access === "party" && ownIssuedOutcome && (
+        <section aria-labelledby="your-outcome-heading" className={styles.section}>
+          <h2 id="your-outcome-heading">{t("partyOutcome.yourOutcome")}</h2>
+          <p id="your-outcome">{ownIssuedOutcome.body}</p>
+        </section>
+      )}
+
       {resolutionView && (
         <ResolutionPanel
           caseId={caseId}
@@ -414,6 +465,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           statementVersionId={currentStatement.id}
           statementBody={currentStatement.body}
           ownConsentState={ownConsentState}
+          outcomeIssued={Boolean(ownIssuedOutcome)}
+          outcomeId={ownIssuedOutcome?.id ?? null}
+          outcomeVersion={ownIssuedOutcome?.version ?? null}
+          outcomeNeedsAnswer={outcomeNeedsAnswer}
         />
       )}
 

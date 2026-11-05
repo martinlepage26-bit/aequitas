@@ -27,6 +27,8 @@
   "workspace": {
     "title": "Espace de dossier",
     "caseReference": "Dossier {reference}",
+    "partyVisibleNotice": "Les deux parties peuvent lire ce texte. N'écrivez que ce que les deux parties doivent voir.",
+    "partyOutcomeNotice": "Seul {name} peut lire ce résultat. N'écrivez que ce que cette partie doit voir.",
     "attribution": {
       "legend": "Couleurs selon la provenance",
       "by": "Source : {name}"
@@ -210,7 +212,7 @@
     },
     "chronology": {
       "title": "Chronologie du différend",
-      "description": "Ajoutez les événements du différend selon leur date, et non celle de votre envoi. Les deux parties peuvent lire ces récits; ce sont des événements rapportés, non des faits vérifiés.",
+      "description": "Ajoutez les événements du différend selon leur date, et non celle de votre envoi. Seuls vous, le gestionnaire de dossier, un approbateur et un administrateur pouvez lire les événements que vous ajoutez; ce sont des événements rapportés, non des faits vérifiés.",
       "empty": "Aucun événement du différend n'a encore été ajouté.",
       "reportedBy": "Rapporté par {name}",
       "form": {
@@ -235,6 +237,24 @@
       "requesting": "Demande en cours…",
       "error": "L'ébauche de recommandation n'a pas pu être demandée."
     },
+    "partyOutcome": {
+      "title": "Résultats destinés à chaque partie",
+      "description": "Le médiateur rédige le résultat que chaque partie lira avant de consentir ou de refuser. Une partie ne voit que son propre résultat émis.",
+      "bodyLabel": "Résultat pour {name}",
+      "saveDraft": "Enregistrer le brouillon",
+      "saving": "Enregistrement…",
+      "issueButton": "Émettre ce résultat",
+      "issuing": "Émission…",
+      "issuedStatus": "Résultat émis",
+      "draftStatus": "Brouillon, pas encore émis",
+      "saved": "Brouillon enregistré.",
+      "issuedAnnouncement": "Résultat émis.",
+      "error": "Le résultat n'a pas pu être enregistré.",
+      "version": "Version {version}",
+      "yourOutcome": "Votre résultat",
+      "readOnly": "Vous pouvez lire ces résultats. Seul le médiateur assigné peut les rédiger.",
+      "revisionPending": "Une révision non émise est en attente. Le consentement est encore ouvert sur la version {version}."
+    },
     "consent": {
       "title": "Consentement",
       "statementHeading": "Déclaration de consentement",
@@ -246,6 +266,9 @@
       "givenAnnouncement": "Votre consentement a été enregistré.",
       "declinedAnnouncement": "Votre refus a été enregistré.",
       "revokedAnnouncement": "Votre consentement a été retiré.",
+      "outcomeUnavailable": "Le résultat ne vous est pas encore accessible.",
+      "outcomeNeedsAnswer": "Un nouveau résultat demande votre réponse.",
+      "outcomeSuperseded": "Un nouveau résultat a été émis, veuillez le relire.",
       "error": "Votre réponse n'a pas pu être enregistrée."
     },
     "withdraw": {
@@ -537,7 +560,9 @@
         "CONTESTATION_RESPONDED": "Réponse à une contestation",
         "CONTESTATION_OVERRULED": "Contestation rejetée avec motif",
         "CONTESTATION_WITHDRAWN": "Contestation retirée",
-        "RESOLUTION_APPROVED": "Approbation de la recommandation par un approbateur"
+        "RESOLUTION_APPROVED": "Approbation de la recommandation par un approbateur",
+        "PARTY_OUTCOME_EDITED": "Brouillon du résultat d'une partie enregistré",
+        "PARTY_OUTCOME_ISSUED": "Résultat d'une partie émis"
       }
     },
     "resolution": {
@@ -586,6 +611,7 @@
       "targetClaim": "Affirmation : {text}",
       "code": {
         "OPEN_CONTESTATION": "Une contestation est encore ouverte. Elle doit recevoir une réponse, être rejetée ou être retirée avant que le dossier puisse se régler.",
+        "RESOLUTION_PAUSED": "Règlement suspendu en attendant l'examen.",
         "APPROVAL_REQUIRED": "Un approbateur doit approuver la recommandation actuelle avant que le consentement puisse régler le dossier.",
         "ADMIN_CANNOT_APPROVE": "Les administrateurs ne peuvent ni approuver ni rejeter.",
         "NOT_APPROVER": "Seul un approbateur désigné peut approuver ou rejeter.",
@@ -814,7 +840,7 @@
   },
   "landing": {
     "title": "Aequitas",
-    "tagline": "Un dossier que les deux parties peuvent lire.",
+    "tagline": "Chaque partie ne voit que ses propres éléments.",
     "lead": "Aequitas accompagne la résolution de différends : chaque partie dépose ses pièces et sa position, un gestionnaire de dossier neutre fait réviser un résultat proposé, et rien n'est conclu sans le consentement explicite de chaque partie.",
     "signIn": "Se connecter avec une clé d'accès",
     "myCases": "Mes dossiers",
@@ -859,7 +885,7 @@
     "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie."
   },
   "auth": {
-    "tagline": "un dossier lisible par les deux parties",
+    "tagline": "chaque partie ne voit que ses propres éléments",
     "otherLanguage": "English",
     "chooseMode": "Choisir la connexion ou l’inscription",
     "signIn": "Se connecter",
