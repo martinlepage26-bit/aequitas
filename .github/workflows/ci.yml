@@ -107,6 +107,8 @@ jobs:
           assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v1');
           assert.equal(report.mode, 'stub');
           assert.equal(report.syntheticOnly, true);
+          assert.equal(report.automatedChecksPassed, true);
+          assert.equal(report.evaluationApprovalIdentity, null);
           assert.equal(report.status, 'human_review_required');
           assert.equal(report.fixtures.length, 5);
 

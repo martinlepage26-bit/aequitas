@@ -392,17 +392,19 @@ async function main() {
   const modelCalls = results.reduce((sum, result) => sum + result.modelCalls, 0);
   const withinCallLimit = modelCalls <= FIXTURES.length;
   const passed = results.filter((result) => result.checksPassed).length;
+  const automatedChecksPassed = passed === FIXTURES.length && withinCallLimit;
 
   const report = {
     mode: live ? "live" : "stub",
     provider: model.provider,
     model: model.model,
     promptVersion: AGENT_PROMPT_VERSION,
-    evaluationApprovalIdentity: live ? caseAgentEvaluationApprovalIdentity(env) : null,
+    evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
     ranAt: new Date().toISOString(),
     fixtures: results.length,
     passed,
     failed: results.length - passed,
+    automatedChecksPassed,
     modelCalls,
     maxModelCalls: FIXTURES.length,
     withinCallLimit,
@@ -419,10 +421,11 @@ async function main() {
       provider: model.provider,
       model: model.model,
       promptVersion: AGENT_PROMPT_VERSION,
-      evaluationApprovalIdentity: live ? caseAgentEvaluationApprovalIdentity(env) : null,
+      evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
       ranAt: report.ranAt,
       syntheticOnly: true,
-      status: "human_review_required",
+      automatedChecksPassed,
+      status: automatedChecksPassed ? "human_review_required" : "automated_checks_failed",
       caveat: "Automated checks verify workflow mechanics, not semantic accuracy, neutrality, legal suitability, or language quality. Generated text is untrusted. Common email, North American phone, and Canadian postal-code patterns are redacted; redaction is not comprehensive. Keep this synthetic-only report local.",
       fixtures: reviewFixtures,
     };

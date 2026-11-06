@@ -25,7 +25,8 @@
     "agent:status": "tsx scripts/status-case-agent.ts",
     "agent:metrics": "tsx scripts/report-case-agent-metrics.ts",
     "ops:scheduler": "tsx scripts/scheduled-ops.ts",
-    "agent:evaluate": "tsx scripts/evaluate-case-agent.ts"
+    "agent:evaluate": "tsx scripts/evaluate-case-agent.ts",
+    "agent:approve-evaluation": "tsx scripts/approve-case-agent-evaluation.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
