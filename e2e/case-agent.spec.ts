@@ -6,7 +6,8 @@ import { uploadEvidence } from "../src/lib/storage";
 import { signPayload } from "../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../src/lib/session";
 import { closeIntake, createCase, openIntake, submitCase, submitPosition } from "../src/domain/mutate";
-import { enrollCaseAgent, runCaseAgent } from "../src/domain/caseAgent/agent";
+import { acceptCaseAgentProcessing, enrollCaseAgent, runCaseAgent } from "../src/domain/caseAgent/agent";
+import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/evaluationApproval";
 import fr from "../messages/fr-CA.json";
 import en from "../messages/en-CA.json";
@@ -121,6 +122,18 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: "Position B synthetic.", locale });
     const enrolled = await enrollCaseAgent({ actorId: m.id, actorRole: "CASE_MANAGER", caseId }, ENV);
     if (!enrolled.ok) throw new Error(enrolled.reason);
+    const configured = caseAgentProgram(ENV);
+    if (!configured.ok) throw new Error(`Synthetic program is missing: ${configured.missing.join(", ")}`);
+    for (const [party, role] of [[c, "COMPLAINANT"], [r, "RESPONDENT"]] as const) {
+      const choice = await acceptCaseAgentProcessing({
+        actorId: party.id,
+        actorRole: role,
+        caseId,
+        noticeHash: configured.program.processingDisclosure.noticeHash,
+        locale: locale as "en-CA" | "fr-CA",
+      }, ENV);
+      if (!choice.ok) throw new Error(choice.reason);
+    }
     const run = await runCaseAgent({ caseId, env: ENV, model: { provider: "test", model: "stub", complete: async () => JSON.stringify({
       needs_human: null,
       summary_claims: [{ text: "The receipt records the purchase.", citation_ids: ["C1"] }, { text: "The store note records the offered remedy.", citation_ids: ["C2"] }],
