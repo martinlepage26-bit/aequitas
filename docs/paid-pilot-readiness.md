@@ -47,6 +47,8 @@ The primary pilot context remains Québec. Manitoba's Consumer Protection Office
 
 Do not collect case files, party identifiers, or confidential operational details for this discovery. Record who answered each question, whether a number is observed or estimated, the supporting source, and what remains unknown. An expression of interest without an identified workflow, budget owner and concrete next step does not validate demand.
 
+The bilingual invitation, interview record, evidence-stage rubric, and follow-up drafts are in [docs/buyer-discovery-outreach.md](buyer-discovery-outreach.md). They are internal drafts and have not been sent.
+
 ## Workflow problem (hypothesis)
 
 Staff assemble each file from email, attachments and phone notes. Parties cannot see a dated record of what they submitted, and the written proposal is hard to trace to evidence. Consent is not tied to a specific version of what the party read.
