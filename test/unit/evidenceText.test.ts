@@ -2,7 +2,67 @@ import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 const download = vi.hoisted(() => vi.fn());
 vi.mock("../../src/lib/storage", () => ({ downloadBuffer: download }));
-import { decodePlainText, detectEvidenceMime, extractEvidenceText, extractStoredEvidence, MAX_EXTRACTED_CHARACTERS } from "../../src/lib/evidenceText";
+import {
+  decodePlainText,
+  detectEvidenceMime,
+  extractEvidenceText,
+  extractStoredEvidence,
+  MAX_EXTRACTED_CHARACTERS,
+  MAX_IMAGE_DIMENSION,
+  MAX_IMAGE_PIXELS,
+} from "../../src/lib/evidenceText";
+
+function pngHeader(width: number, height: number) {
+  const buffer = Buffer.alloc(57);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buffer);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write("IHDR", 12, "ascii");
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+  buffer.write("IDAT", 37, "ascii");
+  buffer.write("IEND", 49, "ascii");
+  return buffer;
+}
+
+function jpegHeader(width: number, height: number) {
+  const buffer = Buffer.from([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x01, 0x01, 0x11, 0x00,
+  ]);
+  return buffer;
+}
+
+function webpHeader(width: number, height: number) {
+  const buffer = Buffer.alloc(30);
+  buffer.write("RIFF", 0, "ascii");
+  buffer.writeUInt32LE(22, 4);
+  buffer.write("WEBP", 8, "ascii");
+  buffer.write("VP8X", 12, "ascii");
+  buffer.writeUInt32LE(10, 16);
+  buffer.writeUIntLE(width - 1, 24, 3);
+  buffer.writeUIntLE(height - 1, 27, 3);
+  return buffer;
+}
+
+function tiffHeader(width: number, height: number, hasNextPage = false) {
+  const buffer = Buffer.alloc(38);
+  buffer.write("II", 0, "ascii");
+  buffer.writeUInt16LE(42, 2);
+  buffer.writeUInt32LE(8, 4);
+  buffer.writeUInt16LE(2, 8);
+  buffer.writeUInt16LE(256, 10);
+  buffer.writeUInt16LE(4, 12);
+  buffer.writeUInt32LE(1, 14);
+  buffer.writeUInt32LE(width, 18);
+  buffer.writeUInt16LE(257, 22);
+  buffer.writeUInt16LE(4, 24);
+  buffer.writeUInt32LE(1, 26);
+  buffer.writeUInt32LE(height, 30);
+  buffer.writeUInt32LE(hasNextPage ? 8 : 0, 34);
+  return buffer;
+}
 
 describe("source text extraction", () => {
   it("recognizes UTF-8 text without trusting a client MIME declaration", async () => {
@@ -19,6 +79,41 @@ describe("source text extraction", () => {
   });
   it("never fabricates extracted text for unsupported files", async () => {
     expect(await extractEvidenceText(Buffer.from("unused"), "application/zip")).toMatchObject({ status: "unsupported", text: "" });
+  });
+  it.each([
+    ["PNG", "image/png", pngHeader, MAX_IMAGE_PIXELS + 1, 1],
+    ["JPEG", "image/jpeg", jpegHeader, 4000, 4000],
+    ["WebP", "image/webp", webpHeader, MAX_IMAGE_PIXELS + 1, 1],
+    ["TIFF", "image/tiff", tiffHeader, MAX_IMAGE_PIXELS + 1, 1],
+  ])("rejects %s rasters over the decoded-pixel limit before OCR", async (_name, mime, makeHeader, width, height) => {
+    const result = await extractEvidenceText(makeHeader(width, height), mime);
+    expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+    expect(result.note).toMatch(/dimensions could not be safely processed/);
+  });
+  it("rejects a raster with one axis beyond the OCR dimension limit", async () => {
+    const result = await extractEvidenceText(pngHeader(MAX_IMAGE_DIMENSION + 1, 1), "image/png");
+    expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+  });
+  it("refuses malformed raster headers without starting OCR", async () => {
+    const result = await extractEvidenceText(Buffer.alloc(24), "image/png");
+    expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+  });
+  it("routes animated PNG, animated WebP and multipage TIFF to staff", async () => {
+    const png = pngHeader(100, 100);
+    const animationControl = Buffer.alloc(20);
+    animationControl.writeUInt32BE(8, 0);
+    animationControl.write("acTL", 4, "ascii");
+    animationControl.writeUInt32BE(2, 8);
+    const animatedPng = Buffer.concat([png.subarray(0, 33), animationControl, png.subarray(33)]);
+    const animatedWebp = webpHeader(100, 100);
+    animatedWebp[20] = 0x02;
+    for (const [mime, body] of [
+      ["image/png", animatedPng],
+      ["image/webp", animatedWebp],
+      ["image/tiff", tiffHeader(100, 100, true)],
+    ] as const) {
+      expect(await extractEvidenceText(body, mime)).toMatchObject({ status: "unavailable", method: "none", text: "" });
+    }
   });
   it("verifies byte size and intake hash before parsing", async () => {
     const body = Buffer.from("Authentic source text.");

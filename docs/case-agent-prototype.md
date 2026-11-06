@@ -52,9 +52,9 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 |---|---|---|
 | `text/plain` | UTF-8 decode | |
 | PDF | `pdftotext` for text-only pages; `pdfimages` detects pages with embedded images, which are rendered with `pdftoppm` and OCRed with `tesseract` as a whole page | Up to 20 pages. A longer file is "partial" and goes to a person. The page number is recorded with each citation. OCR may misread text. |
-| PNG, JPEG, TIFF, WebP | `tesseract` OCR | Languages from `AEQUITAS_OCR_LANGUAGES`. OCR text is cited as extracted, not corrected. |
+| PNG, JPEG, TIFF, WebP | `tesseract` OCR | Languages from `AEQUITAS_OCR_LANGUAGES`. OCR text is cited as extracted, not corrected. Static rasters only; multi-page TIFF and animated PNG/WebP go to staff. |
 
-- **Limits:** 25 MiB per file, 12,000 characters per source, 12 files and 60,000 characters per case. Exceeding any of them goes to a person.
+- **Limits:** 25 MiB per file, 12 MP and 12,000 pixels per axis for direct image OCR, 12,000 characters per source, 12 files and 60,000 characters per case. Malformed image headers, animated PNG/WebP, multi-page or BigTIFF files and any other unreadable, partial or over-limit extraction go to a person.
 - **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. When a page contains an embedded image, OCR replaces that page's text-layer extraction so visible text and scanned content are assessed together.
 - **Citations:** each records a stable response citation ID, evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. Summary and reasoning claims reference these IDs. A party opening a cited outcome excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
 - **What the links prove:** they make it possible to trace each staff summary or reasoning claim to an exact excerpt in a hash-verified extraction. They do not prove that the excerpt semantically supports the claim, or that the document is authentic, accurate or relevant. Staff review and live-model evaluation are still required.

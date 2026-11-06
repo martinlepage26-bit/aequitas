@@ -13,6 +13,8 @@ export const MAX_EXTRACTED_CHARACTERS = 12000;
 export const MAX_EVIDENCE_FILES = 12;
 export const MAX_CASE_EXTRACTED_CHARACTERS = 60000;
 export const MAX_PDF_PAGES = 20;
+export const MAX_IMAGE_PIXELS = 12_000_000;
+export const MAX_IMAGE_DIMENSION = 12_000;
 const SUPPORTED_EVIDENCE_MIME_TYPES = new Set([
   "text/plain", "application/pdf", "image/png", "image/jpeg", "image/tiff", "image/webp",
 ]);
@@ -43,6 +45,118 @@ export async function detectEvidenceMime(buffer: Buffer): Promise<string | null>
 
 export function isSupportedEvidenceMime(mime: string): boolean {
   return SUPPORTED_EVIDENCE_MIME_TYPES.has(mime);
+}
+
+type RasterDimensions = { width: number; height: number };
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Read dimensions from container headers without decoding attacker-controlled raster data. */
+function rasterDimensions(buffer: Buffer, mime: string): RasterDimensions | null {
+  if (mime === "image/png") {
+    if (buffer.length < 24 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE) || buffer.toString("ascii", 12, 16) !== "IHDR") return null;
+    if (buffer.readUInt32BE(8) !== 13) return null;
+    // Animated PNGs can contain many frames. They are routed to staff instead
+    // of allowing OCR cost to scale with attacker-controlled frame count.
+    let offset = 8;
+    let sawEnd = false;
+    while (offset + 12 <= buffer.length) {
+      const chunkLength = buffer.readUInt32BE(offset);
+      if (chunkLength > buffer.length - offset - 12) return null;
+      const chunkType = buffer.toString("ascii", offset + 4, offset + 8);
+      if (chunkType === "acTL") return null;
+      if (chunkType === "IEND") {
+        sawEnd = chunkLength === 0;
+        break;
+      }
+      offset += chunkLength + 12;
+    }
+    if (!sawEnd) return null;
+    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  }
+
+  if (mime === "image/jpeg") {
+    if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
+    let offset = 2;
+    while (offset < buffer.length) {
+      if (buffer[offset] !== 0xff) return null;
+      while (buffer[offset] === 0xff) offset++;
+      const marker = buffer[offset++];
+      if (marker === undefined) return null;
+      if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      if (offset + 2 > buffer.length) return null;
+      const segmentLength = buffer.readUInt16BE(offset);
+      if (segmentLength < 2 || offset + segmentLength > buffer.length) return null;
+      const isStartOfFrame = (marker >= 0xc0 && marker <= 0xc3)
+        || (marker >= 0xc5 && marker <= 0xc7)
+        || (marker >= 0xc9 && marker <= 0xcb)
+        || (marker >= 0xcd && marker <= 0xcf);
+      if (isStartOfFrame) {
+        if (segmentLength < 7) return null;
+        return { height: buffer.readUInt16BE(offset + 3), width: buffer.readUInt16BE(offset + 5) };
+      }
+      offset += segmentLength;
+    }
+    return null;
+  }
+
+  if (mime === "image/webp") {
+    if (buffer.length < 25 || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WEBP") return null;
+    const chunk = buffer.toString("ascii", 12, 16);
+    if (chunk === "VP8X" && buffer.length >= 30) {
+      if (buffer[20] & 0x02) return null; // Animated WebP.
+      return { width: buffer.readUIntLE(24, 3) + 1, height: buffer.readUIntLE(27, 3) + 1 };
+    }
+    if (chunk === "VP8L" && buffer[20] === 0x2f && buffer.length >= 25) {
+      const packed = buffer.readUInt32LE(21);
+      return { width: (packed & 0x3fff) + 1, height: ((packed >>> 14) & 0x3fff) + 1 };
+    }
+    if (chunk === "VP8 " && buffer.length >= 30 && buffer[23] === 0x9d && buffer[24] === 0x01 && buffer[25] === 0x2a) {
+      return { width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff };
+    }
+    return null;
+  }
+
+  if (mime === "image/tiff") {
+    if (buffer.length < 8) return null;
+    const littleEndian = buffer.toString("ascii", 0, 2) === "II";
+    if (!littleEndian && buffer.toString("ascii", 0, 2) !== "MM") return null;
+    const read16 = (offset: number) => littleEndian ? buffer.readUInt16LE(offset) : buffer.readUInt16BE(offset);
+    const read32 = (offset: number) => littleEndian ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
+    if (read16(2) !== 42) return null; // BigTIFF and unknown variants are sent to a person.
+    const directory = read32(4);
+    if (directory < 8 || directory + 2 > buffer.length) return null;
+    const entries = read16(directory);
+    if (entries > 4096 || directory + 2 + entries * 12 + 4 > buffer.length) return null;
+    // Multi-page TIFF processing is not bounded by this single-image pixel
+    // budget. Route it to staff rather than letting Tesseract walk every IFD.
+    if (read32(directory + 2 + entries * 12) !== 0) return null;
+    let width: number | null = null;
+    let height: number | null = null;
+    for (let index = 0; index < entries; index++) {
+      const entry = directory + 2 + index * 12;
+      const tag = read16(entry);
+      if (tag !== 256 && tag !== 257) continue;
+      const type = read16(entry + 2);
+      const count = read32(entry + 4);
+      if (count !== 1 || (type !== 3 && type !== 4)) return null;
+      const value = type === 3 ? read16(entry + 8) : read32(entry + 8);
+      if (tag === 256) width = value;
+      else height = value;
+    }
+    return width !== null && height !== null ? { width, height } : null;
+  }
+
+  return null;
+}
+
+function rasterWithinOcrBounds(dimensions: RasterDimensions | null): dimensions is RasterDimensions {
+  return Boolean(
+    dimensions
+    && Number.isSafeInteger(dimensions.width) && dimensions.width > 0 && dimensions.width <= MAX_IMAGE_DIMENSION
+    && Number.isSafeInteger(dimensions.height) && dimensions.height > 0 && dimensions.height <= MAX_IMAGE_DIMENSION
+    && dimensions.width <= MAX_IMAGE_PIXELS / dimensions.height,
+  );
 }
 
 function finish(text: string, method: EvidenceExtraction["method"], bounded = false): EvidenceExtraction {
@@ -128,6 +242,9 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
   const pdf = mime === "application/pdf";
   const image = isSupportedEvidenceMime(mime) && mime.startsWith("image/");
   if (!pdf && !image) return { status: "unsupported", method: "none", text: "", note: "This file format has no configured text extractor; metadata only." };
+  if (image && !rasterWithinOcrBounds(rasterDimensions(buffer, mime))) {
+    return { status: "unavailable", method: "none", text: "", note: "Image dimensions could not be safely processed within the OCR limit; metadata only." };
+  }
   const dir = await mkdtemp(join(tmpdir(), "aequitas-extract-"));
   let method: EvidenceExtraction["method"] = pdf ? "pdftotext" : "tesseract";
   try {
