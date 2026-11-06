@@ -22,8 +22,8 @@ describe("case-agent pilot timing metrics", () => {
 
     expect(summarizeCaseAgentTimings(events)).toEqual({
       casesStarted: 3,
-      casesIssuedWithinWindow: 2,
-      casesAwaitingIssueAtWindowEnd: 1,
+      casesIssuedByWindowEnd: 2,
+      casesWithoutIssueByWindowEnd: 1,
       medianElapsedHours: 48,
       p90ElapsedHours: 72,
     });
@@ -35,8 +35,8 @@ describe("case-agent pilot timing metrics", () => {
       { caseId: "bad-date", type: "EVIDENCE_INTAKE_OPENED", createdAt: new Date(Number.NaN) },
     ])).toEqual({
       casesStarted: 1,
-      casesIssuedWithinWindow: 0,
-      casesAwaitingIssueAtWindowEnd: 1,
+      casesIssuedByWindowEnd: 0,
+      casesWithoutIssueByWindowEnd: 1,
       medianElapsedHours: null,
       p90ElapsedHours: null,
     });
@@ -48,8 +48,8 @@ describe("case-agent pilot timing metrics", () => {
       { caseId: "out-of-order", type: "EVIDENCE_INTAKE_OPENED", createdAt: at(2) },
     ])).toMatchObject({
       casesStarted: 1,
-      casesIssuedWithinWindow: 0,
-      casesAwaitingIssueAtWindowEnd: 1,
+      casesIssuedByWindowEnd: 0,
+      casesWithoutIssueByWindowEnd: 1,
     });
   });
 });

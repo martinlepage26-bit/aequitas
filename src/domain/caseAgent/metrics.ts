@@ -6,8 +6,8 @@ export type CaseAgentTimingEvent = {
 
 export type CaseAgentTimingSummary = {
   casesStarted: number;
-  casesIssuedWithinWindow: number;
-  casesAwaitingIssueAtWindowEnd: number;
+  casesIssuedByWindowEnd: number;
+  casesWithoutIssueByWindowEnd: number;
   medianElapsedHours: number | null;
   p90ElapsedHours: number | null;
 };
@@ -99,8 +99,8 @@ export function summarizeCaseAgentTimings(events: readonly CaseAgentTimingEvent[
 
   return {
     casesStarted: intakeOpened.size,
-    casesIssuedWithinWindow: elapsed.length,
-    casesAwaitingIssueAtWindowEnd: intakeOpened.size - elapsed.length,
+    casesIssuedByWindowEnd: elapsed.length,
+    casesWithoutIssueByWindowEnd: intakeOpened.size - elapsed.length,
     medianElapsedHours: medianMs === null ? null : roundedHours(medianMs),
     p90ElapsedHours: p90Ms === null ? null : roundedHours(p90Ms),
   };
