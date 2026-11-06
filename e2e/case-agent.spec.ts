@@ -161,8 +161,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await mp.goto(`/${locale}/cases/${caseId}`);
     await expect(mp.locator("#case-agent-status")).toHaveText(copy.managerActive);
     await expect(mp.getByText(`${messages.workspace.recommendation.claimEvidenceLabel}:`, { exact: true })).toBeVisible();
-    await expect(mp.getByText("The receipt records the purchase.", { exact: true })).toBeVisible();
-    await expect(mp.getByRole("link", { name: "File COMPLAINANT" }).first()).toBeVisible();
+    // Each claim's list item holds the claim text and a nested list of its cited sources.
+    const receiptClaim = mp.getByRole("listitem").filter({ hasText: "The receipt records the purchase." });
+    await expect(receiptClaim).toHaveCount(1);
+    await expect(receiptClaim.getByRole("link", { name: "File COMPLAINANT" })).toBeVisible();
 
     await rp.goto(`/${locale}/cases/${caseId}`);
     await expect(rp.locator("#your-outcome")).toHaveText(outcomeR);
