@@ -35,6 +35,18 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 - The agent remains off until the program rules, provider account and data terms, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
 - Price, term and payment: **not set.** No billing is built.
 
+## Commercial packaging and price logic (internal hypothesis; no price approved)
+
+**Buyer and payer hypothesis:** an independent dispute-resolution program or member organization with a documented routine retail case queue that its current service does not handle. The program pays; neither party to the dispute pays a fee to use Aequitas. This is a positioning hypothesis, not validated demand. Québec already offers PARLe as a free consumer–merchant negotiation service, and a government small-claims ODR platform is active, so the first prospect should be outside those covered workflows rather than pitched as their replacement ([OPC PARLe](https://www.opc.gouv.qc.ca/en/parle-commercant/), [Québec ODR project dashboard](https://www.tableaudebordprojetsri.gouv.qc.ca/tableau-de-bord/projet/29637912)). A Canadian analogue, OBSI, provides consumer dispute resolution free to consumers while participating firms fund the service under regulatory requirements and independence safeguards; that supports the payer model as an analogy, not as a direct price comparison ([OBSI funding model](https://www.obsi.ca/en/for-consumers/how-were-funded/)).
+
+**SKU 1 — paid pilot:** one program, one isolated deployment, bilingual fr-CA/en-CA, two-party retail cases, configured eligibility limits, staff onboarding, and a time-limited evaluation with an agreed case cap and service measures. The owner, operator and counsel gates still apply; no real case data enters the pilot before those gates are resolved. Quote a fixed implementation fee plus a fixed pilot fee so the buyer can budget the deployment and evaluation. The fee should cover setup, hosting, support, provider usage, and the agreed case volume. No amount is set until discovery establishes the buyer's baseline costs, case volume, support needs, and procurement path.
+
+**SKU 2 — continued service, conditional on pilot evidence:** an annual program licence with an included case-volume band and separately priced managed operations or integrations. Set the volume bands and renewal price from observed usage, hosting/support costs, and the program's own baseline; do not publish a price ladder yet.
+
+**Promise boundary and exclusions:** Aequitas offers workflow software and a non-binding proposal process, not adjudication, legal advice, guaranteed settlement, or a promised reduction in case time. The pilot does not include multiple programs, multi-tenant hosting, custom integrations, legal review, or unlimited human case-management capacity. Do not tie payment to consent, settlement, or the outcome of a dispute.
+
+**Discovery inputs required before quoting:** eligible cases per year; current staff minutes and cost per case; existing software and unresolved workflow; human-review capacity; hosting and support expectations; who controls the budget and procurement; whether both parties trust a program-funded service; and the provider/privacy terms the program will accept. Until these are known, the offer is shaped but not priced.
+
 ## One measurable outcome
 
 Median elapsed time from `EVIDENCE_INTAKE_OPENED` to `RECOMMENDATION_ISSUED`, read from the event log, against the program's own pre-pilot figure for comparable files. The program supplies the baseline. No target is set here.
