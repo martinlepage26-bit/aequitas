@@ -2,7 +2,7 @@
 
 **Status:** engineering inventory and proposed target design; not an approved retention policy, legal opinion, privacy assessment, or deletion procedure.
 
-**Revalidated:** candidate source at commit `c98d5676c1f9b625050dffc4d18bd4f16e12e05c` on 2026-11-06. This review covers the repository only. It did not inspect a deployed database, object store, backup, provider account, email account, or production logs. The live host and its data state remain unverified.
+**Revalidated:** candidate source at commit `f0d08c12a1a4d172ef0f20bbc71c593fa29d81f9` on 2026-11-06. This review covers the repository only. It did not inspect a deployed database, object store, backup, provider account, email account, or production logs. The live host and its data state remain unverified.
 
 ## Current-source recheck
 
