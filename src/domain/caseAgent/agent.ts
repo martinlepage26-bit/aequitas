@@ -155,17 +155,26 @@ export async function requestHumanReview(input: { actorId: string; actorRole: Gl
 export async function claimEscalatedCase(input: { actorId: string; actorRole: GlobalRole; caseId: string; hasConflict: boolean }): Promise<Outcome> {
   if (input.actorRole !== "CASE_MANAGER") return { ok: false, status: 404, reason: "Case not found." };
   const row = await prisma.case.findUnique({ where: { id: input.caseId } });
-  if (!row || !row.agentEscalatedAt || row.caseManagerId || row.state === "CLOSED") return { ok: false, status: 404, reason: "Case not found." };
+  if (!row || !row.agentEscalatedAt || row.caseManagerId || row.state === "CLOSED" || row.state === "WITHDRAWN") return { ok: false, status: 404, reason: "Case not found." };
   if (input.hasConflict) return { ok: false, status: 409, reason: "A case manager with a conflict of interest cannot take this case." };
   const taken = await prisma.$transaction(async (tx) => {
-    const updated = await tx.case.updateMany({ where: { id: row.id, caseManagerId: null, agentEscalatedAt: { not: null } }, data: { caseManagerId: input.actorId } });
+    const updated = await tx.case.updateMany({
+      where: {
+        id: row.id,
+        state: row.state,
+        agentManaged: true,
+        caseManagerId: null,
+        agentEscalatedAt: row.agentEscalatedAt,
+      },
+      data: { caseManagerId: input.actorId },
+    });
     if (updated.count !== 1) return false;
     await tx.coiDeclaration.create({ data: { caseId: row.id, caseManagerId: input.actorId, hasConflict: false } });
     await appendEvent(tx, { caseId: row.id, type: "COI_DECLARED", actorId: input.actorId, payload: { hasConflict: false } });
     await appendEvent(tx, { caseId: row.id, type: "CASE_ASSIGNED", actorId: input.actorId, payload: { caseManagerId: input.actorId, origin: "agent_escalation" } });
     return true;
   });
-  return taken ? { ok: true } : { ok: false, status: 409, reason: "Another case manager took this case." };
+  return taken ? { ok: true } : { ok: false, status: 409, reason: "The case changed or another case manager took it." };
 }
 
 /**

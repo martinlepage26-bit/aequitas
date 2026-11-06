@@ -10,7 +10,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
-import { createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition } from "../../src/domain/mutate";
+import { createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
 import { readPartyOutcomes } from "../../src/domain/partyOutcome";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
@@ -325,6 +325,22 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     ]);
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
     expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("skipped");
+  });
+
+  it("does not assign a case that the complainant withdrew after escalation", async () => {
+    const r = await submittedCase();
+    stubEmail();
+    await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
+    await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
+    expect(await runCaseAgent({ caseId: r.caseId, model: null, env: ENV, now: new Date(Date.now() + 6 * DAY) }))
+      .toEqual({ status: "escalated", reason: "respondent_no_response" });
+
+    expect((await withdrawCase({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId })).ok).toBe(true);
+    expect(await claimEscalatedCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: false }))
+      .toMatchObject({ ok: false, status: 404 });
+    expect(await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))
+      .toMatchObject({ state: "WITHDRAWN", caseManagerId: null });
+    expect(await prisma.coiDeclaration.count({ where: { caseId: r.caseId } })).toBe(0);
   });
 
   it("an invitation the email provider refuses goes to a person", async () => {
