@@ -39,18 +39,71 @@ describe("Resend delivery", () => {
   });
   it("marks a lost response after sending as uncertain, not rejected", async () => {
     configure();
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic network timeout")));
+    const fetch = vi.fn().mockRejectedValue(new Error("synthetic network timeout"));
+    vi.stubGlobal("fetch", fetch);
     await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-uncertain" }))
       .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+    expect(fetch).toHaveBeenCalledTimes(2);
     expect(db.invitation.update).not.toHaveBeenCalled();
+  });
+  it("retries an uncertain invitation once with the identical idempotency key and payload", async () => {
+    configure();
+    const fetch = vi.fn()
+      .mockRejectedValueOnce(new Error("synthetic lost response"))
+      .mockResolvedValueOnce(Response.json({ id: "resend-recovered" }));
+    vi.stubGlobal("fetch", fetch);
+
+    expect(await sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/stable-token", invitationId: "invite-retry" })).toBe("accepted");
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["invitation/invite-retry", "invitation/invite-retry"]);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(db.invitation.update).toHaveBeenCalledTimes(1);
+  });
+  it("retries the same provider request when recording acceptance fails transiently", async () => {
+    configure();
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ id: "resend-accepted" }))
+      .mockResolvedValueOnce(Response.json({ id: "resend-accepted" }));
+    vi.stubGlobal("fetch", fetch);
+    db.invitation.update.mockRejectedValueOnce(new Error("synthetic database interruption")).mockResolvedValueOnce(undefined);
+
+    expect(await sendInvitationEmail({ email: "recipient@example.com", locale: "fr-CA", claimPath: "/fr-CA/invite/stable-token", invitationId: "invite-record-retry" })).toBe("accepted");
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["invitation/invite-record-retry", "invitation/invite-record-retry"]);
+    expect(db.invitation.update).toHaveBeenCalledTimes(2);
+  });
+  it("leaves delivery uncertain if acceptance still cannot be recorded after the retry", async () => {
+    configure();
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ id: "resend-accepted" }))
+      .mockResolvedValueOnce(Response.json({ id: "resend-accepted" }));
+    vi.stubGlobal("fetch", fetch);
+    db.invitation.update.mockRejectedValue(new Error("synthetic persistent database interruption"));
+
+    await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/stable-token", invitationId: "invite-record-uncertain" }))
+      .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["invitation/invite-record-uncertain", "invitation/invite-record-uncertain"]);
+    expect(db.invitation.update).toHaveBeenCalledTimes(2);
   });
   it("marks a definite provider rejection separately from an uncertain result", async () => {
     configure();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ error: "invalid recipient" }, { status: 422 })).mockResolvedValueOnce(Response.json({ error: "server unavailable" }, { status: 503 })));
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ error: "invalid recipient" }, { status: 422 }))
+      .mockResolvedValueOnce(Response.json({ error: "server unavailable" }, { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ error: "server unavailable" }, { status: 503 }));
+    vi.stubGlobal("fetch", fetch);
     await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-rejected" }))
       .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "rejected" });
+    expect(fetch).toHaveBeenCalledTimes(1);
     await expect(sendInvitationEmail({ email: "recipient@example.com", locale: "en-CA", claimPath: "/en-CA/invite/test", invitationId: "invite-uncertain-500" }))
       .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect(db.invitation.update).not.toHaveBeenCalled();
   });
   it("keeps failed notifications pending and retries with the same idempotency key", async () => {

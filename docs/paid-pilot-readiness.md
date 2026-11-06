@@ -72,5 +72,5 @@ The automated case agent is the proposed routine workflow, but is off by default
 ## Known defects and limits
 
 - Two parties only. No translation-review workflow.
-- Invitation and account-recovery emails are sent directly (`src/lib/mail.ts`), not through the retried outbox.
+- Invitation emails are sent directly (`src/lib/mail.ts`) with one immediate retry using the same provider idempotency key; if delivery remains uncertain, the active link is preserved and staff must resolve it. Account-recovery emails remain outside the retried outbox.
 - Storage cleanup after a crashed write is manual.

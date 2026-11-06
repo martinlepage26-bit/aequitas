@@ -117,8 +117,8 @@ For the first live evaluation, Cloudflare Workers AI is the preferred candidate 
 - **Heuristic checks.** The deny list catches forbidden phrasing in staff-only model text; it cannot prove that text is accurate or neutral.
 - **Escalation behaviour:**
   - Any model failure escalates at once; there is no retry budget.
-  - The automated respondent invitation expires with the configured response period. Invitation and account-recovery emails remain outside the retry outbox.
-  - If delivery cannot be confirmed (including a lost provider response or a failed emailed-timestamp write), the active token is kept and the case is handed to a person rather than rotating a link that may already be in the respondent's inbox. This invitation is not automatically retried; staff must confirm the link is cancelled before issuing another one.
+  - The automated respondent invitation expires with the configured response period. Invitation and account-recovery emails remain outside the retry outbox. An invitation send makes one immediate retry after an uncertain provider response or a failed `emailedAt` write, using the same payload and `invitation/{id}` idempotency key. Resend documents a 24-hour key-retention window ([idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys)).
+  - If delivery still cannot be confirmed, the active token is kept and the case is handed to a person rather than rotating a link that may already be in the respondent's inbox. This is not a durable retry queue; after the bounded attempt, staff must confirm the old link is revoked before issuing another one. Account-recovery emails are not automatically retried.
 - **Scope:**
   - One program per deployment. Roles are global, so this is not multi-organization software.
   - Two parties only. No retention or deletion service.

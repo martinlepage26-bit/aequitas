@@ -64,11 +64,29 @@ export async function sendInvitationEmail(input: { email: string; locale: string
     ? `${validForDays} ${validForDays === 1 ? "jour" : "jours"}`
     : `${validForDays} ${validForDays === 1 ? "day" : "days"}`;
   const link = appUrl(input.claimPath);
-  await sendEmail(input.email, french ? "Votre invitation à Aequitas" : "Your invitation to Aequitas", french
+  const subject = french ? "Votre invitation à Aequitas" : "Your invitation to Aequitas";
+  const text = french
     ? `Vous avez reçu une invitation à Aequitas. Créez votre clé d’accès avec ce lien, valide pendant ${validPeriod} :\n\n${link}\n\nSi vous n’attendiez pas cette invitation, vous pouvez l’ignorer.`
-    : `You have been invited to Aequitas. Create your passkey using this link, valid for ${validPeriod}:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`, `invitation/${input.invitationId}`);
-  try { await prisma.invitation.update({ where: { id: input.invitationId }, data: { emailedAt: new Date() } }); }
-  catch { console.error("Invitation email accepted; delivery timestamp could not be persisted."); }
+    : `You have been invited to Aequitas. Create your passkey using this link, valid for ${validPeriod}:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`;
+  const idempotencyKey = `invitation/${input.invitationId}`;
+  const sendAndRecord = async () => {
+    await sendEmail(input.email, subject, text, idempotencyKey);
+    try { await prisma.invitation.update({ where: { id: input.invitationId }, data: { emailedAt: new Date() } }); }
+    catch {
+      console.error("Invitation email accepted; delivery timestamp could not be persisted.");
+      throw new EmailDeliveryError("uncertain");
+    }
+  };
+  try {
+    await sendAndRecord();
+  } catch (error) {
+    if (!(error instanceof EmailDeliveryError) || error.certainty !== "uncertain") throw error;
+    // Resend retains idempotency keys for 24 hours. Retry the exact same
+    // payload once so a lost response or transient emailedAt write can recover
+    // without sending a second invitation or rotating the link.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await sendAndRecord();
+  }
   return "accepted" as const;
 }
 

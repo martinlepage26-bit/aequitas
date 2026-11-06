@@ -78,6 +78,7 @@ describe("respondent invitation delivery uncertainty", () => {
     expect(mocks.invitationCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: "respondent-1", issuedById: "complainant-1" }) });
     expect(mocks.invitationFindUnique).not.toHaveBeenCalled();
     expect(mocks.invitationUpdateMany).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("does not rotate an active invitation whose email status is uncertain", async () => {
