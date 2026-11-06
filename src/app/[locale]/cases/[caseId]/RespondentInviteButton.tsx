@@ -17,7 +17,9 @@ export default function RespondentInviteButton({ caseId, email, name, alreadySen
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmedEmail: email }),
       });
       const result = await response.json().catch(() => null);
-      if (result?.status === "delivery_uncertain") {
+      // A queued (delivery_pending) or unconfirmed email has not been shown to
+      // be delivered; do not report it as sent.
+      if (result?.status === "delivery_uncertain" || result?.status === "delivery_pending") {
         setStatus("uncertain");
         setConfirming(false);
         return;

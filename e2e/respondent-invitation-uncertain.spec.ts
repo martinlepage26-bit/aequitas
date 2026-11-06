@@ -22,8 +22,10 @@ async function contextFor(browser: Browser, userId: string): Promise<BrowserCont
   return context;
 }
 
-for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
-  test(`shows an uncertain respondent invitation and prevents duplicate sending (${locale})`, async ({ browser }) => {
+// A fresh send can only be queued (delivery_pending); an existing unemailed
+// link is reported as delivery_uncertain. Neither may read as "sent".
+for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) for (const deliveryStatus of ["delivery_pending", "delivery_uncertain"] as const) {
+  test(`shows an unconfirmed respondent invitation (${deliveryStatus}) and prevents duplicate sending (${locale})`, async ({ browser }) => {
     const complainant = await prisma.user.create({
       data: { email: `invite-c-${randomUUID()}@example.org`, displayName: `Invite complainant ${locale}`, globalRole: "COMPLAINANT", locale },
     });
@@ -51,7 +53,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await route.fulfill({
         status: 202,
         contentType: "application/json",
-        body: JSON.stringify({ status: "delivery_uncertain", expiresAt: new Date(Date.now() + DAY).toISOString() }),
+        body: JSON.stringify({ status: deliveryStatus, expiresAt: new Date(Date.now() + DAY).toISOString() }),
       });
     });
 
