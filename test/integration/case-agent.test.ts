@@ -16,6 +16,7 @@ import { issuePartyOutcome, readPartyOutcomes } from "../../src/domain/partyOutc
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import { verifyCase } from "../../src/domain/verifyEvents";
+import { MAX_IMAGE_PIXELS } from "../../src/lib/evidenceText";
 
 vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: true, signature: "synthetic-clean" })) }));
 
@@ -41,6 +42,18 @@ const COMPLAINANT_POSITION = "The kettle stopped heating after three days and th
 const RESPONDENT_POSITION = "Our counter staff offered a repair voucher because the receipt showed a clearance purchase.";
 const COMPLAINANT_EVIDENCE_TEXT = "Receipt: kettle purchase on 2026-10-02; paid full price $89.99.";
 const RESPONDENT_EVIDENCE_TEXT = "Clearance shelf tag: final sale. Repair voucher offer was recorded by counter staff.";
+
+function oversizedPngHeader() {
+  const buffer = Buffer.alloc(57);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buffer);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write("IHDR", 12, "ascii");
+  buffer.writeUInt32BE(MAX_IMAGE_PIXELS + 1, 16);
+  buffer.writeUInt32BE(1, 20);
+  buffer.write("IDAT", 37, "ascii");
+  buffer.write("IEND", 49, "ascii");
+  return buffer;
+}
 
 let storageDir: string;
 let agentId: string;
@@ -463,6 +476,20 @@ describe("case agent: unsupported or unsafe cases go to a person", () => {
     expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "evidence_extraction_failed" });
     expect(model.calls).toBe(0);
     expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+  });
+
+  it("hands an oversized clean image to a person without invoking the model", async () => {
+    const s = await positionsCase();
+    const body = oversizedPngHeader();
+    const stored = await uploadEvidence({ caseId: s.caseId, evidenceId: s.respondentEvidence, simulated: true, buffer: body, mimeType: "image/png" });
+    await prisma.evidenceItem.update({ where: { id: s.respondentEvidence }, data: {
+      storageKey: stored.storageKey, sha256: stored.sha256, byteSize: stored.byteSize, mimeType: "image/png",
+    } });
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "evidence_extraction_failed" });
+    expect(model.calls).toBe(0);
+    expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+    expect(await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } })).toMatchObject({ agentEscalationReason: "evidence_extraction_failed" });
   });
 
   it("an escalated case needs approver sign-off again and the agent stops", async () => {
