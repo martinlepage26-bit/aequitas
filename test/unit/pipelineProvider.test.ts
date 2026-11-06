@@ -95,10 +95,10 @@ describe("free pipeline provider", () => {
     const workersFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       requestUrl = String(input);
       requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      return new Response(JSON.stringify({ result: { tool_calls: [{
-        name: "return_structured_output",
-        arguments: { value: "synthetic result" },
-      }] } }), { status: 200 });
+      return new Response(JSON.stringify({ result: {
+        tool_calls: [{ name: "return_structured_output", arguments: { value: "synthetic result" } }],
+        usage: { prompt_tokens: 29, completion_tokens: 11, total_tokens: 40 },
+      } }), { status: 200 });
     }) as typeof fetch;
     const workers = resolveFreeTextModel({
       AEQUITAS_PIPELINE_ENABLED: "true",
@@ -113,7 +113,10 @@ describe("free pipeline provider", () => {
       type: "object",
       properties: { value: { type: "string" } },
       required: ["value"],
-    })).resolves.toBe('{"value":"synthetic result"}');
+    })).resolves.toEqual({
+      text: '{"value":"synthetic result"}',
+      usage: { promptTokens: 29, completionTokens: 11, totalTokens: 40 },
+    });
     expect(requestUrl).toBe(`https://api.cloudflare.com/client/v4/accounts/account/ai/run/${WORKERS_AI_MODEL}`);
     expect(requestBody).toMatchObject({
       tool_choice: "required",

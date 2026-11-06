@@ -347,9 +347,11 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   let raw: string;
   try {
     const prompt = buildCaseAgentPrompt(first, evidenceSources);
-    raw = input.model.completeWithJsonSchema
-      ? await input.model.completeWithJsonSchema(prompt, AGENT_OUTPUT_JSON_SCHEMA)
-      : await input.model.complete(prompt);
+    if (input.model.completeWithJsonSchema) {
+      raw = (await input.model.completeWithJsonSchema(prompt, AGENT_OUTPUT_JSON_SCHEMA)).text;
+    } else {
+      raw = await input.model.complete(prompt);
+    }
   } catch {
     return escalate("model_failed");
   }

@@ -158,7 +158,7 @@ function structuredStub(reply: (prompt: string) => Promise<string> | string): Te
         type: "object",
         properties: { summary_claims: { type: "array" }, proposal: { type: "object" } },
       });
-      return reply(prompt);
+      return { text: await reply(prompt) };
     },
   };
   return model;

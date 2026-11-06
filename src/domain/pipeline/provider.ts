@@ -13,7 +13,7 @@ export interface TextCompletion {
   model: string;
   complete(prompt: string): Promise<string>;
   /** Optional provider-native constrained output. Callers must still validate the returned JSON. */
-  completeWithJsonSchema?(prompt: string, schema: Record<string, unknown>): Promise<string>;
+  completeWithJsonSchema?(prompt: string, schema: Record<string, unknown>): Promise<TextCompletionWithUsage>;
   /** Optional provider-reported metering. Never estimate tokens from text. */
   completeWithUsage?(prompt: string): Promise<TextCompletionWithUsage>;
 }
@@ -105,7 +105,7 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     };
   }
 
-  async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>): Promise<string> {
+  async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>): Promise<TextCompletionWithUsage> {
     const response = await fetchImpl(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
       {
@@ -126,8 +126,9 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     );
     if (!response.ok) throw new Error(`Workers AI structured request failed (${response.status}).`);
     const body = (await response.json()) as {
-      result?: { tool_calls?: unknown };
+      result?: { tool_calls?: unknown; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } };
       tool_calls?: unknown;
+      usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
     };
     const toolCalls = body.result?.tool_calls ?? body.tool_calls;
     if (!Array.isArray(toolCalls) || toolCalls.length !== 1) {
@@ -144,7 +145,11 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     if (!args || typeof args !== "object" || Array.isArray(args)) {
       throw new Error("Workers AI returned invalid structured output arguments.");
     }
-    return JSON.stringify(args);
+    const usage = body.result?.usage ?? body.usage;
+    return {
+      text: JSON.stringify(args),
+      usage: usageCounts(usage?.prompt_tokens, usage?.completion_tokens, usage?.total_tokens),
+    };
   }
 
   return {

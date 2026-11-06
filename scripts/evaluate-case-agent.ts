@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
-import type { TextCompletion } from "../src/domain/pipeline/provider";
+import type { TextCompletion, TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { characterCount, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
 
 /**
@@ -148,7 +148,7 @@ async function main() {
     await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: f.respondentLocale === "fr-CA" ? "Position synthétique de l’entreprise." : "Synthetic respondent position.", locale: f.respondentLocale });
 
     const callMetrics: ModelCallMetric[] = [];
-    const timed: TextCompletion = { ...model, complete: async (prompt: string) => {
+    const measure = async (prompt: string, call: () => Promise<TextCompletionWithUsage>): Promise<TextCompletionWithUsage> => {
       const started = Date.now();
       const metric: ModelCallMetric = {
         latencyMs: 0,
@@ -157,21 +157,28 @@ async function main() {
         tokenUsage: null,
       };
       try {
-        if (model.completeWithUsage) {
-          const completion = await model.completeWithUsage(prompt);
-          metric.tokenUsage = completion.usage ?? null;
-          metric.responseCharacters = characterCount(completion.text);
-          return completion.text;
-        }
-        const text = await model.complete(prompt);
-        metric.responseCharacters = characterCount(text);
-        return text;
+        const completion = await call();
+        metric.tokenUsage = completion.usage ?? null;
+        metric.responseCharacters = characterCount(completion.text);
+        return completion;
       } finally {
         metric.latencyMs = Date.now() - started;
         callMetrics.push(metric);
         allModelCallMetrics.push(metric);
       }
-    } };
+    };
+    const timed: TextCompletion = {
+      ...model,
+      complete: async (prompt: string) => (await measure(prompt, async () => model.completeWithUsage
+        ? model.completeWithUsage(prompt)
+        : { text: await model.complete(prompt) })).text,
+      ...(model.completeWithJsonSchema ? {
+        completeWithJsonSchema: (prompt: string, schema: Record<string, unknown>) => measure(
+          prompt,
+          () => model.completeWithJsonSchema!(prompt, schema),
+        ),
+      } : {}),
+    };
     const outcome = await runCaseAgent({ caseId, model: timed, env });
     const outcomes = await prisma.partyOutcome.findMany({ where: { caseId, status: "ISSUED" }, include: { citations: true } });
     const cOutcome = outcomes.find((item) => item.partyId === c.id) ?? null;
