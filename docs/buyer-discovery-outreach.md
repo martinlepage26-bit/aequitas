@@ -55,6 +55,30 @@ Martin
 
 Do not ask participants to upload, forward, display, or describe identifiable case material. If sensitive details arise, steer back to process-level information and leave the details out of notes.
 
+### Optional DSA Canada qualification addendum
+
+Use only if Martin selects DSA Canada for discovery. This is an internal interview aid, not a prospect selection or sent invitation. DSA's public complaint page says complaints are rare, and its 2024 Code assigns complaint decisions to the independent Code Administrator ([complaint process](https://dsawebsite.gtacns.com/complaint-resolution/); [2024 Code](https://dsa.ca/assets/dsa/documents/Code%20of%20Ethics%202024/DSA-DSA%20Codes%20of%20Ethics_ENG_2024.pdf)). First establish whether there is enough eligible work to justify software at all.
+
+1. **Volume:** Over the last 24 months, how many written complaints reached the Code Administrator? Please separate consumers, independent sales consultants, and other complaint types; distinguish matters screened out, resolved informally, and decided under the Code. What source supports each count?
+2. **Current workflow:** From written complaint through the member or salesperson's opportunity to be heard and the Administrator's decision, which steps are manual, which tools are used, where do files wait, and how much staff effort does a typical case take?
+3. **Decision authority:** Which routine steps could software support while preserving the Code Administrator's independence and final authority? Would a non-binding proposal followed by mutual consent fit any complaint type, or conflict with the current Code procedure?
+4. **Party safeguards:** What access, correction, representation, confidentiality, conflict disclosure, appeal or review, retention, and deletion controls would be required for consumers and members or salespeople?
+5. **Buyer and budget:** Who would own and pay for case-management software: the Association, the Code Administrator's office, or an individual member? Who controls the budget and procurement, and which privacy/security approvals apply? Supplier membership is not evidence of a software budget or purchase intent.
+6. **Fit test:** What observed workflow gap would justify a pilot if complaints are rare? What evidence would rule the opportunity out as a buyer and leave only a possible channel or partnership?
+
+Record only aggregate counts, role-level responsibility, and process-level effort. Do not request complaint files, party identifiers, member-specific allegations, or confidential Code Administrator material. Keep every answer labelled as observed, estimated, or unknown; an interview can establish problem evidence, but not buyer or pilot evidence without the required budget owner and concrete next step.
+
+Questions en français, si l'échange se déroule en français :
+
+1. **Volume :** Au cours des 24 derniers mois, combien de plaintes écrites ont été transmises à l'administrateur du Code? Distinguez les consommateurs, les consultants en vente directe indépendants et les autres types de plaintes; séparez les dossiers écartés, réglés de façon informelle et tranchés selon le Code. Quelle source appuie chaque chiffre?
+2. **Processus actuel :** De la plainte écrite à la possibilité pour le membre ou le vendeur de se faire entendre, puis à la décision de l'administrateur, quelles étapes sont manuelles, quels outils sont utilisés, où les dossiers attendent-ils et quel effort exige un dossier typique?
+3. **Pouvoir décisionnel :** Quelles étapes courantes un logiciel pourrait-il soutenir tout en préservant l'indépendance et l'autorité finale de l'administrateur du Code? Une proposition non contraignante suivie d'un consentement mutuel conviendrait-elle à certains types de plaintes ou entrerait-elle en conflit avec la procédure actuelle?
+4. **Protections des parties :** Quels droits d'accès et de correction, représentation, confidentialité, déclaration des conflits, appel ou révision, conservation et destruction seraient requis pour les consommateurs et les membres ou vendeurs?
+5. **Acheteur et budget :** Qui serait responsable du logiciel et le paierait : l'Association, le bureau de l'administrateur du Code ou un membre? Qui contrôle le budget et l'approvisionnement, et quelles approbations de sécurité et de protection des renseignements personnels s'appliquent? L'adhésion comme fournisseur ne prouve ni budget logiciel ni intention d'achat.
+6. **Test d'adéquation :** Quel problème de processus observé justifierait un projet pilote si les plaintes sont rares? Quels éléments montreraient qu'il ne s'agit pas d'un acheteur potentiel, mais tout au plus d'un canal ou d'un partenaire?
+
+Ne consignez que des volumes agrégés, les rôles et les efforts liés au processus. Ne demandez aucun dossier de plainte, identifiant de partie, allégation visant un membre ou renseignement confidentiel de l'administrateur du Code. Classez chaque réponse comme observée, estimée ou inconnue; un entretien peut établir des indices de problème, mais pas une preuve d'acheteur ou de projet pilote sans responsable budgétaire et prochaine étape concrète.
+
 ## Interview record
 
 Keep this record at the organization and role level; do not add personal contact details unless needed for an approved follow-up.
