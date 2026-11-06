@@ -435,7 +435,7 @@ async function main() {
   if (reportPath) writeFileSync(reportPath, json);
   if (reviewReportPath) {
     const reviewReport = {
-      schemaVersion: "aequitas.case-agent-human-review.v1",
+      schemaVersion: "aequitas.case-agent-human-review.v2",
       mode: live ? "live" : "stub",
       provider: model.provider,
       model: model.model,

@@ -149,7 +149,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
           { citation_id: "C1", evidence_item_id: idOf(c.id), relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
           { citation_id: "C2", evidence_item_id: idOf(r.id), relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
         ],
-        proposal: { remedy: "refund_partial", amount_cents: 4500 },
+        proposal: {
+          remedy: "refund_partial", amount_cents: 4500,
+          rationale_claims: [{ text: "The purchase record documents the amount paid.", citation_ids: ["C1"] }],
+        },
         party_evidence: { complainant: [idOf(c.id)], respondent: [idOf(r.id)] },
       });
     } };
@@ -160,6 +163,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await page.reload();
       await expect(page.locator("#your-outcome")).toHaveText(outcome.body);
       expect(await page.content()).not.toContain("Staff-only summary");
+      expect(await page.content()).not.toContain("The purchase record documents the amount paid.");
       await page.waitForLoadState("networkidle");
       const answered = page.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/consent` && res.request().method() === "POST");
       await page.locator("#give-consent").click();

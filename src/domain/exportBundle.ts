@@ -619,7 +619,15 @@ export async function buildExportPdf(record: ExportRecord, options?: { partyView
     cursor = paragraph(cursor, `Summary / Résumé: ${r.explanation.summary}`);
     cursor = paragraph(cursor, `Proposed outcome / Résultat proposé: ${r.explanation.proposed_outcome}`);
     cursor = paragraph(cursor, `Reasoning / Raisonnement: ${r.explanation.reasoning}`);
-    for (const citation of r.explanation.evidence_citations) cursor = paragraph(cursor, `${citation.evidence_item_id}: ${citation.relevance}`);
+    for (const claim of r.explanation.claim_evidence ?? []) {
+      const section = claim.section === "proposal" ? "Proposal basis / Fondement de la proposition"
+        : claim.section === "summary" ? "Summary claim / Affirmation du résumé"
+          : "Reasoning claim / Affirmation du raisonnement";
+      cursor = paragraph(cursor, `${section} [${claim.citation_ids.join(", ")}]: ${claim.text}`);
+    }
+    for (const citation of r.explanation.evidence_citations) {
+      cursor = paragraph(cursor, `${citation.citation_id ?? "Citation"} — ${citation.evidence_item_id}: ${citation.relevance}`);
+    }
     for (const limit of r.explanation.limits) cursor = paragraph(cursor, `Limit / Limite: ${limit}`);
     for (const omitted of r.explanation.not_considered) cursor = paragraph(cursor, `Not considered / Non considéré: ${omitted}`);
     if (r.explanation.conflict_knowledge) {

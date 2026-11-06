@@ -533,10 +533,12 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     summary: out.summary_claims.map((claim) => claim.text).join(" "),
     proposed_outcome: `Structured proposal: ${out.proposal.remedy}${out.proposal.amount_cents !== null ? ` (${out.proposal.amount_cents} CAD cents)` : ""}. Each party received fixed wording in their language.`,
     reasoning: out.reasoning_claims.map((claim) => claim.text).join(" "),
+    proposal_reasoning: out.proposal.rationale_claims.map((claim) => claim.text).join(" "),
     evidence_citations: evidenceCitations,
     claim_evidence: [
       ...out.summary_claims.map((claim) => ({ section: "summary" as const, ...claim })),
       ...out.reasoning_claims.map((claim) => ({ section: "reasoning" as const, ...claim })),
+      ...out.proposal.rationale_claims.map((claim) => ({ section: "proposal" as const, ...claim })),
     ],
     limits: out.limits,
     not_considered: out.not_considered,

@@ -143,7 +143,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
         { citation_id: "C1", evidence_item_id: ids[0], relevance: "Receipt documents the purchase.", excerpt: evidence[0].excerpt },
         { citation_id: "C2", evidence_item_id: ids[1], relevance: "Store note records the offered remedy.", excerpt: evidence[1].excerpt },
       ],
-      proposal: { remedy: "repair", amount_cents: null },
+      proposal: {
+        remedy: "repair", amount_cents: null,
+        rationale_claims: [{ text: "The receipt documents the purchase price for this item.", citation_ids: ["C1"] }],
+      },
       party_evidence: { complainant: [ids[0]], respondent: [ids[1]] },
     }) } });
     expect(run.status).toBe("issued");
@@ -174,18 +177,24 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await expect(complainantCitations.locator("blockquote")).toHaveText(evidence[0].excerpt);
     expect(await cp.content()).not.toContain(outcomeR);
     expect(await cp.content()).not.toContain("The receipt records the purchase.");
+    expect(await cp.content()).not.toContain("The receipt documents the purchase price for this item.");
     await mp.goto(`/${locale}/cases/${caseId}`);
     await expect(mp.locator("#case-agent-status")).toHaveText(copy.managerActive);
     await expect(mp.getByText(`${messages.workspace.recommendation.claimEvidenceLabel}:`, { exact: true })).toBeVisible();
+    await expect(mp.getByText(messages.workspace.recommendation.proposalBasisLabel + ":", { exact: false })).toBeVisible();
     // Each claim's list item holds the claim text and a nested list of its cited sources.
     const receiptClaim = mp.getByRole("listitem").filter({ hasText: "The receipt records the purchase." });
     await expect(receiptClaim).toHaveCount(1);
     await expect(receiptClaim.getByRole("link", { name: "File COMPLAINANT" })).toBeVisible();
+    const proposalBasis = mp.getByRole("listitem").filter({ hasText: "The receipt documents the purchase price for this item." });
+    await expect(proposalBasis).toHaveCount(1);
+    await expect(proposalBasis.getByText(messages.workspace.recommendation.proposalBasisLabel + ":", { exact: false })).toBeVisible();
 
     await rp.goto(`/${locale}/cases/${caseId}`);
     await expect(rp.locator("#your-outcome")).toHaveText(outcomeR);
     expect(await rp.content()).not.toContain(outcomeC);
     expect(await rp.content()).not.toContain("The receipt records the purchase.");
+    expect(await rp.content()).not.toContain("The receipt documents the purchase price for this item.");
     expect(await rp.content()).not.toContain("File COMPLAINANT");
     const respondentCitations = rp.getByRole("region", { name: messages.workspace.partyOutcome.citationHeading });
     await expect(respondentCitations.getByRole("link", { name: "File RESPONDENT" })).toBeVisible();

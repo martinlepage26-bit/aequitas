@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -20,6 +21,7 @@ import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import { verifyCase } from "../../src/domain/verifyEvents";
 import { MAX_IMAGE_PIXELS } from "../../src/lib/evidenceText";
+import { buildExportPdf, buildExportRecord } from "../../src/domain/exportBundle";
 
 vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: true, signature: "synthetic-clean" })) }));
 
@@ -167,7 +169,10 @@ function goodOutput(s: Setup): Output {
       { citation_id: "C1", evidence_item_id: s.complainantEvidence, relevance: "Purchase record.", excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." },
       { citation_id: "C2", evidence_item_id: s.respondentEvidence, relevance: "Sale conditions shown in store.", excerpt: "Clearance shelf tag: final sale." },
     ],
-    proposal: { remedy: "replacement", amount_cents: null },
+    proposal: {
+      remedy: "replacement", amount_cents: null,
+      rationale_claims: [{ text: "The receipt documents the purchase price for this item.", citation_ids: ["C1"] }],
+    },
     party_evidence: { complainant: [s.complainantEvidence], respondent: [s.respondentEvidence] },
   };
 }
@@ -376,10 +381,12 @@ describe("case agent: normal completion", () => {
     const rec = await prisma.recommendation.findUniqueOrThrow({ where: { id: row.currentRecommendationId! } });
     expect(rec).toMatchObject({ status: "ISSUED", issuedById: agentId, modelId: "agent:test:structured-stub" });
     const explanation = rec.explanation as {
+      proposal_reasoning: string;
       evidence_citations: Array<{ citation_id: string; evidence_item_id: string; extracted_span: { start_char: number; end_char: number; source_sha256: string; extracted_text_sha256: string; extraction_method: string } }>;
       claim_evidence: Array<{ section: string; text: string; citation_ids: string[] }>;
     };
     expect(explanation.evidence_citations).toHaveLength(2);
+    expect(explanation.proposal_reasoning).toBe("The receipt documents the purchase price for this item.");
     expect(explanation.evidence_citations[0]).toMatchObject({
       evidence_item_id: s.complainantEvidence,
       citation_id: "C1",
@@ -396,6 +403,7 @@ describe("case agent: normal completion", () => {
       { section: "summary", text: "The receipt records a kettle purchase and the full price paid.", citation_ids: ["C1"] },
       { section: "summary", text: "The store's shelf tag says final sale.", citation_ids: ["C2"] },
       { section: "reasoning", text: "The submitted documents record the purchase and the store's sale condition.", citation_ids: ["C1", "C2"] },
+      { section: "proposal", text: "The receipt documents the purchase price for this item.", citation_ids: ["C1"] },
     ]);
     const c = await issuedOutcome(s.caseId, s.complainantId);
     const r = await issuedOutcome(s.caseId, s.respondentId);
@@ -450,6 +458,11 @@ describe("case agent: normal completion", () => {
     const closed = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
     expect(closed.state).toBe("CLOSED");
     expect(await prisma.exportBundle.count({ where: { caseId: s.caseId, generatedById: agentId } })).toBe(1);
+    const { record } = await buildExportRecord(s.caseId);
+    const pdf = await buildExportPdf(record);
+    const pdfText = execFileSync("pdftotext", ["-", "-"], { input: pdf, encoding: "utf8" }).replace(/\s+/g, " ");
+    expect(pdfText).toContain("Proposal basis / Fondement de la proposition [C1]");
+    expect(pdfText).toContain("The receipt documents the purchase price for this item.");
     expect(await verifyCase(prisma, closed)).toEqual([]);
     expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("waiting");
     expect(model.calls).toBe(1);

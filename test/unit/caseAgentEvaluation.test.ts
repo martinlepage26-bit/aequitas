@@ -20,7 +20,10 @@ function validReply() {
       { citation_id: "C1", evidence_item_id: complainantEvidenceId, relevance: "The receipt records the purchase total.", excerpt: "kettle purchased 2026-10-02; total paid $89.99." },
       { citation_id: "C2", evidence_item_id: respondentEvidenceId, relevance: "The store note records the proposed repair remedy.", excerpt: "item marked final sale; repair voucher offered on 2026-10-05." },
     ],
-    proposal: { remedy: "repair", amount_cents: null },
+    proposal: {
+      remedy: "repair", amount_cents: null,
+      rationale_claims: [{ text: "The store note records an offered repair voucher.", citation_ids: ["C2"] }],
+    },
     party_evidence: { complainant: [complainantEvidenceId], respondent: [respondentEvidenceId] },
   };
 }

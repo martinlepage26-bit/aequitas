@@ -218,7 +218,10 @@ const proposal = (cId: string, rId: string, over: Record<string, unknown> = {}) 
     { citation_id: "C1", evidence_item_id: cId, relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
     { citation_id: "C2", evidence_item_id: rId, relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
   ],
-  proposal: { remedy: "repair", amount_cents: null },
+  proposal: {
+    remedy: "repair", amount_cents: null,
+    rationale_claims: [{ text: "The store file records an offered repair voucher.", citation_ids: ["C2"] }],
+  },
   party_evidence: { complainant: [cId], respondent: [rId] },
   ...over,
 });
@@ -521,7 +524,10 @@ describe("untrusted documents and model output", () => {
     const r = await submittedCase();
     const { cId, rId } = await toPositions(r, `${C_TEXT} ${INJECTION}`);
     await positions(r);
-    const obeying = stub(() => proposal(cId, rId, { proposal: { remedy: "refund_partial", amount_cents: 500000 } }));
+    const obeying = stub(() => proposal(cId, rId, { proposal: {
+      remedy: "refund_partial", amount_cents: 500000,
+      rationale_claims: [{ text: "The store file records an offered repair voucher.", citation_ids: ["C2"] }],
+    } }));
     expect(await runCaseAgent({ caseId: r.caseId, model: obeying, env: ENV })).toEqual({ status: "escalated", reason: "model_output_rejected" });
     const lying = await submittedCase();
     const ids = await toPositions(lying, `${C_TEXT} ${INJECTION}`);

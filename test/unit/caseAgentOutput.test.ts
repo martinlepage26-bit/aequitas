@@ -21,7 +21,10 @@ const ok = {
     { citation_id: "C1", evidence_item_id: C, relevance: "x", excerpt: "the kettle purchase cost $89.99" },
     { citation_id: "C2", evidence_item_id: R, relevance: "y", excerpt: "Clearance tag says final sale" },
   ],
-  proposal: { remedy: "repair", amount_cents: null },
+  proposal: {
+    remedy: "repair", amount_cents: null,
+    rationale_claims: [{ text: "The store note records an offered repair voucher.", citation_ids: ["C2"] }],
+  },
   party_evidence: { complainant: [C], respondent: [R] },
 };
 const check = (value: unknown, context = ctx) => checkAgentOutput(typeof value === "string" ? value : JSON.stringify(value), context);
@@ -38,10 +41,16 @@ describe("case agent output checks", () => {
     expect(check({ ...ok, party_evidence: { complainant: [C], respondent: [C] } }).ok).toBe(false);
     expect(check({ ...ok, party_evidence: { complainant: [C, R], respondent: [R] } }).ok).toBe(false);
   });
-  it("requires every summary and reasoning claim to reference a verified citation key", () => {
+  it("requires every summary, reasoning, and proposal rationale claim to reference a verified citation key", () => {
     expect(check({ ...ok, summary_claims: [{ text: "Unlinked claim.", citation_ids: [] }] }).ok).toBe(false);
     expect(check({ ...ok, summary_claims: [{ text: "Unknown source.", citation_ids: ["C9"] }] }).ok).toBe(false);
-    expect(check({ ...ok, reasoning_claims: [{ text: "No claim points to C2.", citation_ids: ["C1"] }] }).ok).toBe(false);
+    expect(check({
+      ...ok,
+      reasoning_claims: [{ text: "No claim points to C2.", citation_ids: ["C1"] }],
+      proposal: { ...ok.proposal, rationale_claims: [{ text: "The receipt records the purchase price.", citation_ids: ["C1"] }] },
+    }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, rationale_claims: [{ text: "Unknown source.", citation_ids: ["C9"] }] } }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, rationale_claims: [] } }).ok).toBe(false);
   });
   it("rejects invented, ambiguous, or missing citation excerpts", () => {
     expect(check({ ...ok, citations: [{ ...ok.citations[0], excerpt: "the seller charged $89.99" }, ok.citations[1]] }).ok).toBe(false);
@@ -50,18 +59,19 @@ describe("case agent output checks", () => {
     expect(check({ ...ok, citations: [ok.citations[0]] }).ok).toBe(false);
   });
   it("rejects proposals outside the case: missing, stray, or excessive amounts", () => {
-    expect(check({ ...ok, proposal: { remedy: "refund_partial", amount_cents: null } }).ok).toBe(false);
-    expect(check({ ...ok, proposal: { remedy: "repair", amount_cents: 100 } }).ok).toBe(false);
-    expect(check({ ...ok, proposal: { remedy: "store_credit", amount_cents: 9000 } }).ok).toBe(false);
-    expect(check({ ...ok, proposal: { remedy: "pay_damages", amount_cents: 100 } }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "refund_partial", amount_cents: null } }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "repair", amount_cents: 100 } }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "store_credit", amount_cents: 9000 } }).ok).toBe(false);
+    expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "pay_damages", amount_cents: 100 } }).ok).toBe(false);
     expect(proposalProblem({ remedy: "refund_partial", amount_cents: 8999 }, 8999)).not.toBeNull();
-    expect(check({ ...ok, proposal: { remedy: "refund_partial", amount_cents: 4500 } }).ok).toBe(true);
+    expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "refund_partial", amount_cents: 4500 } }).ok).toBe(true);
   });
   it("flags verdicts, scores, legal advice, binding or pressuring language in both languages", () => {
     for (const bad of ["This is our decision.", "She is not credible.", "Il est menteur.", "There is a 70% chance.", "Vous êtes légalement tenu de payer.", "This is final and binding.", "Last chance to accept.", "La loi vous oblige à rembourser."]) {
       expect(agentTextProblem(bad), bad).not.toBeNull();
     }
     expect(agentTextProblem("Proposition non contraignante : remboursement du prix payé.")).toBeNull();
+    expect(check({ ...ok, proposal: { ...ok.proposal, rationale_claims: [{ text: "This is our decision.", citation_ids: ["C1"] }] } }).ok).toBe(false);
   });
 });
 

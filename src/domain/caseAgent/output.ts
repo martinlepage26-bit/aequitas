@@ -12,7 +12,7 @@ import { proposalProblem, proposalSchema } from "./proposal";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-06.1";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-06.2";
 export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -22,6 +22,9 @@ const linkedClaim = z.object({
   text: text(500),
   citation_ids: citationIds,
 }).strict();
+const proposalOutputSchema = proposalSchema.extend({
+  rationale_claims: z.array(linkedClaim).min(1).max(8),
+});
 
 export const agentOutputSchema = z.object({
   needs_human: z.string().trim().max(500).nullable(),
@@ -37,7 +40,7 @@ export const agentOutputSchema = z.object({
   }).strict()).min(1).max(50),
   // Parties never read model text: the proposal is a closed choice rendered
   // by fixed templates, and each side lists its own evidence relied on.
-  proposal: proposalSchema,
+  proposal: proposalOutputSchema,
   party_evidence: z.object({ complainant: ids.min(1), respondent: ids.min(1) }).strict(),
 }).strict();
 
@@ -95,6 +98,7 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   const texts = [
     ...out.summary_claims.map((claim) => claim.text),
     ...out.reasoning_claims.map((claim) => claim.text),
+    ...out.proposal.rationale_claims.map((claim) => claim.text),
     ...out.limits,
     ...out.not_considered,
     ...out.citations.map((c) => c.relevance),
@@ -120,7 +124,7 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   }
   const citationKeySet = new Set(citationKeys);
   const referencedCitationKeys = new Set<string>();
-  for (const claim of [...out.summary_claims, ...out.reasoning_claims]) {
+  for (const claim of [...out.summary_claims, ...out.reasoning_claims, ...out.proposal.rationale_claims]) {
     if (new Set(claim.citation_ids).size !== claim.citation_ids.length
       || claim.citation_ids.some((id) => !citationKeySet.has(id))) {
       return { ok: false, escalation: "model_output_rejected", detail: "claim points to a missing or duplicate evidence citation" };
@@ -128,7 +132,7 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
     claim.citation_ids.forEach((id) => referencedCitationKeys.add(id));
   }
   if (citationKeys.some((id) => !referencedCitationKeys.has(id))) {
-    return { ok: false, escalation: "model_output_rejected", detail: "evidence citation is not linked to a summary or reasoning claim" };
+    return { ok: false, escalation: "model_output_rejected", detail: "evidence citation is not linked to a summary, reasoning, or proposal rationale claim" };
   }
   // Isolation: each party's outcome may point only to that party's own evidence,
   // and only to items with a verified excerpt.

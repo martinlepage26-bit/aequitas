@@ -484,6 +484,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
               <ul>
                 {recommendation.explanation.claim_evidence.map((claim, index) => (
                   <li key={`${claim.section}-${index}`}>
+                    {claim.section === "proposal" && <strong>{t("recommendation.proposalBasisLabel")}: </strong>}
                     {claim.text}
                     <ul>
                       {claim.citation_ids.map((citationId) => {

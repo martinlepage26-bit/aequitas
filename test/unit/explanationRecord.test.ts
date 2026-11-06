@@ -97,6 +97,7 @@ describe("case-agent claim-to-evidence links", () => {
       ...validFullRecord(),
       summary: "The receipt records the paid price.",
       reasoning: "The repair note describes the offered remedy.",
+      proposal_reasoning: "The repair note records the offered repair voucher.",
       evidence_citations: [{
         citation_id: "C1",
         evidence_item_id: evidenceId,
@@ -112,12 +113,18 @@ describe("case-agent claim-to-evidence links", () => {
       claim_evidence: [
         { section: "summary" as const, text: "The receipt records the paid price.", citation_ids: ["C1"] },
         { section: "reasoning" as const, text: "The repair note describes the offered remedy.", citation_ids: ["C1"] },
+        { section: "proposal" as const, text: "The repair note records the offered repair voucher.", citation_ids: ["C1"] },
       ],
     };
   }
 
   it("accepts a stored claim map whose keys point to citations and whose text appears in its section", () => {
     expect(validateExplanationRecord(linkedRecord())).toBeNull();
+  });
+
+  it("requires a proposal-basis claim to appear in the stored proposal reasoning", () => {
+    const record = linkedRecord();
+    expect(validateExplanationRecord({ ...record, proposal_reasoning: "A different statement." })).toContain("claim text must appear in its proposal section");
   });
 
   it("rejects a missing or dangling claim-to-citation link", () => {

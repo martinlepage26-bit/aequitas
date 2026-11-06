@@ -100,10 +100,11 @@ interface PartyExplanation {
   summary?: string;
   proposed_outcome?: string;
   reasoning?: string;
+  proposal_reasoning?: string;
   limits?: string[];
   not_considered?: string[];
   evidence_citations?: { evidence_item_id: string; relevance: string }[];
-  claim_evidence?: { section: "summary" | "reasoning"; text: string; citation_ids: string[] }[];
+  claim_evidence?: { section: "summary" | "reasoning" | "proposal"; text: string; citation_ids: string[] }[];
   knowledge_sources?: KnowledgeSource[];
   conflict_knowledge?: KnowledgeMap | null;
 }
@@ -172,6 +173,7 @@ export function filterExplanationForParty<T extends PartyExplanation>(explanatio
   return {
     ...explanation,
     ...(mixed ? { summary: "", proposed_outcome: "", reasoning: "", limits: [], not_considered: [] } : {}),
+    ...(explanation.proposal_reasoning !== undefined ? { proposal_reasoning: "" } : {}),
     ...(explanation.evidence_citations ? { evidence_citations: ownCitations } : {}),
     // Claim-to-source mappings belong to the staff-only shared summary.
     ...(explanation.claim_evidence ? { claim_evidence: [] } : {}),

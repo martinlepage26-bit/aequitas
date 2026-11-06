@@ -21,9 +21,10 @@ import { FORBIDDEN_TERMS } from "../i18n/glossary";
  * generated content. It does not and cannot guarantee "properly traced to
  * evidence" for a dollar figure — that remains a human review judgment,
  * per Section 9's own UI requirement (case manager reviews before issuing).
- * Case-agent records additionally link each summary and reasoning claim to
- * a verified extracted span. The link makes review traceable; it cannot prove
- * that the quoted wording semantically supports the claim.
+ * Case-agent records additionally link each summary, reasoning, and proposal
+ * rationale claim to a verified extracted span. The link makes review
+ * traceable; it cannot prove that the quoted wording semantically supports
+ * the claim.
  */
 
 const NUMERIC_SCORE_PATTERN = /\d+\s*%|\b\d+(?:\.\d+)?\s*\/\s*(?:5|10)\b|\bstar rating\b|\bstars?\s+out of\b/i;
@@ -50,7 +51,7 @@ const evidenceCitationSchema = z.object({
 });
 
 const claimEvidenceSchema = z.object({
-  section: z.enum(["summary", "reasoning"]),
+  section: z.enum(["summary", "reasoning", "proposal"]),
   text: z.string().min(1).max(500),
   citation_ids: z.array(z.string().regex(/^C[1-9]\d{0,2}$/)).min(1).max(10),
 }).strict();
@@ -94,6 +95,11 @@ export const aiGeneratedFieldsSchema = z.object({
     }),
   proposed_outcome: z.string().min(1, "proposed_outcome is required").superRefine(noForbiddenContent),
   reasoning: z.string().min(1, "reasoning is required").superRefine(noForbiddenContent),
+  // Optional so historical and human-authored records remain readable. The
+  // autonomous case agent writes it only with a linked claim-evidence map.
+  proposal_reasoning: z.string().max(4008).optional().superRefine((value, ctx) => {
+    if (value !== undefined) noForbiddenContent(value, ctx);
+  }),
   evidence_citations: z.array(
     z.object({
       evidence_item_id: z.string().uuid("evidence_item_id must be a UUID"),
@@ -146,8 +152,9 @@ export const explanationRecordSchema = aiGeneratedFieldsSchema.extend({
   const citationIdSet = new Set(citationIds);
   const usedCitationIds = new Set<string>();
   for (const [index, claim] of linkedClaims.entries()) {
-    if (!record[claim.section].includes(claim.text)) {
-      ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "text"], message: "claim text must appear in its summary or reasoning" });
+    const sectionText = claim.section === "proposal" ? record.proposal_reasoning ?? "" : record[claim.section];
+    if (!sectionText.includes(claim.text)) {
+      ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "text"], message: `claim text must appear in its ${claim.section} section` });
     }
     if (new Set(claim.citation_ids).size !== claim.citation_ids.length) {
       ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "citation_ids"], message: "claim citation IDs must be unique" });

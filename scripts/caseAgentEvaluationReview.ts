@@ -15,6 +15,7 @@ const EXPECTED_FIXTURES = {
 const HUMAN_REVIEW_FIELDS = [
   "dispositionAppropriate",
   "summaryFaithfulToCitedEvidence",
+  "proposalBasisFaithfulToCitedEvidence",
   "reasoningNeutralAndBalanced",
   "relevantCounterevidenceIncluded",
   "proposalWithinProgramRules",
@@ -57,6 +58,7 @@ export function blankHumanReviewChecklist() {
   return {
     dispositionAppropriate: null as "pass" | "fail" | null,
     summaryFaithfulToCitedEvidence: null as "pass" | "fail" | null,
+    proposalBasisFaithfulToCitedEvidence: null as "pass" | "fail" | null,
     reasoningNeutralAndBalanced: null as "pass" | "fail" | null,
     relevantCounterevidenceIncluded: null as "pass" | "fail" | null,
     proposalWithinProgramRules: null as "pass" | "fail" | null,
@@ -86,7 +88,7 @@ function expectedIdentityParts(identity: string): { provider: string; model: str
 export function evaluationReviewBlockers(report: unknown, expectedIdentity: string | null): string[] {
   const blockers: string[] = [];
   if (!isObject(report)) return ["Review report must be a JSON object."];
-  if (report.schemaVersion !== "aequitas.case-agent-human-review.v1") blockers.push("Review report schema is unsupported.");
+  if (report.schemaVersion !== "aequitas.case-agent-human-review.v2") blockers.push("Review report schema is unsupported.");
   if (report.mode !== "live") blockers.push("Only a live synthetic evaluation can be approved.");
   if (report.syntheticOnly !== true) blockers.push("Report is not marked synthetic-only.");
   if (report.automatedChecksPassed !== true) blockers.push("Automated evaluation checks did not all pass.");
@@ -134,6 +136,7 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
     } else {
       const output = fixture.generatedOutput;
       const citations = isObject(output) ? output.citations : undefined;
+      const claimEvidence = isObject(output) ? output.claimEvidence : undefined;
       const outcomes = isObject(output) ? output.partyOutcomes : undefined;
       if (fixture.generatedOutputStatus !== "verified_citations" || !isObject(output)
         || !Array.isArray(citations) || citations.length === 0
@@ -142,6 +145,18 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
           && typeof citation.excerpt === "string"
           && citation.excerpt.trim().length > 0)) {
         blockers.push(`Issued fixture ${name} needs hash-verified evidence excerpts.`);
+      }
+      const citationIds = new Set(Array.isArray(citations)
+        ? citations.flatMap((citation) => isObject(citation) && typeof citation.citationId === "string" ? [citation.citationId] : [])
+        : []);
+      const proposalClaims = Array.isArray(claimEvidence)
+        ? claimEvidence.filter((claim) => isObject(claim) && claim.section === "proposal")
+        : [];
+      if (proposalClaims.length === 0 || !proposalClaims.every((claim) => isObject(claim)
+        && typeof claim.text === "string" && claim.text.trim().length > 0
+        && Array.isArray(claim.citationIds) && claim.citationIds.length > 0
+        && claim.citationIds.every((id) => typeof id === "string" && citationIds.has(id)))) {
+        blockers.push(`Issued fixture ${name} needs an evidence-linked proposal basis.`);
       }
       for (const party of ["complainant", "respondent"] as const) {
         const partyOutcome = isObject(outcomes) ? outcomes[party] : undefined;

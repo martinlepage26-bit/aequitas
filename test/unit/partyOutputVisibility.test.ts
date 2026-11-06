@@ -11,6 +11,7 @@ const explanation = {
   summary: "COMBINED-SUMMARY quotes both sides",
   proposed_outcome: "COMBINED-OUTCOME",
   reasoning: "COMBINED-REASONING",
+  proposal_reasoning: "STAFF-ONLY-PROPOSAL-BASIS",
   limits: ["COMBINED-LIMIT"],
   not_considered: ["COMBINED-SKIPPED"],
   evidence_citations: [
@@ -63,6 +64,7 @@ describe("filterExplanationForParty", () => {
     expect(filtered.summary).toBe("");
     expect(filtered.proposed_outcome).toBe("");
     expect(filtered.reasoning).toBe("");
+    expect(filtered.proposal_reasoning).toBe("");
     expect(filtered.limits).toEqual([]);
     expect(filtered.not_considered).toEqual([]);
     expect(serialized).toContain("OWN-CLAIM");
@@ -101,6 +103,7 @@ describe("filterExplanationForParty", () => {
       summary: "OWN-SUMMARY",
       proposed_outcome: "OWN-OUTCOME",
       reasoning: "OWN-REASONING",
+      proposal_reasoning: "OWN-ONLY-STAFF-BASIS",
       evidence_citations: [{ evidence_item_id: "ev-own", relevance: "OWN-RELEVANCE" }],
       claim_evidence: [{ section: "reasoning" as const, text: "STAFF-ONLY-CLAIM-LINK", citation_ids: ["C1"] }],
       knowledge_sources: [{ id: "src-own-ev", kind: "evidence_metadata", record_id: "ev-own" }],
@@ -113,6 +116,7 @@ describe("filterExplanationForParty", () => {
     expect(filtered.summary).toBe("OWN-SUMMARY");
     expect(filtered.proposed_outcome).toBe("OWN-OUTCOME");
     expect(filtered.reasoning).toBe("OWN-REASONING");
+    expect(filtered.proposal_reasoning).toBe("");
     expect(filtered.evidence_citations).toEqual([{ evidence_item_id: "ev-own", relevance: "OWN-RELEVANCE" }]);
     expect(filtered.claim_evidence).toEqual([]);
     expect(JSON.stringify(filtered)).not.toContain("STAFF-ONLY-CLAIM-LINK");
