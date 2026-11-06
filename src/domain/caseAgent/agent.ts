@@ -15,6 +15,7 @@ import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
 import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
+import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
@@ -85,7 +86,11 @@ type Env = Record<string, string | undefined>;
  */
 export function resolveCaseAgentModel(env: Env = process.env, fetchImpl: typeof fetch = fetch) {
   if (!caseAgentEnabled(env)) return { ok: false as const, reason: "The case agent is off or its program rules are incomplete." };
-  return resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }, fetchImpl);
+  const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }, fetchImpl);
+  if (!resolved.ok) return resolved;
+  const evaluationBlocker = caseAgentEvaluationApprovalBlocker(env);
+  if (evaluationBlocker) return { ok: false as const, reason: evaluationBlocker };
+  return resolved;
 }
 
 export async function loadCaseAgentAccount() {

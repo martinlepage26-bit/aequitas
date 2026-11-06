@@ -4,9 +4,10 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
-import type { TextCompletion, TextCompletionWithUsage } from "../src/domain/pipeline/provider";
+import { resolveCaseDataModel, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { blankHumanReviewChecklist, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { characterCount, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
+import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/evaluationApproval";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
@@ -105,7 +106,7 @@ async function main() {
   };
   await clearEvaluationBudget();
   const { createCase, setPartyIntakeReady, submitCase, submitPosition } = await import("../src/domain/mutate");
-  const { runCaseAgent, resolveCaseAgentModel } = await import("../src/domain/caseAgent/agent");
+  const { runCaseAgent } = await import("../src/domain/caseAgent/agent");
   const { AGENT_PROMPT_VERSION } = await import("../src/domain/caseAgent/output");
   const { explanationRecordSchema } = await import("../src/domain/explanationRecord");
   const { extractStoredEvidence } = await import("../src/lib/evidenceText");
@@ -125,7 +126,10 @@ async function main() {
 
   let model: TextCompletion;
   if (live) {
-    const resolved = resolveCaseAgentModel(env);
+    // This command deliberately bypasses the human quality-review attestation
+    // so it can produce the synthetic evidence required to create it. Provider
+    // terms and Gemini billing gates still apply inside resolveCaseDataModel.
+    const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" });
     if (!resolved.ok) throw new Error("No approved runtime provider is configured.");
     model = resolved.model;
   } else {
@@ -394,6 +398,7 @@ async function main() {
     provider: model.provider,
     model: model.model,
     promptVersion: AGENT_PROMPT_VERSION,
+    evaluationApprovalIdentity: live ? caseAgentEvaluationApprovalIdentity(env) : null,
     ranAt: new Date().toISOString(),
     fixtures: results.length,
     passed,
@@ -414,6 +419,7 @@ async function main() {
       provider: model.provider,
       model: model.model,
       promptVersion: AGENT_PROMPT_VERSION,
+      evaluationApprovalIdentity: live ? caseAgentEvaluationApprovalIdentity(env) : null,
       ranAt: report.ranAt,
       syntheticOnly: true,
       status: "human_review_required",
