@@ -44,10 +44,10 @@ async function contextFor(browser: Browser, userId: string, globalRole: string):
 }
 
 async function withInterceptedEmail<T>(fn: () => Promise<T>): Promise<{ result: T; invitations: number }> {
-  const saved = { RESEND_API_KEY: process.env.RESEND_API_KEY, EMAIL_FROM: process.env.EMAIL_FROM, EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO, APP_URL: process.env.APP_URL };
+  const saved = { AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: process.env.AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY, RESEND_API_KEY: process.env.RESEND_API_KEY, EMAIL_FROM: process.env.EMAIL_FROM, EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO, APP_URL: process.env.APP_URL };
   const realFetch = globalThis.fetch;
   let invitations = 0;
-  Object.assign(process.env, { RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: `http://localhost:${port}` });
+  Object.assign(process.env, { AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: "synthetic-email-outbox-key-for-case-agent-e2e", RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: `http://localhost:${port}` });
   globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     if (String(url).startsWith("https://api.resend.com")) {
       if (/invitation/i.test(String(init?.body ?? ""))) invitations += 1;
