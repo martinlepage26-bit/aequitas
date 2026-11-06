@@ -333,6 +333,29 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     expect(invitation).toMatchObject({ emailedAt: null, revokedAt: null });
   });
 
+  it("hands off with the invite still active if the emailedAt write fails on the retry too", async () => {
+    const r = await submittedCase();
+    sentTo.length = 0;
+    stubEmail();
+    await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
+    // The send path tries once and retries once; fail both timestamp writes.
+    const timestampWrite = vi.spyOn(prisma.invitation, "update").mockRejectedValue(new Error("synthetic database write failure"));
+    try {
+      expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
+    } finally {
+      timestampWrite.mockRestore();
+    }
+
+    const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
+    expect(invitation.emailedAt).toBeNull();
+    // A later scheduled run neither re-sends nor rotates the link.
+    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "skipped", reason: "escalated" });
+    expect(await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } })).toMatchObject({ tokenHash: invitation.tokenHash, emailedAt: null, revokedAt: null });
+    const invitationRequests = providerRequests.filter((request) => request.idempotencyKey?.startsWith("invitation/"));
+    expect(invitationRequests.map((request) => request.idempotencyKey)).toEqual([`invitation/${invitation.id}`, `invitation/${invitation.id}`]);
+    expect(sentTo).toEqual([r.respondentEmail]);
+  });
+
   it("recovers a transient emailedAt write failure without sending a duplicate invitation", async () => {
     const r = await submittedCase();
     sentTo.length = 0;
