@@ -2,6 +2,7 @@ import "../src/lib/loadEnv";
 import { prisma } from "../src/lib/prisma";
 import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { resolveCaseAgentModel } from "../src/domain/caseAgent/agent";
+import { scheduledOperationHealth, SCHEDULED_OPERATIONS } from "../src/domain/scheduledOperations";
 import { emailConfigured, notificationBacklog } from "../src/lib/mail";
 
 /**
@@ -15,7 +16,7 @@ async function main() {
   const mailIsConfigured = emailConfigured();
   const serviceAccountCount = await prisma.user.count({ where: { globalRole: "CASE_AGENT" } });
 
-  const [activeRows, escalationRows, unassignedEscalations, activeLeases, expiredLeases, latestAttempt, mailBacklog] = await Promise.all([
+  const [activeRows, escalationRows, unassignedEscalations, activeLeases, expiredLeases, latestAttempt, mailBacklog, heartbeatRows] = await Promise.all([
     prisma.case.groupBy({
       by: ["state"],
       where: { agentManaged: true, agentEscalatedAt: null, state: { not: "CLOSED" } },
@@ -33,7 +34,25 @@ async function main() {
     prisma.case.count({ where: { agentLeaseToken: { not: null }, agentLeaseUntil: { lte: now } } }),
     prisma.case.aggregate({ where: { agentLastAttemptAt: { not: null } }, _max: { agentLastAttemptAt: true } }),
     notificationBacklog(),
+    prisma.scheduledOperationHeartbeat.findMany({ where: { name: { in: SCHEDULED_OPERATIONS.map((operation) => operation.name) } } }),
   ]);
+
+  const heartbeats = new Map(heartbeatRows.map((row) => [row.name, row]));
+  const scheduledOperations = SCHEDULED_OPERATIONS.map((operation) => {
+    const heartbeat = heartbeats.get(operation.name);
+    return {
+      name: operation.name,
+      intervalMinutes: operation.intervalMs / 60_000,
+      health: scheduledOperationHealth(operation.intervalMs, heartbeat ?? null, now),
+      lastStartedAt: heartbeat?.lastStartedAt?.toISOString() ?? null,
+      lastHeartbeatAt: heartbeat?.lastHeartbeatAt?.toISOString() ?? null,
+      lastFinishedAt: heartbeat?.lastFinishedAt?.toISOString() ?? null,
+      lastSuccessfulAt: heartbeat?.lastSuccessfulAt?.toISOString() ?? null,
+      lastExitCode: heartbeat?.lastExitCode ?? null,
+    };
+  });
+  const caseAgentScheduler = scheduledOperations.find((operation) => operation.name === "case_agent");
+  const caseAgentWorkerHealthy = caseAgentScheduler?.health === "healthy" || caseAgentScheduler?.health === "running";
 
   const eligibleOpenPool = program.ok
     ? await prisma.case.count({
@@ -55,7 +74,7 @@ async function main() {
       modelConfigured: model.ok,
       serviceAccountCount,
       runtimeConfigured: program.ok && model.ok && serviceAccountCount === 1,
-      readyForNewCases: program.ok && model.ok && serviceAccountCount === 1 && mailIsConfigured,
+      readyForNewCases: program.ok && model.ok && serviceAccountCount === 1 && mailIsConfigured && caseAgentWorkerHealthy,
     },
     cases: {
       unassignedRetailOpenWithinLimit: eligibleOpenPool,
@@ -66,6 +85,7 @@ async function main() {
       latestAgentAttemptAt: latestAttempt._max.agentLastAttemptAt?.toISOString() ?? null,
     },
     email: { configured: mailIsConfigured, notifications: mailBacklog },
+    scheduledOperations,
   }));
 }
 

@@ -32,6 +32,13 @@ enum GlobalRole {
   CASE_AGENT
 }
 
+enum ScheduledOperationOutcome {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  INTERRUPTED
+}
+
 enum CaseState {
   DRAFT
   OPEN
@@ -886,4 +893,18 @@ model Contestation {
   overruledBy User? @relation("ContestationOverruledBy", fields: [overruledById], references: [id])
 
   @@index([caseId, status])
+}
+
+// Aggregate-only operational state. This row contains no case or party data.
+model ScheduledOperationHeartbeat {
+  name             String                     @id
+  intervalMs       Int
+  lastStartedAt    DateTime?
+  lastHeartbeatAt  DateTime?
+  lastFinishedAt   DateTime?
+  lastSuccessfulAt DateTime?
+  lastOutcome      ScheduledOperationOutcome?
+  lastExitCode     Int?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
 }
