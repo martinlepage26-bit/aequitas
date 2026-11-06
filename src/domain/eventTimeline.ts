@@ -106,6 +106,8 @@ export function visibleCaseEvents<T extends { type: EventType; actorId: string; 
   return roleFiltered.flatMap((event) => {
     // A request for a person is visible to the party who made it and to staff.
     if (event.type === "AGENT_ESCALATED" && event.actorId !== viewer.userId) return [];
+    // A party's processing choice is private to its author.
+    if (event.type === "AGENT_PROCESSING_ACCEPTED" && event.actorId !== viewer.userId) return [];
     const projected = projectPartyTimelineEvent(event, viewer.userId);
     if (!projected || !partySeesOutcomeEvent(projected.type, projected.payload, viewer.userId)) return [];
     if (!CONTESTATION_EVENT_TYPES.has(projected.type)) return [projected];

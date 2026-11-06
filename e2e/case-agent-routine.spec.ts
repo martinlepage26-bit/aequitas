@@ -21,7 +21,20 @@ import en from "../messages/en-CA.json";
 
 const port = process.env.PLAYWRIGHT_PORT ?? 3000;
 const DAY = 24 * 60 * 60 * 1000;
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true" };
+const ENV = {
+  AEQUITAS_CASE_AGENT_ENABLED: "true",
+  AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+  AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000",
+  AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
+  AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
+  AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
+  AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
+  AEQUITAS_PIPELINE_PROVIDER: "gemini",
+  GEMINI_PROJECT_ID: "synthetic-e2e-project",
+  GEMINI_MODEL: "gemini-3.8-flash",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic E2E notice: case content would be sent to the configured model provider.",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis E2E synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.",
+};
 const NO_CALL_MODEL = { provider: "test", model: "not-called-before-proposal", async complete() { throw new Error("The model must not be called before both positions are submitted."); } };
 
 async function contextFor(browser: Browser, userId: string, globalRole: string): Promise<BrowserContext> {
@@ -106,6 +119,21 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await page.fill("#position-body", "Synthetic position for the routine journey.");
       await page.getByRole("button", { name: messages.workspace.positions.form.submit, exact: true }).click();
       await expect(page.locator("#positions-heading ~ ul li")).toHaveCount(1);
+    }
+
+    // The agent waits before it extracts evidence or calls the provider.
+    expect((await runCaseAgent({ caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("waiting");
+    for (const page of [cp, rp]) {
+      await page.reload();
+      await expect(page.locator("#case-agent-processing-choice")).toBeVisible();
+      await expect(page.locator("#case-agent-processing-choice")).toContainText("synthetic-e2e-project");
+      await expect(page.locator("#case-agent-processing-choice")).toContainText("gemini-3.8-flash");
+      const notice = locale === "fr-CA" ? ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR : ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN;
+      await expect(page.locator("#case-agent-processing-choice blockquote")).toHaveText(notice);
+      const accepted = page.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/processing-choice` && res.request().method() === "POST");
+      await page.locator("#accept-agent-processing").click();
+      expect((await accepted).ok()).toBe(true);
+      await expect(page.locator("#case-agent-processing-choice [role=status]")).toHaveText(messages.workspace.caseAgent.processingAccepted);
     }
 
     const evidence = await prisma.evidenceItem.findMany({ where: { caseId } });

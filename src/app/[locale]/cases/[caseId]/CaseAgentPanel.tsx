@@ -16,6 +16,16 @@ export type CaseAgentPanelProps = {
   canEndParticipation?: boolean;
   /** A queue case manager may take this escalated, unassigned case. */
   canClaim?: boolean;
+  /** A party's current provider notice and private, version-bound choice. */
+  processingChoice?: {
+    providerName: string;
+    accountOrProjectId: string;
+    modelName: string;
+    notice: string;
+    noticeHash: string;
+    locale: "en-CA" | "fr-CA";
+    accepted: boolean;
+  } | null;
 };
 
 /**
@@ -58,6 +68,22 @@ export default function CaseAgentPanel(props: CaseAgentPanelProps) {
       {props.viewer === "party" && props.agentManaged && (
         <>
           <p id="case-agent-notice">{t("partyNotice")}</p>
+          {props.processingChoice && !props.escalated && !props.closed && (
+            <div id="case-agent-processing-choice" aria-labelledby="case-agent-processing-title">
+              <h3 id="case-agent-processing-title">{t("processingTitle")}</h3>
+              <p>{t("processingProvider", { provider: props.processingChoice.providerName, account: props.processingChoice.accountOrProjectId, model: props.processingChoice.modelName })}</p>
+              <p>{t("processingIntro")}</p>
+              <blockquote>{props.processingChoice.notice}</blockquote>
+              {props.processingChoice.accepted
+                ? <p role="status">{t("processingAccepted")}</p>
+                : <button
+                  type="button"
+                  id="accept-agent-processing"
+                  onClick={() => post("processing-choice", { noticeHash: props.processingChoice!.noticeHash, locale: props.processingChoice!.locale })}
+                  disabled={status.kind === "busy"}
+                >{status.kind === "busy" ? t("requesting") : t("processingAccept")}</button>}
+            </div>
+          )}
           {props.escalated
             ? <p id="case-agent-escalated" role="status">{t("partyEscalated")}</p>
             : !props.closed && (

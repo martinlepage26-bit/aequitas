@@ -12,6 +12,20 @@ import { applyTestDatabase } from "./test/testDatabaseUrl";
 applyTestDatabase();
 process.env.RESEND_API_KEY = "";
 process.env.SESSION_SECRET = "aequitas-playwright-test-only-session-secret";
+// The browser suite renders and submits party processing choices against a
+// synthetic provider identity. No provider credential is set in E2E.
+process.env.AEQUITAS_CASE_AGENT_ENABLED = "true";
+process.env.AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS = "500000";
+process.env.AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY = "1000";
+process.env.AEQUITAS_CASE_AGENT_INTAKE_DAYS = "7";
+process.env.AEQUITAS_CASE_AGENT_RESPONSE_DAYS = "5";
+process.env.AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW = "true";
+process.env.AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION = "true";
+process.env.AEQUITAS_PIPELINE_PROVIDER = "gemini";
+process.env.GEMINI_PROJECT_ID = "synthetic-e2e-project";
+process.env.GEMINI_MODEL = "gemini-3.8-flash";
+process.env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN = "Synthetic E2E notice: case content would be sent to the configured model provider.";
+process.env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR = "Avis E2E synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.";
 if (!process.env.AEQUITAS_E2E_STORAGE_OWNER_PID) {
   const e2eStorageDir = mkdtempSync(join(tmpdir(), "aequitas-playwright-storage-"));
   process.env.STORAGE_LOCAL_DIR = e2eStorageDir;

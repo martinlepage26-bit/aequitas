@@ -7,9 +7,11 @@ import type { DisputeCategory, GlobalRole } from "../../src/generated/prisma";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
-import { enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { acceptCaseAgentProcessing, enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
+import { caseAgentProgram } from "../../src/domain/caseAgent/config";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
+import * as evidenceText from "../../src/lib/evidenceText";
 import { readPartyOutcomeCitation } from "../../src/domain/partyOutcomeCitationAccess";
 import { closeCase, closeIntake, createCase, declineConsent, giveConsent, issueRecommendation, openIntake, setPartyIntakeReady, submitCase, submitChronology, submitEvidence, submitPosition, withdrawCase } from "../../src/domain/mutate";
 import { saveCaseDetails } from "../../src/domain/caseDetails";
@@ -40,6 +42,8 @@ const ENV = {
   AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `gemini:synthetic-project:gemini-3.8-flash:prompt:${AGENT_PROMPT_VERSION}`,
   AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project",
   GEMINI_PROJECT_ID: "synthetic-project",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic test notice: case content would be sent to the configured model provider.",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis de test synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.",
   GEMINI_API_KEY: "synthetic-test-only",
 };
 const COMPLAINANT_POSITION = "The kettle stopped heating after three days and the store refused an exchange at the counter.";
@@ -96,7 +100,13 @@ afterAll(async () => {
 
 type Setup = { caseId: string; complainantId: string; respondentId: string; complainantEvidence: string; respondentEvidence: string };
 
-async function positionsCase(opts: { category?: DisputeCategory; amount?: number | null; enroll?: boolean; keepIntakeOpen?: boolean } = {}): Promise<Setup> {
+async function acceptProcessingChoice(s: Setup, actorId: string, actorRole: "COMPLAINANT" | "RESPONDENT", locale: "en-CA" | "fr-CA", env = ENV) {
+  const config = caseAgentProgram(env);
+  if (!config.ok) throw new Error(`Synthetic processing notice is not configured: ${config.missing.join(", ")}`);
+  return acceptCaseAgentProcessing({ actorId, actorRole, caseId: s.caseId, noticeHash: config.program.processingDisclosure.noticeHash, locale }, env);
+}
+
+async function positionsCase(opts: { category?: DisputeCategory; amount?: number | null; enroll?: boolean; keepIntakeOpen?: boolean; acceptProcessing?: boolean } = {}): Promise<Setup> {
   const [c, r] = await Promise.all([mk("complainant", "COMPLAINANT", { locale: "fr-CA" }), mk("respondent", "RESPONDENT", { locale: "en-CA" })]);
   const created = await createCase({
     actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-AGENT-${randomUUID().slice(0, 8)}`,
@@ -134,6 +144,10 @@ async function positionsCase(opts: { category?: DisputeCategory; amount?: number
   if (opts.enroll !== false) {
     const enrolled = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId }, ENV);
     if (!enrolled.ok) throw new Error(enrolled.reason);
+    if (opts.acceptProcessing !== false) {
+      if (!(await acceptProcessingChoice(setup, c.id, "COMPLAINANT", "fr-CA")).ok) throw new Error("complainant processing choice");
+      if (!(await acceptProcessingChoice(setup, r.id, "RESPONDENT", "en-CA")).ok) throw new Error("respondent processing choice");
+    }
   }
   return setup;
 }
@@ -266,6 +280,60 @@ describe("case agent: party-controlled intake", () => {
 });
 
 describe("case agent: normal completion", () => {
+  it("waits for both parties to accept the current provider notice before extracting case files", async () => {
+    const s = await positionsCase({ acceptProcessing: false });
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    const extract = vi.spyOn(evidenceText, "extractStoredEvidence");
+    try {
+      expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({
+        status: "waiting",
+        reason: "awaiting_party_processing_choice",
+      });
+      expect(model.calls).toBe(0);
+      expect(extract).not.toHaveBeenCalled();
+
+      const config = caseAgentProgram(ENV);
+      if (!config.ok) throw new Error("Synthetic provider notice is not configured.");
+      const invalid = await acceptCaseAgentProcessing({
+        actorId: s.complainantId,
+        actorRole: "COMPLAINANT",
+        caseId: s.caseId,
+        noticeHash: "0".repeat(64),
+        locale: "fr-CA",
+      }, ENV);
+      expect(invalid).toMatchObject({ ok: false, status: 409 });
+
+      expect((await acceptProcessingChoice(s, s.complainantId, "COMPLAINANT", "fr-CA")).ok).toBe(true);
+      expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({
+        status: "waiting",
+        reason: "awaiting_party_processing_choice",
+      });
+      expect(model.calls).toBe(0);
+      expect(extract).not.toHaveBeenCalled();
+
+      expect((await acceptProcessingChoice(s, s.respondentId, "RESPONDENT", "en-CA")).ok).toBe(true);
+      const events = await prisma.event.findMany({ where: { caseId: s.caseId }, orderBy: { seq: "asc" } });
+      const complainantView = visibleCaseEvents(events, { userId: s.complainantId, globalRole: "COMPLAINANT", access: "party" });
+      const respondentView = visibleCaseEvents(events, { userId: s.respondentId, globalRole: "RESPONDENT", access: "party" });
+      expect(complainantView.filter((event) => event.type === "AGENT_PROCESSING_ACCEPTED").map((event) => event.actorId)).toEqual([s.complainantId]);
+      expect(respondentView.filter((event) => event.type === "AGENT_PROCESSING_ACCEPTED").map((event) => event.actorId)).toEqual([s.respondentId]);
+
+      expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("issued");
+      expect(model.calls).toBe(1);
+      expect(extract).toHaveBeenCalledTimes(2);
+      const ownChoice = await prisma.event.findFirstOrThrow({ where: { caseId: s.caseId, actorId: s.complainantId, type: "AGENT_PROCESSING_ACCEPTED" } });
+      expect(ownChoice.payload).toMatchObject({
+        providerIdentity: config.program.processingDisclosure.providerIdentity,
+        promptVersion: AGENT_PROMPT_VERSION,
+        noticeHash: config.program.processingDisclosure.noticeHash,
+        noticeText: config.program.processingDisclosure.noticeFr,
+        locale: "fr-CA",
+      });
+    } finally {
+      extract.mockRestore();
+    }
+  });
+
   it("enforces one shared daily model-call limit atomically across concurrent cases", async () => {
     const a = await positionsCase();
     const b = await positionsCase();

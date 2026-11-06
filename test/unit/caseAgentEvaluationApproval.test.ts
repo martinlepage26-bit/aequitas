@@ -13,6 +13,8 @@ const env: Record<string, string | undefined> = {
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "false",
   AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "false",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic test notice: case content would be sent to the configured model provider.",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis de test synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.",
   AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
   CLOUDFLARE_ACCOUNT_ID: "acct-synthetic",
   CLOUDFLARE_API_TOKEN: "synthetic-token",

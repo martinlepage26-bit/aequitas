@@ -9,7 +9,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
-import { claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { acceptCaseAgentProcessing, claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { caseAgentProgram } from "../../src/domain/caseAgent/config";
 import { createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
 import { readPartyOutcomes } from "../../src/domain/partyOutcome";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
@@ -38,6 +39,11 @@ const ENV = {
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
   AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
+  AEQUITAS_PIPELINE_PROVIDER: "gemini",
+  GEMINI_PROJECT_ID: "synthetic-routine-project",
+  GEMINI_MODEL: "gemini-3.8-flash",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic test notice: case content would be sent to the configured model provider.",
+  AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis de test synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.",
 };
 const C_TEXT = "Receipt 4471: kettle bought 2026-10-02 for $89.99, paid by debit card.";
 const R_TEXT = "Store log: customer offered a repair voucher at the counter on 2026-10-06.";
@@ -184,9 +190,20 @@ async function toPositions(r: Routine, cText = C_TEXT, rText = R_TEXT, env = ENV
   return { cId, rId };
 }
 
-async function positions(r: Routine) {
+async function acceptProcessingChoice(r: Routine, partyId: string, actorRole: "COMPLAINANT" | "RESPONDENT", locale: "en-CA" | "fr-CA", env = ENV) {
+  const config = caseAgentProgram(env);
+  if (!config.ok) throw new Error(`Synthetic processing notice is not configured: ${config.missing.join(", ")}`);
+  return acceptCaseAgentProcessing({ actorId: partyId, actorRole, caseId: r.caseId, noticeHash: config.program.processingDisclosure.noticeHash, locale }, env);
+}
+
+async function positions(r: Routine, opts: { acceptProcessing?: boolean; env?: typeof ENV } = {}) {
   if (!(await submitPosition({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId, body: "Le bouilloire a cessé de chauffer.", locale: "fr-CA" })).ok) throw new Error("position");
   if (!(await submitPosition({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId, body: "We offered a repair voucher.", locale: "en-CA" })).ok) throw new Error("position");
+  if (opts.acceptProcessing !== false) {
+    const env = opts.env ?? ENV;
+    if (!(await acceptProcessingChoice(r, r.complainantId, "COMPLAINANT", "fr-CA", env)).ok) throw new Error("complainant processing choice");
+    if (!(await acceptProcessingChoice(r, r.respondentId, "RESPONDENT", "en-CA", env)).ok) throw new Error("respondent processing choice");
+  }
 }
 
 const proposal = (cId: string, rId: string, over: Record<string, unknown> = {}) => JSON.stringify({
@@ -214,6 +231,20 @@ const consent = async (r: Routine, partyId: string, role: "COMPLAINANT" | "RESPO
 };
 
 describe("routine path with no case-manager action", () => {
+  it("waits for both parties to accept processing or hands the case to a person at expiry", async () => {
+    const r = await submittedCase();
+    await toPositions(r);
+    await positions(r, { acceptProcessing: false });
+    const model = stub(() => { throw new Error("The model must not run before both processing choices."); });
+    expect(await runCaseAgent({ caseId: r.caseId, model, env: ENV })).toEqual({ status: "waiting", reason: "awaiting_party_processing_choice" });
+    expect(model.calls).toBe(0);
+
+    const latestPosition = await prisma.positionStatement.findFirstOrThrow({ where: { caseId: r.caseId }, orderBy: { createdAt: "desc" } });
+    expect(await runCaseAgent({ caseId: r.caseId, model, env: ENV, now: new Date(latestPosition.createdAt.getTime() + 6 * DAY) }))
+      .toEqual({ status: "escalated", reason: "processing_choice_timeout" });
+    expect(model.calls).toBe(0);
+  });
+
   it("takes a submitted case through invitation, intake, a cited proposal, both consents and closure", async () => {
     const r = await submittedCase();
     sentTo.length = 0;

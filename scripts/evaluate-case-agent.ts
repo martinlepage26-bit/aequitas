@@ -106,7 +106,8 @@ async function main() {
   };
   await clearEvaluationBudget();
   const { createCase, setPartyIntakeReady, submitCase, submitPosition } = await import("../src/domain/mutate");
-  const { runCaseAgent } = await import("../src/domain/caseAgent/agent");
+  const { acceptCaseAgentProcessing, runCaseAgent } = await import("../src/domain/caseAgent/agent");
+  const { caseAgentProgram } = await import("../src/domain/caseAgent/config");
   const { AGENT_PROMPT_VERSION } = await import("../src/domain/caseAgent/output");
   const { explanationRecordSchema } = await import("../src/domain/explanationRecord");
   const { extractStoredEvidence } = await import("../src/lib/evidenceText");
@@ -114,6 +115,13 @@ async function main() {
 
   const env = {
     ...process.env,
+    // Offline evaluation uses an explicitly synthetic provider identity.
+    // Live evaluation uses the deployment's configured provider identity.
+    ...(stub ? {
+      AEQUITAS_PIPELINE_PROVIDER: "gemini",
+      GEMINI_PROJECT_ID: "synthetic-evaluation-project",
+      GEMINI_MODEL: "gemini-3.8-flash",
+    } : {}),
     AEQUITAS_CASE_AGENT_ENABLED: "true",
     // Synthetic evaluation values, not program policy.
     AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
@@ -122,6 +130,8 @@ async function main() {
     AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "1",
     AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
     AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
+    AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic evaluation notice: this synthetic case's text and extracted evidence are sent to the configured model provider for this test only.",
+    AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis d’évaluation synthétique : le texte et les preuves extraites de ce dossier synthétique sont transmis au fournisseur de modèle configuré pour ce test seulement.",
   };
 
   let model: TextCompletion;
@@ -178,6 +188,15 @@ async function main() {
     await runCaseAgent({ caseId, model, env, now: proposalNow });
     await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: f.complainantLocale === "fr-CA" ? "Position synthétique de la partie plaignante." : "Synthetic complainant position.", locale: f.complainantLocale });
     await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: f.respondentLocale === "fr-CA" ? "Position synthétique de l’entreprise." : "Synthetic respondent position.", locale: f.respondentLocale });
+    const configuredProgram = caseAgentProgram(env);
+    if (!configuredProgram.ok) throw new Error(`Synthetic evaluation processing notice is incomplete: ${configuredProgram.missing.join(", ")}`);
+    // These are synthetic fixture actors, not real-party consents. They let
+    // the harness exercise the same fail-closed gate without involving users.
+    const choices = await Promise.all([
+      acceptCaseAgentProcessing({ actorId: c.id, actorRole: "COMPLAINANT", caseId, noticeHash: configuredProgram.program.processingDisclosure.noticeHash, locale: f.complainantLocale }, env),
+      acceptCaseAgentProcessing({ actorId: r.id, actorRole: "RESPONDENT", caseId, noticeHash: configuredProgram.program.processingDisclosure.noticeHash, locale: f.respondentLocale }, env),
+    ]);
+    if (choices.some((choice) => !choice.ok)) throw new Error("The synthetic evaluation actors could not record processing choices.");
 
     const callMetrics: ModelCallMetric[] = [];
     const measure = async (prompt: string, call: () => Promise<TextCompletionWithUsage>): Promise<TextCompletionWithUsage> => {

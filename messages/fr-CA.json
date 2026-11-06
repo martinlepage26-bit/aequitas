@@ -599,7 +599,8 @@
         "PARTY_OUTCOME_EDITED": "Brouillon du résultat d'une partie enregistré",
         "PARTY_OUTCOME_ISSUED": "Résultat d'une partie émis",
         "AGENT_ENROLLED": "Assistant automatisé activé",
-        "AGENT_ESCALATED": "Confié à une personne"
+        "AGENT_ESCALATED": "Confié à une personne",
+        "AGENT_PROCESSING_ACCEPTED": "Traitement automatisé accepté par une partie"
       }
     },
     "resolution": {
@@ -665,6 +666,11 @@
     "caseAgent": {
       "title": "Assistant automatisé",
       "partyNotice": "Un assistant automatisé s’occupe des étapes courantes de ce dossier. Il propose un résultat à partir des preuves au dossier. Une proposition n’est pas contraignante, n’est pas un avis juridique et ne juge pas qui dit vrai. Vous pouvez consentir, refuser ou demander une personne en tout temps.",
+      "processingTitle": "Examiner le traitement automatisé",
+      "processingProvider": "Fournisseur : {provider}. Compte ou projet : {account}. Modèle : {model}.",
+      "processingIntro": "Avant que les deux parties acceptent, le service n’extrait pas le contenu des fichiers de preuve et ne transmet pas les positions ni le texte des fichiers au fournisseur de modèle. Vous pouvez plutôt demander l’intervention d’une personne.",
+      "processingAccept": "J’ai lu cet avis et j’accepte le traitement automatisé",
+      "processingAccepted": "Votre choix est enregistré. L’assistant continuera seulement après que l’autre partie aura fait le même choix.",
       "requestButton": "Demander qu’une personne examine ce dossier",
       "requesting": "Envoi…",
       "partyEscalated": "Une personne examinera ce dossier. L’assistant automatisé s’est arrêté.",
@@ -703,7 +709,8 @@
         "evidence_scan_pending": "Une analyse de sécurité était toujours en attente à la fin du délai prévu par le programme.",
         "no_answer": "Une partie n’a pas répondu à la proposition dans le délai prévu par le programme.",
         "evidence_extraction_failed": "Un fichier n’a pas pu être lu au complet.",
-        "evidence_limit_exceeded": "Les preuves dépassent ce que l’assistant peut lire."
+        "evidence_limit_exceeded": "Les preuves dépassent ce que l’assistant peut lire.",
+        "processing_choice_timeout": "Les deux parties n’ont pas accepté le traitement automatisé à temps. Une personne examinera ce dossier."
       },
       "endButton": "Mettre fin à ma participation",
       "endConfirm": "Mettre fin à votre participation arrête le processus pour ce dossier. Vous ne pourrez pas l’annuler ici.",

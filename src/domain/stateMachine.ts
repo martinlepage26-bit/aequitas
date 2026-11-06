@@ -32,6 +32,7 @@ export const TRIGGERS = [
   "agent_close",
   "agent_open_intake",
   "agent_close_intake",
+  "accept_agent_processing",
   "respondent_withdraw",
 ] as const;
 
@@ -281,6 +282,14 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: ["CASE_AGENT"],
     guards: ["agentMayAct", "bothPartiesMarkedIntakeReady", "atLeastOneEvidenceItemPerPartyOrOverride"],
     events: ["EVIDENCE_INTAKE_CLOSED"],
+  },
+  {
+    trigger: "accept_agent_processing",
+    from: ["POSITIONS"],
+    to: "POSITIONS",
+    actorRoles: ["COMPLAINANT", "RESPONDENT"],
+    guards: ["isCaseParty", "agentCaseIsActive"],
+    events: ["AGENT_PROCESSING_ACCEPTED"],
   },
   {
     // Respondent ends participation on an agent-managed case, only where the

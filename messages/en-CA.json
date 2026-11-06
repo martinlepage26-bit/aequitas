@@ -599,7 +599,8 @@
         "PARTY_OUTCOME_EDITED": "Party outcome draft saved",
         "PARTY_OUTCOME_ISSUED": "Party outcome issued",
         "AGENT_ENROLLED": "Automated assistant enabled",
-        "AGENT_ESCALATED": "Handed to a person"
+        "AGENT_ESCALATED": "Handed to a person",
+        "AGENT_PROCESSING_ACCEPTED": "Party accepted automated processing"
       }
     },
     "resolution": {
@@ -665,6 +666,11 @@
     "caseAgent": {
       "title": "Automated assistant",
       "partyNotice": "An automated assistant handles the routine steps of this case. It proposes an outcome from the evidence on file. A proposal is not binding, is not legal advice, and does not judge who is telling the truth. You can consent, decline, or ask for a person at any time.",
+      "processingTitle": "Review automated processing",
+      "processingProvider": "Provider: {provider}. Account or project: {account}. Model: {model}.",
+      "processingIntro": "Before both parties accept, the service does not extract evidence files or send positions or file text to the model provider. You can ask for a person instead.",
+      "processingAccept": "I have read this notice and agree to automated processing",
+      "processingAccepted": "Your choice is recorded. The assistant will proceed only after the other party makes the same choice.",
       "requestButton": "Ask for a person to review this case",
       "requesting": "Sending…",
       "partyEscalated": "A person will review this case. The automated assistant has stopped.",
@@ -703,7 +709,8 @@
         "evidence_scan_pending": "A required security scan was still pending at the end of the program's period.",
         "no_answer": "A party did not answer the proposal within the program's response period.",
         "evidence_extraction_failed": "A file could not be read in full.",
-        "evidence_limit_exceeded": "The evidence exceeds what the assistant can read."
+        "evidence_limit_exceeded": "The evidence exceeds what the assistant can read.",
+        "processing_choice_timeout": "The parties did not both accept automated processing in time. A person will review this case."
       },
       "endButton": "End my participation",
       "endConfirm": "Ending your participation stops the process for this case. You cannot undo it here.",

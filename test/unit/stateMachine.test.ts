@@ -16,10 +16,10 @@ const STATES_WITH_NONE: Array<CaseState | typeof NONE> = [NONE, ...ALL_STATES];
 const ACTORS: Array<GlobalRole | typeof SYSTEM> = [...ROLES, SYSTEM];
 
 /**
- * Ground truth transcribed directly from Section 6 of
- * aequitas-implementation-handoff.md, independently of stateMachine.ts, so
- * this test catches transcription errors rather than checking the
- * implementation against itself.
+ * Ground truth transcribed from Section 6 of
+ * aequitas-implementation-handoff.md plus the app-specific party processing
+ * choice, independently of stateMachine.ts, so this catches transcription
+ * errors rather than checking the implementation against itself.
  */
 const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: Array<GlobalRole | typeof SYSTEM> }> = {
   create_case: { from: [NONE], roles: ["COMPLAINANT"] },
@@ -46,11 +46,12 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   agent_close: { from: ["RESOLVED_CONSENT", "WITHDRAWN"], roles: ["CASE_AGENT"] },
   agent_open_intake: { from: ["OPEN"], roles: ["CASE_AGENT"] },
   agent_close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_AGENT"] },
+  accept_agent_processing: { from: ["POSITIONS"], roles: ["COMPLAINANT", "RESPONDENT"] },
   respondent_withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["RESPONDENT"] },
 };
 
 describe("state machine: exhaustive (state, trigger, role) coverage", () => {
-  it("covers every trigger defined in Section 6", () => {
+  it("covers every trigger in the current state-machine contract", () => {
     expect(new Set(TRIGGERS)).toEqual(new Set(Object.keys(EXPECTED)));
     expect(new Set(TRIGGERS).size).toBe(TRIGGERS.length);
   });

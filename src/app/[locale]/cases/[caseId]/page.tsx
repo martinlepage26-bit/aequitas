@@ -27,6 +27,7 @@ import CaseAgentPanel from "./CaseAgentPanel";
 import IntakeReadyButton from "./IntakeReadyButton";
 import { caseAgentEnabled } from "../../../../domain/caseAgent/agent";
 import { caseAgentProgram } from "../../../../domain/caseAgent/config";
+import { processingConsentMatches } from "../../../../domain/caseAgent/processingConsent";
 
 function caseAgentRespondentMayWithdraw(): boolean {
   const program = caseAgentProgram();
@@ -101,6 +102,23 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const access = caseReadAccess(caseRow, viewer);
   if (!access) notFound();
   await recordStaffAccess(caseId, session, "workspace");
+
+  const agentProgram = caseAgentProgram();
+  const viewerIsParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
+  const latestOwnProcessingChoice = viewerIsParty
+    ? [...caseRow.events].reverse().find((event) => event.type === "AGENT_PROCESSING_ACCEPTED" && event.actorId === session.userId)
+    : undefined;
+  const processingChoice = caseRow.agentManaged && caseRow.state === "POSITIONS" && access === "party" && viewerIsParty && agentProgram.ok
+    ? {
+        providerName: agentProgram.program.processingDisclosure.providerName,
+        accountOrProjectId: agentProgram.program.processingDisclosure.accountOrProjectId,
+        modelName: agentProgram.program.processingDisclosure.modelName,
+        notice: locale === "fr-CA" ? agentProgram.program.processingDisclosure.noticeFr : agentProgram.program.processingDisclosure.noticeEn,
+        noticeHash: agentProgram.program.processingDisclosure.noticeHash,
+        locale: locale === "fr-CA" ? "fr-CA" as const : "en-CA" as const,
+        accepted: Boolean(latestOwnProcessingChoice && processingConsentMatches(latestOwnProcessingChoice.payload, agentProgram.program.processingDisclosure)),
+      }
+    : null;
 
   const visibleEvidence = caseRow.evidenceItems.filter((item) =>
     canReadPartySubmission({ access, viewerId: session.userId, authorId: item.submittedById }),
@@ -425,6 +443,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           canEndParticipation={access === "party" && caseRow.agentManaged && (session.userId === caseRow.complainantId || caseAgentRespondentMayWithdraw())}
           closed={caseRow.state === "CLOSED"}
           canEnroll={access === "assigned-manager" && !caseRow.agentManaged && caseAgentEnabled() && caseRow.category === "RETAIL" && (caseRow.state === "EVIDENCE_INTAKE" || caseRow.state === "POSITIONS")}
+          processingChoice={processingChoice}
         />
       )}
       {canAuthorDraft && (

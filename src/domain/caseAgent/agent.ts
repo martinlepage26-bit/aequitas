@@ -16,6 +16,7 @@ import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } fro
 import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
+import { processingConsentMatches } from "./processingConsent";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
@@ -56,6 +57,7 @@ export type EscalationReason =
   | "evidence_extraction_failed"
   | "evidence_limit_exceeded"
   | "contestation_open"
+  | "processing_choice_timeout"
   | "declined"
   | "model_unavailable"
   | "model_failed"
@@ -163,6 +165,92 @@ export async function requestHumanReview(input: { actorId: string; actorRole: Gl
   });
   if (current?.agentManaged && current.agentEscalatedAt) return { ok: true };
   return { ok: false, status: 409, reason: "The case changed before the request for a person could be recorded. Reload to check its current status." };
+}
+
+/**
+ * A party's affirmative choice is recorded against the exact provider,
+ * prompt version, and bilingual notice shown by the server-rendered page.
+ * The other party cannot make this choice on their behalf.
+ */
+export async function acceptCaseAgentProcessing(input: {
+  actorId: string;
+  actorRole: GlobalRole;
+  caseId: string;
+  noticeHash: string;
+  locale: "en-CA" | "fr-CA";
+}, env: Env = process.env): Promise<Outcome> {
+  const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
+  const isParty = caseRow && ((input.actorRole === "COMPLAINANT" && caseRow.complainantId === input.actorId)
+    || (input.actorRole === "RESPONDENT" && caseRow.respondentId === input.actorId));
+  if (!caseRow || !isParty) return { ok: false, status: 404, reason: "Case not found." };
+  if (!caseRow.agentManaged || caseRow.agentEscalatedAt || caseRow.state !== "POSITIONS") {
+    return { ok: false, status: 409, reason: "The case is not waiting for a processing choice." };
+  }
+  const configured = caseAgentProgram(env);
+  if (!configured.ok) return { ok: false, status: 409, reason: "The processing notice is not fully configured." };
+  const disclosure = configured.program.processingDisclosure;
+  if (input.noticeHash !== disclosure.noticeHash) {
+    return { ok: false, status: 409, reason: "The processing notice changed. Reload the case and review the current notice." };
+  }
+
+  const result = await runMutation({
+    trigger: "accept_agent_processing",
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    caseId: caseRow.id,
+    fromState: "POSITIONS",
+    guardContexts: {
+      isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
+      agentCaseIsActive: { agentManaged: caseRow.agentManaged, escalated: Boolean(caseRow.agentEscalatedAt) },
+    },
+    write: async (tx) => {
+      const locked = await tx.case.findUniqueOrThrow({
+        where: { id: caseRow.id },
+        select: { agentManaged: true, agentEscalatedAt: true },
+      });
+      if (!locked.agentManaged || locked.agentEscalatedAt) {
+        return { caseId: caseRow.id, toState: "POSITIONS", eventPayloads: [] };
+      }
+      const latest = await tx.event.findFirst({
+        where: { caseId: caseRow.id, actorId: input.actorId, type: "AGENT_PROCESSING_ACCEPTED" },
+        orderBy: { seq: "desc" },
+        select: { payload: true },
+      });
+      if (latest && processingConsentMatches(latest.payload, disclosure)) {
+        return { caseId: caseRow.id, toState: "POSITIONS", eventPayloads: [] };
+      }
+      const noticeText = input.locale === "fr-CA" ? disclosure.noticeFr : disclosure.noticeEn;
+      return {
+        caseId: caseRow.id,
+        toState: "POSITIONS",
+        eventPayloads: [{
+          type: "AGENT_PROCESSING_ACCEPTED",
+          payload: {
+            providerIdentity: disclosure.providerIdentity,
+            promptVersion: disclosure.promptVersion,
+            noticeHash: disclosure.noticeHash,
+            noticeText,
+            locale: input.locale,
+          },
+        }],
+      };
+    },
+  });
+  if (!result.ok) return { ok: false, status: result.step === "not-found" ? 404 : 409, reason: result.reason };
+
+  const current = await prisma.case.findUnique({ where: { id: caseRow.id }, select: { state: true, agentManaged: true, agentEscalatedAt: true } });
+  if (!current?.agentManaged || current.agentEscalatedAt || current.state !== "POSITIONS") {
+    return { ok: false, status: 409, reason: "The case changed before the processing choice was recorded. Reload the case." };
+  }
+  const accepted = await prisma.event.findFirst({
+    where: { caseId: caseRow.id, actorId: input.actorId, type: "AGENT_PROCESSING_ACCEPTED" },
+    orderBy: { seq: "desc" },
+    select: { payload: true },
+  });
+  if (!accepted || !processingConsentMatches(accepted.payload, disclosure)) {
+    return { ok: false, status: 409, reason: "The processing choice was not recorded. Reload the case and try again." };
+  }
+  return { ok: true };
 }
 
 /**
@@ -355,6 +443,29 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   if (complainantEvidenceIds.size === 0 || respondentEvidenceIds.size === 0) return escalate("evidence_inadequate");
   if (first.openContestations > 0) return escalate("contestation_open");
   if (!input.model) return escalate("model_unavailable");
+
+  // This is the first point at which evidence files are extracted or case
+  // material may leave the deployment. Both parties must have accepted the
+  // exact provider, prompt, and notice currently configured for this run.
+  const processingDisclosure = program.processingDisclosure;
+  const [complainantChoice, respondentChoice] = await Promise.all([
+    prisma.event.findFirst({
+      where: { caseId: row.id, actorId: row.complainantId, type: "AGENT_PROCESSING_ACCEPTED" },
+      orderBy: { seq: "desc" },
+      select: { payload: true },
+    }),
+    prisma.event.findFirst({
+      where: { caseId: row.id, actorId: row.respondentId, type: "AGENT_PROCESSING_ACCEPTED" },
+      orderBy: { seq: "desc" },
+      select: { payload: true },
+    }),
+  ]);
+  if (!complainantChoice || !processingConsentMatches(complainantChoice.payload, processingDisclosure)
+    || !respondentChoice || !processingConsentMatches(respondentChoice.payload, processingDisclosure)) {
+    const lastPositionAt = Math.max(first.complainantPosition.createdAt.getTime(), first.respondentPosition.createdAt.getTime());
+    if (now.getTime() - lastPositionAt >= responseWindow) return escalate("processing_choice_timeout");
+    return { status: "waiting", reason: "awaiting_party_processing_choice" };
+  }
 
   const cleanItems = first.current.filter((e) => e.scanStatus === "CLEAN");
   if (cleanItems.length > MAX_EVIDENCE_FILES) return escalate("evidence_limit_exceeded");
