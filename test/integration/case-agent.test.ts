@@ -8,6 +8,7 @@ import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
 import { enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import { readPartyOutcomeCitation } from "../../src/domain/partyOutcomeCitationAccess";
 import { closeCase, closeIntake, createCase, declineConsent, giveConsent, issueRecommendation, openIntake, setPartyIntakeReady, submitCase, submitChronology, submitEvidence, submitPosition, withdrawCase } from "../../src/domain/mutate";
@@ -36,6 +37,7 @@ const ENV = {
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
   AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
   AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash",
+  AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `gemini:synthetic-project:gemini-3.8-flash:prompt:${AGENT_PROMPT_VERSION}`,
   AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project",
   GEMINI_PROJECT_ID: "synthetic-project",
   GEMINI_API_KEY: "synthetic-test-only",
