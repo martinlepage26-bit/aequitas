@@ -60,6 +60,7 @@ const FIXTURES: Fixture[] = [
 
 let disconnectDatabase: (() => Promise<void>) | undefined;
 let evaluationStorageDir: string | undefined;
+let clearEvaluationBudget: (() => Promise<void>) | undefined;
 
 async function main() {
   const args = process.argv.slice(2);
@@ -96,6 +97,13 @@ async function main() {
 
   const { prisma } = await import("../src/lib/prisma");
   disconnectDatabase = () => prisma.$disconnect();
+  const evaluationDateOffset = Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % (365 * 30);
+  const evaluationNow = new Date(Date.UTC(2090, 0, 1 + evaluationDateOffset, 12));
+  const proposalNow = new Date(evaluationNow.getTime() + 2 * 86_400_000);
+  clearEvaluationBudget = async () => {
+    await prisma.caseAgentDailyUsage.deleteMany({ where: { utcDay: proposalNow } });
+  };
+  await clearEvaluationBudget();
   const { createCase, setPartyIntakeReady, submitCase, submitPosition } = await import("../src/domain/mutate");
   const { runCaseAgent, resolveCaseAgentModel } = await import("../src/domain/caseAgent/agent");
   const { AGENT_PROMPT_VERSION } = await import("../src/domain/caseAgent/output");
@@ -153,7 +161,7 @@ async function main() {
     if (!created.ok) throw new Error(created.reason);
     const caseId = created.data.caseId;
     await submitCase({ actorId: c.id, actorRole: "COMPLAINANT", caseId });
-    await runCaseAgent({ caseId, model, env });
+    await runCaseAgent({ caseId, model, env, now: evaluationNow });
     const partyEvidenceIds = new Map<string, Set<string>>([[c.id, new Set<string>()], [r.id, new Set<string>()]]);
     for (const [party, text] of [[c.id, f.complainantText], [r.id, f.respondentText]] as const) {
       const id = randomUUID();
@@ -163,7 +171,7 @@ async function main() {
     }
     await setPartyIntakeReady({ actorId: c.id, actorRole: "COMPLAINANT", caseId, ready: true });
     await setPartyIntakeReady({ actorId: r.id, actorRole: "RESPONDENT", caseId, ready: true });
-    await runCaseAgent({ caseId, model, env, now: new Date(Date.now() + 2 * 86_400_000) });
+    await runCaseAgent({ caseId, model, env, now: proposalNow });
     await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: f.complainantLocale === "fr-CA" ? "Position synthétique de la partie plaignante." : "Synthetic complainant position.", locale: f.complainantLocale });
     await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: f.respondentLocale === "fr-CA" ? "Position synthétique de l’entreprise." : "Synthetic respondent position.", locale: f.respondentLocale });
 
@@ -205,7 +213,7 @@ async function main() {
         },
       } : {}),
     };
-    const outcome = await runCaseAgent({ caseId, model: timed, env });
+    const outcome = await runCaseAgent({ caseId, model: timed, env, now: proposalNow });
     const outcomes = await prisma.partyOutcome.findMany({ where: { caseId, status: "ISSUED" }, include: { citations: true } });
     const cOutcome = outcomes.find((item) => item.partyId === c.id) ?? null;
     const rOutcome = outcomes.find((item) => item.partyId === r.id) ?? null;
@@ -416,6 +424,8 @@ async function main() {
     chmodSync(reviewReportPath, 0o600);
   }
   console.log(json);
+  await clearEvaluationBudget();
+  clearEvaluationBudget = undefined;
   await prisma.$disconnect();
   disconnectDatabase = undefined;
   if (passed !== FIXTURES.length || !withinCallLimit) process.exitCode = 1;
@@ -424,6 +434,7 @@ async function main() {
 }
 
 main().catch(async () => {
+  try { await clearEvaluationBudget?.(); } catch { /* preserve the safe error below */ }
   try { await disconnectDatabase?.(); } catch { /* preserve the safe error below */ }
   if (evaluationStorageDir) rmSync(evaluationStorageDir, { recursive: true, force: true });
   console.error("Case-agent evaluation failed. Provider errors, prompts and case text were not logged.");
