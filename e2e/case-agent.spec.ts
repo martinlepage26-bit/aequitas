@@ -7,6 +7,7 @@ import { signPayload } from "../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../src/lib/session";
 import { closeIntake, createCase, openIntake, submitCase, submitPosition } from "../src/domain/mutate";
 import { enrollCaseAgent, runCaseAgent } from "../src/domain/caseAgent/agent";
+import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/evaluationApproval";
 import fr from "../messages/fr-CA.json";
 import en from "../messages/en-CA.json";
 
@@ -15,7 +16,9 @@ import en from "../messages/en-CA.json";
 
 const port = process.env.PLAYWRIGHT_PORT ?? 3000;
 // Synthetic program rules for tests only.
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true", AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash", AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project", GEMINI_PROJECT_ID: "synthetic-project", GEMINI_API_KEY: "synthetic-test-only" };
+const PROGRAM_ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true", AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash", AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project", GEMINI_PROJECT_ID: "synthetic-project", GEMINI_API_KEY: "synthetic-test-only" };
+// The synthetic provider identity also needs a recorded live-evaluation review.
+const ENV = { ...PROGRAM_ENV, AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: caseAgentEvaluationApprovalIdentity(PROGRAM_ENV) ?? "" };
 
 async function contextFor(browser: Browser, userId: string, globalRole: string): Promise<BrowserContext> {
   const context = await browser.newContext();
