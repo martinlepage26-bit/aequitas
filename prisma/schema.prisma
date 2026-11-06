@@ -213,10 +213,18 @@ model Invitation {
   revokedAt   DateTime?
   claimedAt   DateTime?
   emailedAt   DateTime?
+  deliveryPayloadCiphertext Bytes?
+  deliveryPayloadNonce      Bytes?
+  deliveryPayloadTag        Bytes?
+  deliveryAttempts          Int       @default(0)
+  deliveryLastAttemptAt     DateTime?
+  deliveryLeaseUntil        DateTime?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([emailedAt, deliveryAttempts, deliveryLeaseUntil])
+  @@index([expiresAt, emailedAt])
 }
 
 model AccountRecovery {
@@ -227,10 +235,18 @@ model AccountRecovery {
   usedAt    DateTime?
   revokedAt DateTime?
   emailedAt DateTime?
+  deliveryPayloadCiphertext Bytes?
+  deliveryPayloadNonce      Bytes?
+  deliveryPayloadTag        Bytes?
+  deliveryAttempts          Int       @default(0)
+  deliveryLastAttemptAt     DateTime?
+  deliveryLeaseUntil        DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([emailedAt, deliveryAttempts, deliveryLeaseUntil])
+  @@index([expiresAt, emailedAt])
 }
 
 model Case {

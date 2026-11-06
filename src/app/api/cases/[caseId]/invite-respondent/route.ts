@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
-import { EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../../../../lib/mail";
+import { emailConfigured, sendInvitationEmail } from "../../../../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../../../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../../../../lib/invite";
+import { encryptEmailPayload, invitationEmailPayload } from "../../../../../lib/emailPayload";
 
 /** The complainant explicitly confirms the current respondent address before an activation email is sent. */
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -27,24 +29,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       ? { kind: "already_sent" as const, expiresAt: active.expiresAt }
       : { kind: "delivery_uncertain" as const, expiresAt: active.expiresAt };
     const { token, expiresAt } = issueInviteToken(row.respondentId);
-    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: { revokedAt: new Date() } });
-    const invitation = await tx.invitation.create({ data: { userId: row.respondentId, tokenHash: invitationTokenHash(token), issuedById: auth.session.userId, locale: row.respondent.locale, expiresAt } });
-    return { kind: "issued" as const, email: row.respondent.email, locale: row.respondent.locale, token, expiresAt, invitationId: invitation.id };
+    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: {
+      revokedAt: new Date(),
+      deliveryPayloadCiphertext: null,
+      deliveryPayloadNonce: null,
+      deliveryPayloadTag: null,
+      deliveryLeaseUntil: null,
+    } });
+    const invitationId = randomUUID();
+    const delivery = encryptEmailPayload("invitation", invitationId, invitationEmailPayload({
+      email: row.respondent.email,
+      locale: row.respondent.locale,
+      claimPath: invitePath(row.respondent.locale, token),
+    }));
+    const invitation = await tx.invitation.create({ data: {
+      id: invitationId,
+      userId: row.respondentId,
+      tokenHash: invitationTokenHash(token),
+      issuedById: auth.session.userId,
+      locale: row.respondent.locale,
+      expiresAt,
+      ...delivery,
+    } });
+    return { kind: "issued" as const, expiresAt, invitationId: invitation.id };
   });
   if (prepared.kind === "error") return Response.json({ message: prepared.message }, { status: prepared.status });
   if (prepared.kind === "already_sent") return Response.json({ status: "already_sent", expiresAt: prepared.expiresAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
   if (prepared.kind === "delivery_uncertain") return Response.json({ status: "delivery_uncertain", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
   try {
-    const delivery = await sendInvitationEmail({ email: prepared.email, locale: prepared.locale, claimPath: invitePath(prepared.locale, prepared.token), invitationId: prepared.invitationId });
+    const delivery = await sendInvitationEmail({ invitationId: prepared.invitationId });
+    if (delivery === "pending" || delivery === "not_queued") {
+      return Response.json({ status: "delivery_pending", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
+    }
     if (delivery !== "accepted") {
       await revokeInvitation(prepared.invitationId);
       return Response.json({ message: "Invitation email is unavailable." }, { status: 503 });
     }
-  } catch (error) {
-    const definitelyRejected = !(error instanceof EmailDeliveryError) || error.certainty === "rejected";
-    const revoked = definitelyRejected ? await revokeInvitation(prepared.invitationId).catch(() => false) : false;
-    if (!revoked) return Response.json({ status: "delivery_uncertain", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
-    return Response.json({ message: "The invitation could not be emailed. Please retry." }, { status: 502 });
+  } catch {
+    return Response.json({ status: "delivery_pending", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
   }
   return Response.json({ status: "sent", expiresAt: prepared.expiresAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -1,7 +1,7 @@
 import type { DisputeCategory } from "../generated/prisma";
 import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
-import { RECOVERY_TTL_MINUTES } from "./accountRecovery";
+import { decryptEmailPayload, type ProviderEmailPayload } from "./emailPayload";
 
 /** Queued when a complainant submits a case and a case manager should see it. */
 export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
@@ -17,7 +17,16 @@ function replyToAddress() {
 }
 
 export function emailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM && replyToAddress() && process.env.APP_URL);
+  const secret = process.env.SESSION_SECRET;
+  const baseUrl = process.env.APP_URL?.trim();
+  if (!process.env.RESEND_API_KEY?.trim() || !process.env.EMAIL_FROM?.trim() || !replyToAddress()
+    || !baseUrl || !secret || Buffer.byteLength(secret, "utf8") < 32) return false;
+  try {
+    const url = new URL(baseUrl);
+    return process.env.NODE_ENV !== "production" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function appUrl(path: string) {
@@ -43,13 +52,13 @@ async function retryOnceOnUncertain(sendAndRecord: () => Promise<void>) {
   }
 }
 
-async function sendEmail(to: string, subject: string, text: string, idempotencyKey: string) {
+async function sendEmail(payload: ProviderEmailPayload, idempotencyKey: string) {
   let response: Response;
   try {
     response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify({ from: process.env.EMAIL_FROM, reply_to: replyToAddress(), to: [to], subject, text }),
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY!.trim()}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
@@ -65,54 +74,166 @@ async function sendEmail(to: string, subject: string, text: string, idempotencyK
   if (typeof data?.id !== "string") throw new EmailDeliveryError("uncertain");
 }
 
-export async function sendInvitationEmail(input: { email: string; locale: string; claimPath: string; invitationId: string; validForDays?: number }) {
-  if (!emailConfigured()) return "not_configured" as const;
-  const french = input.locale === "fr-CA";
-  const validForDays = input.validForDays ?? 3;
-  if (!Number.isSafeInteger(validForDays) || validForDays < 1) throw new Error("Invalid invitation validity period.");
-  const validPeriod = french
-    ? `${validForDays} ${validForDays === 1 ? "jour" : "jours"}`
-    : `${validForDays} ${validForDays === 1 ? "day" : "days"}`;
-  const link = appUrl(input.claimPath);
-  const subject = french ? "Votre invitation à Aequitas" : "Your invitation to Aequitas";
-  const text = french
-    ? `Vous avez reçu une invitation à Aequitas. Créez votre clé d’accès avec ce lien, valide pendant ${validPeriod} :\n\n${link}\n\nSi vous n’attendiez pas cette invitation, vous pouvez l’ignorer.`
-    : `You have been invited to Aequitas. Create your passkey using this link, valid for ${validPeriod}:\n\n${link}\n\nIf you were not expecting this invitation, you can ignore it.`;
-  const idempotencyKey = `invitation/${input.invitationId}`;
-  const sendAndRecord = async () => {
-    await sendEmail(input.email, subject, text, idempotencyKey);
-    try { await prisma.invitation.update({ where: { id: input.invitationId }, data: { emailedAt: new Date() } }); }
-    catch {
-      console.error("Invitation email accepted; delivery timestamp could not be persisted.");
-      throw new EmailDeliveryError("uncertain");
-    }
+type TokenEmailKind = "invitation" | "recovery";
+type TokenEmailStatus = "accepted" | "pending" | "rejected" | "not_configured" | "not_queued";
+const TOKEN_EMAIL_LEASE_MS = 2 * 60_000;
+const TOKEN_EMAIL_RETRY_DELAY_MS = 15 * 60_000;
+
+async function clearExpiredTokenEmailPayloads(now = new Date()) {
+  const clearPayload = {
+    deliveryPayloadCiphertext: null,
+    deliveryPayloadNonce: null,
+    deliveryPayloadTag: null,
+    deliveryLeaseUntil: null,
   };
-  // Retry the exact same payload and idempotency key once after an uncertain
-  // provider response or emailedAt write; never rotate a link that may have
-  // reached the recipient.
-  await retryOnceOnUncertain(sendAndRecord);
-  return "accepted" as const;
+  await Promise.all([
+    prisma.invitation.updateMany({ where: { expiresAt: { lte: now }, deliveryPayloadCiphertext: { not: null } }, data: clearPayload }),
+    prisma.accountRecovery.updateMany({ where: { expiresAt: { lte: now }, deliveryPayloadCiphertext: { not: null } }, data: clearPayload }),
+  ]);
 }
 
-export async function sendAccountRecoveryEmail(input: { email: string; locale: string; token: string; recoveryId: string }) {
-  if (!emailConfigured()) return "not_configured" as const;
-  const french = input.locale === "fr-CA";
-  const link = appUrl(`/${french ? "fr-CA" : "en-CA"}/auth/recover/${encodeURIComponent(input.token)}`);
-  const subject = french ? "Récupérer votre accès Aequitas" : "Recover your Aequitas access";
-  const text = french
-    ? `Une demande de récupération de votre accès Aequitas a été reçue. Pour créer une nouvelle clé d’accès, ouvrez ce lien à usage unique dans les ${RECOVERY_TTL_MINUTES} prochaines minutes :\n\n${link}\n\nSi vous n’avez pas demandé cette récupération, ignorez ce message. Votre clé d’accès actuelle reste valide tant que la récupération n’est pas terminée.`
-    : `A request to recover your Aequitas access was received. To create a new passkey, open this single-use link within ${RECOVERY_TTL_MINUTES} minutes:\n\n${link}\n\nIf you did not request this, ignore this message. Your current passkey remains valid until recovery is completed.`;
-  const idempotencyKey = `recovery/${input.recoveryId}`;
-  const sendAndRecord = async () => {
-    await sendEmail(input.email, subject, text, idempotencyKey);
-    try { await prisma.accountRecovery.update({ where: { id: input.recoveryId }, data: { emailedAt: new Date() } }); }
-    catch {
-      console.error("Recovery email accepted; delivery timestamp could not be persisted.");
-      throw new EmailDeliveryError("uncertain");
-    }
+async function claimInvitationEmail(id: string) {
+  const now = new Date();
+  return prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "Invitation" WHERE id = ${id} FOR UPDATE`;
+    const row = await tx.invitation.findUnique({ where: { id } });
+    if (!row || row.emailedAt || row.revokedAt || row.claimedAt || row.expiresAt <= now
+      || !row.deliveryPayloadCiphertext || !row.deliveryPayloadNonce || !row.deliveryPayloadTag
+      || row.deliveryAttempts >= MAX_DELIVERY_ATTEMPTS
+      || (row.deliveryLastAttemptAt && now.getTime() - row.deliveryLastAttemptAt.getTime() < TOKEN_EMAIL_RETRY_DELAY_MS)
+      || (row.deliveryLeaseUntil && row.deliveryLeaseUntil > now)) return null;
+    await tx.invitation.update({ where: { id }, data: {
+      deliveryAttempts: { increment: 1 },
+      deliveryLastAttemptAt: now,
+      deliveryLeaseUntil: new Date(now.getTime() + TOKEN_EMAIL_LEASE_MS),
+    } });
+    return {
+      ciphertext: row.deliveryPayloadCiphertext,
+      nonce: row.deliveryPayloadNonce,
+      tag: row.deliveryPayloadTag,
+    };
+  });
+}
+
+async function claimRecoveryEmail(id: string) {
+  const now = new Date();
+  return prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "AccountRecovery" WHERE id = ${id} FOR UPDATE`;
+    const row = await tx.accountRecovery.findUnique({ where: { id } });
+    if (!row || row.emailedAt || row.revokedAt || row.usedAt || row.expiresAt <= now
+      || !row.deliveryPayloadCiphertext || !row.deliveryPayloadNonce || !row.deliveryPayloadTag
+      || row.deliveryAttempts >= MAX_DELIVERY_ATTEMPTS
+      || (row.deliveryLastAttemptAt && now.getTime() - row.deliveryLastAttemptAt.getTime() < TOKEN_EMAIL_RETRY_DELAY_MS)
+      || (row.deliveryLeaseUntil && row.deliveryLeaseUntil > now)) return null;
+    await tx.accountRecovery.update({ where: { id }, data: {
+      deliveryAttempts: { increment: 1 },
+      deliveryLastAttemptAt: now,
+      deliveryLeaseUntil: new Date(now.getTime() + TOKEN_EMAIL_LEASE_MS),
+    } });
+    return {
+      ciphertext: row.deliveryPayloadCiphertext,
+      nonce: row.deliveryPayloadNonce,
+      tag: row.deliveryPayloadTag,
+    };
+  });
+}
+
+async function deliverTokenEmail(kind: TokenEmailKind, id: string): Promise<TokenEmailStatus> {
+  if (!emailConfigured()) return "not_configured";
+  const claim = kind === "invitation" ? await claimInvitationEmail(id) : await claimRecoveryEmail(id);
+  if (!claim) return "not_queued";
+
+  const clearPayload = {
+    deliveryPayloadCiphertext: null,
+    deliveryPayloadNonce: null,
+    deliveryPayloadTag: null,
+    deliveryLeaseUntil: null,
   };
-  await retryOnceOnUncertain(sendAndRecord);
-  return "accepted" as const;
+  const payloadUpdate = kind === "invitation"
+    ? (data: Record<string, unknown>) => prisma.invitation.updateMany({ where: { id, emailedAt: null }, data })
+    : (data: Record<string, unknown>) => prisma.accountRecovery.updateMany({ where: { id, emailedAt: null }, data });
+
+  try {
+    const payload = decryptEmailPayload({ kind, id, ciphertext: claim.ciphertext, nonce: claim.nonce, tag: claim.tag });
+    const sendAndRecord = async () => {
+      await sendEmail(payload, `${kind}/${id}`);
+      try {
+        const changed = await payloadUpdate({ emailedAt: new Date(), ...clearPayload });
+        if (changed.count !== 1) throw new Error("Email record changed before acceptance could be stored.");
+      } catch {
+        console.error("Email provider acceptance could not be persisted; retained for retry.");
+        throw new EmailDeliveryError("uncertain");
+      }
+    };
+    await retryOnceOnUncertain(sendAndRecord);
+    return "accepted";
+  } catch (error) {
+    const rejected = error instanceof EmailDeliveryError && error.certainty === "rejected";
+    const permanentFailure = rejected || !(error instanceof EmailDeliveryError);
+    const data = permanentFailure
+      ? {
+          deliveryAttempts: MAX_DELIVERY_ATTEMPTS,
+          ...clearPayload,
+          ...(kind === "recovery" ? { revokedAt: new Date() } : {}),
+        }
+      : { deliveryLeaseUntil: null };
+    try { await payloadUpdate(data); }
+    catch { console.error("Token email retry state could not be recorded."); }
+    if (permanentFailure) return "rejected";
+    return "pending";
+  }
+}
+
+export async function sendInvitationEmail(input: { invitationId: string }): Promise<TokenEmailStatus> {
+  return deliverTokenEmail("invitation", input.invitationId);
+}
+
+export async function sendAccountRecoveryEmail(input: { recoveryId: string }): Promise<TokenEmailStatus> {
+  return deliverTokenEmail("recovery", input.recoveryId);
+}
+
+/** Retries encrypted, single-use invitation and recovery messages from their records. */
+export async function deliverPendingTokenEmails(limit = 20) {
+  const now = new Date();
+  await clearExpiredTokenEmailPayloads(now);
+  if (!emailConfigured()) return { accepted: 0, pending: false };
+  const [invitations, recoveries] = await Promise.all([
+    prisma.invitation.findMany({
+      where: {
+        emailedAt: null, revokedAt: null, claimedAt: null, expiresAt: { gt: now },
+        deliveryAttempts: { lt: MAX_DELIVERY_ATTEMPTS }, deliveryPayloadCiphertext: { not: null },
+        AND: [
+          { OR: [{ deliveryLeaseUntil: null }, { deliveryLeaseUntil: { lte: now } }] },
+          { OR: [{ deliveryLastAttemptAt: null }, { deliveryLastAttemptAt: { lte: new Date(now.getTime() - TOKEN_EMAIL_RETRY_DELAY_MS) } }] },
+        ],
+      },
+      select: { id: true }, orderBy: [{ deliveryLastAttemptAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }], take: limit,
+    }),
+    prisma.accountRecovery.findMany({
+      where: {
+        emailedAt: null, revokedAt: null, usedAt: null, expiresAt: { gt: now },
+        deliveryAttempts: { lt: MAX_DELIVERY_ATTEMPTS }, deliveryPayloadCiphertext: { not: null },
+        AND: [
+          { OR: [{ deliveryLeaseUntil: null }, { deliveryLeaseUntil: { lte: now } }] },
+          { OR: [{ deliveryLastAttemptAt: null }, { deliveryLastAttemptAt: { lte: new Date(now.getTime() - TOKEN_EMAIL_RETRY_DELAY_MS) } }] },
+        ],
+      },
+      select: { id: true }, orderBy: [{ deliveryLastAttemptAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }], take: limit,
+    }),
+  ]);
+  let accepted = 0;
+  let pending = false;
+  for (const invitation of invitations) {
+    const status = await deliverTokenEmail("invitation", invitation.id);
+    if (status === "accepted") accepted += 1;
+    else if (status === "pending") pending = true;
+  }
+  for (const recovery of recoveries) {
+    const status = await deliverTokenEmail("recovery", recovery.id);
+    if (status === "accepted") accepted += 1;
+    else if (status === "pending") pending = true;
+  }
+  return { accepted, pending: pending || invitations.length === limit || recoveries.length === limit };
 }
 
 /**
@@ -215,7 +336,13 @@ export async function deliverPendingNotifications(caseId?: string) {
         referenceNumber: notification.case?.referenceNumber,
         category: notification.case?.category,
       });
-      await sendEmail(notification.user.email, copy.subject, copy.text, `notification/${notification.id}`);
+      await sendEmail({
+        from: process.env.EMAIL_FROM!.trim(),
+        reply_to: replyToAddress(),
+        to: [notification.user.email],
+        subject: copy.subject,
+        text: copy.text,
+      }, `notification/${notification.id}`);
       await prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date(), attempts: { increment: 1 }, lastAttemptAt: new Date() } });
       accepted++;
     } catch {
@@ -230,9 +357,19 @@ export async function deliverPendingNotifications(caseId?: string) {
 
 /** Counts only, for operators: no addresses or case content. */
 export async function notificationBacklog() {
-  const [retrying, exhausted] = await Promise.all([
+  const now = new Date();
+  const [retrying, exhausted, invitationRetrying, recoveryRetrying, invitationExhausted, recoveryExhausted] = await Promise.all([
     prisma.notification.count({ where: { sentAt: null, attempts: { lt: MAX_DELIVERY_ATTEMPTS } } }),
     prisma.notification.count({ where: { sentAt: null, attempts: { gte: MAX_DELIVERY_ATTEMPTS } } }),
+    prisma.invitation.count({ where: { emailedAt: null, revokedAt: null, claimedAt: null, expiresAt: { gt: now }, deliveryAttempts: { lt: MAX_DELIVERY_ATTEMPTS }, deliveryPayloadCiphertext: { not: null } } }),
+    prisma.accountRecovery.count({ where: { emailedAt: null, revokedAt: null, usedAt: null, expiresAt: { gt: now }, deliveryAttempts: { lt: MAX_DELIVERY_ATTEMPTS }, deliveryPayloadCiphertext: { not: null } } }),
+    prisma.invitation.count({ where: { emailedAt: null, revokedAt: null, claimedAt: null, expiresAt: { gt: now }, deliveryAttempts: { gte: MAX_DELIVERY_ATTEMPTS } } }),
+    prisma.accountRecovery.count({ where: { emailedAt: null, revokedAt: null, usedAt: null, expiresAt: { gt: now }, deliveryAttempts: { gte: MAX_DELIVERY_ATTEMPTS } } }),
   ]);
-  return { retrying, exhausted };
+  return {
+    retrying,
+    exhausted,
+    tokenEmailRetrying: invitationRetrying + recoveryRetrying,
+    tokenEmailExhausted: invitationExhausted + recoveryExhausted,
+  };
 }

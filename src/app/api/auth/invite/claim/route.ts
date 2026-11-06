@@ -102,7 +102,13 @@ export async function POST(request: Request) {
             transports: credential.transports ?? [],
           },
         });
-        await tx.invitation.update({ where: { id: invitation.id }, data: { claimedAt: new Date() } });
+        await tx.invitation.update({ where: { id: invitation.id }, data: {
+          claimedAt: new Date(),
+          deliveryPayloadCiphertext: null,
+          deliveryPayloadNonce: null,
+          deliveryPayloadTag: null,
+          deliveryLeaseUntil: null,
+        } });
         return tx.user.findUniqueOrThrow({ where: { id: userId } });
       });
     } catch (error) {

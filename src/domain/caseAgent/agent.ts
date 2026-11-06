@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { GlobalRole, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
 import { deliverPendingNotifications } from "../../lib/mail";
@@ -17,7 +17,8 @@ import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
 import { processingConsentMatches } from "./processingConsent";
-import { CASE_AGENT_POSITIONS_REQUESTED_KIND, EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../lib/mail";
+import { CASE_AGENT_POSITIONS_REQUESTED_KIND, MAX_DELIVERY_ATTEMPTS, emailConfigured, sendInvitationEmail } from "../../lib/mail";
+import { encryptEmailPayload, invitationEmailPayload } from "../../lib/emailPayload";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
 
@@ -707,11 +708,15 @@ async function intakeStep(
   if (row.respondent._count.credentials === 0) {
     const latest = await prisma.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, orderBy: { createdAt: "desc" } });
     if (latest) {
-      // Provider acceptance can succeed while saving emailedAt fails. Keep
-      // that token valid and hand the uncertain delivery state to a person;
-      // creating another invitation could revoke a link already in the inbox.
-      if (!latest.emailedAt) return escalate("invitation_failed");
-      return now.getTime() - latest.emailedAt!.getTime() > program.responseDays * DAY_MS ? escalate("respondent_no_response") : { status: "waiting", reason: "respondent_invited" };
+      if (!latest.emailedAt) {
+        const retryable = Boolean(latest.deliveryPayloadCiphertext)
+          && latest.deliveryAttempts < MAX_DELIVERY_ATTEMPTS
+          && latest.expiresAt > now;
+        return retryable
+          ? { status: "waiting", reason: "respondent_invitation_pending" }
+          : escalate("invitation_failed");
+      }
+      return now.getTime() - latest.emailedAt.getTime() > program.responseDays * DAY_MS ? escalate("respondent_no_response") : { status: "waiting", reason: "respondent_invited" };
     }
     return inviteRespondent(caseId, agentId, program, escalate);
   }
@@ -778,19 +783,39 @@ async function inviteRespondent(caseId: string, agentId: string, program: CaseAg
     const active = await tx.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null } });
     if (active) return null;
     const { token, expiresAt } = issueInviteToken(row.respondentId, program.responseDays * DAY_MS / 1000);
-    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: { revokedAt: new Date() } });
-    const invitation = await tx.invitation.create({ data: { userId: row.respondentId, tokenHash: invitationTokenHash(token), issuedById: agentId, locale: row.respondent.locale, expiresAt } });
+    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: {
+      revokedAt: new Date(),
+      deliveryPayloadCiphertext: null,
+      deliveryPayloadNonce: null,
+      deliveryPayloadTag: null,
+      deliveryLeaseUntil: null,
+    } });
+    const invitationId = randomUUID();
+    const delivery = encryptEmailPayload("invitation", invitationId, invitationEmailPayload({
+      email: row.respondent.email,
+      locale: row.respondent.locale,
+      claimPath: invitePath(row.respondent.locale, token),
+      validForDays: program.responseDays,
+    }));
+    const invitation = await tx.invitation.create({ data: {
+      id: invitationId,
+      userId: row.respondentId,
+      tokenHash: invitationTokenHash(token),
+      issuedById: agentId,
+      locale: row.respondent.locale,
+      expiresAt,
+      ...delivery,
+    } });
     await appendEvent(tx, { caseId, type: "PARTY_NOTIFIED", actorId: agentId, payload: { kind: "respondent_invitation", invitationId: invitation.id } });
-    return { email: row.respondent.email, locale: row.respondent.locale, token, invitationId: invitation.id };
+    return { invitationId: invitation.id };
   });
   if (!prepared) return { status: "waiting", reason: "respondent_invited" };
   try {
-    const delivery = await sendInvitationEmail({ email: prepared.email, locale: prepared.locale, claimPath: invitePath(prepared.locale, prepared.token), invitationId: prepared.invitationId, validForDays: program.responseDays });
-    if (delivery !== "accepted") throw new Error("not accepted");
-  } catch (error) {
-    if (!(error instanceof EmailDeliveryError) || error.certainty === "rejected") {
-      await revokeInvitation(prepared.invitationId).catch(() => {});
-    }
+    const result = await sendInvitationEmail({ invitationId: prepared.invitationId });
+    if (result === "pending" || result === "not_queued") return { status: "waiting", reason: "respondent_invitation_pending" };
+    if (result === "rejected") await revokeInvitation(prepared.invitationId).catch(() => false);
+    if (result !== "accepted") return escalate("invitation_failed");
+  } catch {
     return escalate("invitation_failed");
   }
   return { status: "respondent_invited" };
