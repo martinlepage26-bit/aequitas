@@ -50,6 +50,7 @@ let secondManagerId: string;
 let approverId: string;
 let statementVersionId: string;
 const sentTo: string[] = [];
+let providerRequests: Array<{ idempotencyKey: string | null; body: string }> = [];
 
 beforeAll(async () => {
   storageDir = mkdtempSync(path.join(tmpdir(), "aeq-routine-"));
@@ -75,12 +76,22 @@ afterAll(async () => {
 });
 
 function stubEmail(fail = false) {
+  const acceptedByIdempotencyKey = new Map<string, string>();
+  providerRequests = [];
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+    const body = String(init.body);
+    const idempotencyKey = new Headers(init.headers).get("Idempotency-Key");
+    providerRequests.push({ idempotencyKey, body });
     if (fail) return new Response("{}", { status: 500 });
-    const mail = JSON.parse(String(init.body)) as { to: string[]; subject: string };
+    if (idempotencyKey && acceptedByIdempotencyKey.has(idempotencyKey)) {
+      return new Response(JSON.stringify({ id: acceptedByIdempotencyKey.get(idempotencyKey) }), { status: 200 });
+    }
+    const mail = JSON.parse(body) as { to: string[]; subject: string };
     // Count invitations only; ordinary outbox notifications also flow through here.
     if (/invitation/i.test(mail.subject)) sentTo.push(mail.to[0]);
-    return new Response(JSON.stringify({ id: randomUUID() }), { status: 200 });
+    const id = randomUUID();
+    if (idempotencyKey) acceptedByIdempotencyKey.set(idempotencyKey, id);
+    return new Response(JSON.stringify({ id }), { status: 200 });
   }));
 }
 
@@ -322,7 +333,7 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     expect(invitation).toMatchObject({ emailedAt: null, revokedAt: null });
   });
 
-  it("preserves an active invite if email acceptance is recorded but its timestamp write fails", async () => {
+  it("recovers a transient emailedAt write failure without sending a duplicate invitation", async () => {
     const r = await submittedCase();
     sentTo.length = 0;
     stubEmail();
@@ -335,10 +346,15 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     }
 
     const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
-    expect(invitation.emailedAt).toBeNull();
-    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
-    const afterHandoff = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
-    expect(afterHandoff).toMatchObject({ tokenHash: invitation.tokenHash, emailedAt: null, revokedAt: null });
+    expect(invitation.emailedAt).toBeInstanceOf(Date);
+    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "waiting", reason: "respondent_invited" });
+    const afterRetry = await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
+    expect(afterRetry).toMatchObject({ tokenHash: invitation.tokenHash, revokedAt: null });
+    expect(afterRetry.emailedAt).toEqual(invitation.emailedAt);
+    const invitationRequests = providerRequests.filter((request) => request.idempotencyKey?.startsWith("invitation/"));
+    expect(invitationRequests).toHaveLength(2);
+    expect(invitationRequests[1].idempotencyKey).toBe(invitationRequests[0].idempotencyKey);
+    expect(invitationRequests[1].body).toBe(invitationRequests[0].body);
     expect(sentTo).toEqual([r.respondentEmail]);
   });
 
