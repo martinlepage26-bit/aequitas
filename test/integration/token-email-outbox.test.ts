@@ -12,13 +12,13 @@ const createdUserIds: string[] = [];
 
 beforeAll(async () => {
   Object.assign(process.env, {
+    SESSION_SECRET: "synthetic-session-secret-for-outbox-fixture-creation",
     AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: "synthetic-email-outbox-key-for-encrypted-outbox-tests",
     RESEND_API_KEY: "test-not-a-key",
     EMAIL_FROM: "noreply@example.org",
     EMAIL_REPLY_TO: "reply@example.org",
     APP_URL: "https://aequitas.example",
   });
-  delete process.env.SESSION_SECRET; // Match the least-privilege scheduled worker environment.
   const [invitationUser, recoveryUser] = await Promise.all([
     prisma.user.create({ data: { email: `outbox-invite-${randomUUID()}@example.org`, displayName: "Invite synthetic", globalRole: "RESPONDENT" } }),
     prisma.user.create({ data: { email: `outbox-recovery-${randomUUID()}@example.org`, displayName: "Recovery synthetic", globalRole: "CASE_MANAGER" } }),
@@ -59,7 +59,14 @@ describe("encrypted invitation and recovery delivery outbox", () => {
       requests.push(String(init.body));
       return Response.json({ id: "synthetic-resend-accepted" });
     }));
-    expect(await deliverPendingTokenEmails()).toEqual({ accepted: 1, pending: false });
+    const sessionSecret = process.env.SESSION_SECRET;
+    delete process.env.SESSION_SECRET; // Match the least-privilege scheduled worker environment.
+    try {
+      expect(await deliverPendingTokenEmails()).toEqual({ accepted: 1, pending: false });
+    } finally {
+      if (sessionSecret === undefined) delete process.env.SESSION_SECRET;
+      else process.env.SESSION_SECRET = sessionSecret;
+    }
     expect(requests[2]).toBe(requests[0]);
     const delivered = await prisma.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
     expect(delivered.emailedAt).toBeInstanceOf(Date);
