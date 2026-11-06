@@ -23,6 +23,7 @@
     "agent:provision": "tsx scripts/provision-case-agent.ts",
     "agent:run": "tsx scripts/run-case-agent.ts",
     "agent:status": "tsx scripts/status-case-agent.ts",
+    "agent:metrics": "tsx scripts/report-case-agent-metrics.ts",
     "ops:scheduler": "tsx scripts/scheduled-ops.ts",
     "agent:evaluate": "tsx scripts/evaluate-case-agent.ts"
   },

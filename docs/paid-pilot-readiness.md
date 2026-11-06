@@ -79,6 +79,8 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 
 Median elapsed time from `EVIDENCE_INTAKE_OPENED` to `RECOMMENDATION_ISSUED`, read from the event log, against the program's own pre-pilot figure for comparable files. The program supplies the baseline. No target is set here.
 
+After an approved pilot has non-simulated agent-managed cases, an operator can produce this aggregate with `npm run agent:metrics -- --from=YYYY-MM-DD --to=YYYY-MM-DD`. Dates are UTC calendar days; `--to` is exclusive. The report includes the number of cases entering intake, the number issued within the window, cases still awaiting issue, median and 90th-percentile hours. It omits case identifiers, party data and evidence, and excludes synthetic cases. Small counts remain descriptive; the command does not establish causation or compare against a baseline automatically.
+
 ## What works end to end (synthetic data, disposable database)
 
 The manual journey is covered: submission → scanned evidence → positions → case manager writes a cited recommendation without AI → issuance → per-party outcomes → independent approver sign-off → version-bound party consent → export and closure. The autonomous routine path is also covered with synthetic data and a stub model: agent intake → respondent invitation → both parties' evidence and positions → exact evidence citations and fixed remedy wording → both consents → export and closure. Neither journey proves live-model quality or readiness for real cases. See `test/integration/authored-draft.test.ts`, `test/integration/case-agent-routine.test.ts`, and the corresponding browser tests.
