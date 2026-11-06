@@ -239,3 +239,10 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Required deployment setting.** `AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY` has no default and must be a positive PostgreSQL integer before the agent is enabled.
 - **Enforcement.** Each outbound proposal-model attempt atomically reserves one shared daily slot in PostgreSQL. Provider failures count. At the ceiling, proposal-stage cases are handed to the case-manager queue; if the aggregate counter cannot be read or written, no provider call is made.
 - **Boundary.** The counter resets at 00:00 UTC and contains no case or party data. It limits call volume, not billed dollars; the operator must also set provider-side spend controls.
+
+## Token-email outbox key separation (2026-11-06)
+
+- **Decision.** Encrypt queued invitation and recovery payloads with a dedicated `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY`, HKDF-derived for AES-256-GCM and authenticated to message kind and record ID. Do not derive this key from `SESSION_SECRET`.
+- **Reason.** The scheduled worker must decrypt pending token-email payloads but should not receive the web session-signing or WebAuthn secrets. The CT920 scheduled Compose service forwards only the dedicated outbox key.
+- **Operations.** Set the same distinct random value of at least 32 bytes in the web and scheduled-worker environments. Keep it stable while encrypted messages remain queued; changing it makes those payloads undecryptable. Existing sessions are unaffected by outbox-key rotation.
+- **Verification.** Unit tests cover key separation and Compose forwarding; the database-backed outbox integration test delivers a queued message with `SESSION_SECRET` absent.

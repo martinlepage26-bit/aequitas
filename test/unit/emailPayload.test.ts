@@ -8,14 +8,15 @@ import {
 
 afterEach(() => vi.unstubAllEnvs());
 function configure() {
-  vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-with-more-than-32-bytes");
+  vi.stubEnv("SESSION_SECRET", "");
+  vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "synthetic-email-outbox-key-with-more-than-32-bytes");
   vi.stubEnv("EMAIL_FROM", "noreply@example.org");
   vi.stubEnv("EMAIL_REPLY_TO", "reply@example.org");
   vi.stubEnv("APP_URL", "https://aequitas.example");
 }
 
 describe("encrypted token email payloads", () => {
-  it("encrypts the complete request and binds it to the invitation record", () => {
+  it("encrypts the complete request with a dedicated key and binds it to the invitation record", () => {
     configure();
     const token = "synthetic-single-use-token-value";
     const email = "private-recipient@example.org";
@@ -45,7 +46,7 @@ describe("encrypted token email payloads", () => {
     const tampered = Buffer.from(encrypted.deliveryPayloadCiphertext);
     tampered[0] = tampered[0] ^ 0x01;
     expect(() => decryptEmailPayload({ kind: "recovery", id: "recovery-id", ciphertext: tampered, nonce: encrypted.deliveryPayloadNonce, tag: encrypted.deliveryPayloadTag })).toThrow();
-    vi.stubEnv("SESSION_SECRET", "too-short");
+    vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "too-short");
     expect(() => encryptEmailPayload("recovery", "recovery-id-2", recoveryEmailPayload({ email: "private@example.org", locale: "en-CA", token: "token" }))).toThrow("Email delivery encryption is not configured.");
   });
 

@@ -20,7 +20,7 @@ function configure() {
   vi.stubEnv("EMAIL_FROM", "aequitas@pharos-ai.ca");
   vi.stubEnv("EMAIL_REPLY_TO", "aequitas@pharos-ai.ca");
   vi.stubEnv("APP_URL", "https://aequitas.example");
-  vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-for-mail-unit-tests");
+  vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "synthetic-email-outbox-key-for-mail-unit-tests");
 }
 
 describe("Resend notification delivery", () => {
@@ -33,9 +33,9 @@ describe("Resend notification delivery", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("requires the outbox encryption key before reporting email delivery as configured", () => {
+  it("requires an independent outbox encryption key before reporting email delivery as configured", () => {
     configure();
-    vi.stubEnv("SESSION_SECRET", "too-short");
+    vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "too-short");
     expect(emailConfigured()).toBe(false);
   });
 

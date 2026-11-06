@@ -68,6 +68,7 @@ beforeEach(() => {
   vi.stubEnv("EMAIL_REPLY_TO", "aequitas@example.org");
   vi.stubEnv("APP_URL", "https://aequitas.example");
   vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-for-respondent-route-tests");
+  vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "synthetic-email-outbox-key-for-respondent-route-tests");
 });
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });

@@ -12,12 +12,13 @@ const createdUserIds: string[] = [];
 
 beforeAll(async () => {
   Object.assign(process.env, {
-    SESSION_SECRET: "synthetic-session-secret-for-encrypted-outbox-tests",
+    AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: "synthetic-email-outbox-key-for-encrypted-outbox-tests",
     RESEND_API_KEY: "test-not-a-key",
     EMAIL_FROM: "noreply@example.org",
     EMAIL_REPLY_TO: "reply@example.org",
     APP_URL: "https://aequitas.example",
   });
+  delete process.env.SESSION_SECRET; // Match the least-privilege scheduled worker environment.
   const [invitationUser, recoveryUser] = await Promise.all([
     prisma.user.create({ data: { email: `outbox-invite-${randomUUID()}@example.org`, displayName: "Invite synthetic", globalRole: "RESPONDENT" } }),
     prisma.user.create({ data: { email: `outbox-recovery-${randomUUID()}@example.org`, displayName: "Recovery synthetic", globalRole: "CASE_MANAGER" } }),
@@ -35,7 +36,7 @@ afterAll(async () => {
 });
 
 describe("encrypted invitation and recovery delivery outbox", () => {
-  it("retries the same encrypted invitation after an uncertain provider response", async () => {
+  it("retries the same encrypted invitation from the worker without session credentials", async () => {
     const issued = await issueStoredInvite(invitationUserId, "en-CA", undefined, true);
     const initial = await prisma.invitation.findUniqueOrThrow({ where: { id: issued.invitation.id } });
     const recipient = await prisma.user.findUniqueOrThrow({ where: { id: invitationUserId } });

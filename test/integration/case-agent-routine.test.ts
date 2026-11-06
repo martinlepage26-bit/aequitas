@@ -61,7 +61,7 @@ let providerRequests: Array<{ idempotencyKey: string | null; body: string }> = [
 
 beforeAll(async () => {
   storageDir = mkdtempSync(path.join(tmpdir(), "aeq-routine-"));
-  Object.assign(process.env, { SESSION_SECRET: "synthetic-case-agent-test-signing-secret", STORAGE_LOCAL_DIR: storageDir, RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: "http://localhost:3000" });
+  Object.assign(process.env, { SESSION_SECRET: "synthetic-case-agent-test-signing-secret", AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: "synthetic-email-outbox-key-for-case-agent-tests", STORAGE_LOCAL_DIR: storageDir, RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: "http://localhost:3000" });
   agentId = (await prisma.user.findFirst({ where: { globalRole: "CASE_AGENT" } }))?.id
     ?? (await prisma.user.create({ data: { email: `case-agent-${randomUUID()}@aequitas.invalid`, displayName: "Automated assistant", globalRole: "CASE_AGENT" } })).id;
   const manager = async (label: string, isApprover = false) => {

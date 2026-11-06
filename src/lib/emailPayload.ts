@@ -25,7 +25,7 @@ const payloadSchema = z.object({
 }).strict();
 
 function encryptionKey(): Buffer {
-  const secret = process.env.SESSION_SECRET;
+  const secret = process.env.AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY;
   if (!secret || Buffer.byteLength(secret, "utf8") < 32) throw new Error("Email delivery encryption is not configured.");
   return Buffer.from(hkdfSync(
     "sha256",

@@ -17,10 +17,10 @@ function replyToAddress() {
 }
 
 export function emailConfigured() {
-  const secret = process.env.SESSION_SECRET;
+  const encryptionKey = process.env.AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY;
   const baseUrl = process.env.APP_URL?.trim();
   if (!process.env.RESEND_API_KEY?.trim() || !process.env.EMAIL_FROM?.trim() || !replyToAddress()
-    || !baseUrl || !secret || Buffer.byteLength(secret, "utf8") < 32) return false;
+    || !baseUrl || !encryptionKey || Buffer.byteLength(encryptionKey, "utf8") < 32) return false;
   try {
     const url = new URL(baseUrl);
     return process.env.NODE_ENV !== "production" || url.protocol === "https:";

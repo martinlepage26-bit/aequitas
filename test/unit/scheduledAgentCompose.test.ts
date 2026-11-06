@@ -25,6 +25,7 @@ describe("CT920 scheduled case-agent configuration", () => {
   it("forwards program, provider, and approval settings while leaving the agent off by default", () => {
     const environment = scheduledServiceEnvironment();
     const required = [
+      "AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY",
       "AEQUITAS_CASE_AGENT_ENABLED",
       "AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS",
       "AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY",
@@ -56,5 +57,7 @@ describe("CT920 scheduled case-agent configuration", () => {
       expect(environment.get(name), `${name} must be forwarded from the deployment environment`)
         .toBe("${" + name + ":-" + defaultValue + "}");
     }
+    expect(environment.has("SESSION_SECRET")).toBe(false);
+    expect(environment.has("WEBAUTHN_RP_ID")).toBe(false);
   });
 });

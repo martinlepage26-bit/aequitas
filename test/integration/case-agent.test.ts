@@ -78,6 +78,7 @@ const mk = (label: string, globalRole: GlobalRole, extra: { isApprover?: boolean
 
 beforeAll(async () => {
   vi.stubEnv("SESSION_SECRET", "synthetic-case-agent-test-signing-secret");
+  vi.stubEnv("AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY", "synthetic-email-outbox-key-for-case-agent-tests");
   vi.stubEnv("RESEND_API_KEY", "test-not-a-key");
   vi.stubEnv("EMAIL_FROM", "noreply@example.org");
   vi.stubEnv("EMAIL_REPLY_TO", "noreply@example.org");

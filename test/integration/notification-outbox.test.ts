@@ -15,7 +15,7 @@ let failingUser: string;
 let workingUser: string;
 
 beforeAll(async () => {
-  Object.assign(process.env, { RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: "http://localhost:3000" });
+  Object.assign(process.env, { AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY: "synthetic-email-outbox-key-for-notification-outbox-tests", RESEND_API_KEY: "test-not-a-key", EMAIL_FROM: "noreply@example.org", EMAIL_REPLY_TO: "noreply@example.org", APP_URL: "http://localhost:3000" });
   const mk = async (label: string) => {
     const user = await prisma.user.create({ data: { email: `outbox-${label}-${randomUUID()}@example.org`, displayName: label, globalRole: "COMPLAINANT" } });
     await prisma.webAuthnCredential.create({ data: { userId: user.id, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });

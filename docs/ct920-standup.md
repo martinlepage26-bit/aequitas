@@ -26,7 +26,7 @@ Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-a
 
 ## Config and secrets
 `src/deploy/ct920/.env` (chmod 600, owner martin, gitignored by `.env*`):
-- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
+- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`, and a distinct stable `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` of at least 32 bytes. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
 - **Copied from Railway as-is:** `GEMINI_*`, `ANTHROPIC_*`, `AEQUITAS_PIPELINE_ENABLED=true`, `AEQUITAS_PIPELINE_PROVIDER=gemini` (the same flag state as Railway), `AEQUITAS_OCR_LANGUAGES`, locales, `EMAIL_FROM`/`REPLY_TO`, `HASH_CHAIN_GENESIS`, `IP_HASH_SALT`. The last two have to match Railway, otherwise the hash chain and IP hashes won't verify.
 - **`RESEND_API_KEY`** was copied privately at cutover and is present in the running CT920 app. Do not print or commit it.
 - **WebAuthn and APP_URL** use `https://aequitas.app.pharos-ai.ca`. **Decision AQ-D4:** passkeys registered on `aequitas-production-5a0c.up.railway.app` cannot authenticate at the new RP ID. Verify each existing user's identity before using `scripts/reissue-passkey-for-move.ts` to issue a new invitation.
@@ -47,7 +47,7 @@ curl -s 127.0.0.1:18310/api/health   # {"status":"ok","release":"<sha>"}
 ```
 From the Mac: `ssh -L 18310:127.0.0.1:18310 mtl-00`, then open http://127.0.0.1:18310/fr-CA/auth/sign-in. Passkeys won't work on that origin, so this is for smoke tests only.
 
-The scheduled container receives only its database, event-chain, storage, mail and model settings; it does not receive session or WebAuthn secrets. `deploy.sh` refreshes the scheduler image after later deployments if the opt-in scheduler container already exists. Mail accepts `EMAIL_REPLY_TO`; `REPLY_TO` remains a compatibility alias for the older deployment configuration.
+The scheduled container receives only its database, event-chain, storage, mail and model settings. It receives the dedicated `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` needed to decrypt queued token-email payloads; it does not receive `SESSION_SECRET` or WebAuthn secrets. Keep the outbox key identical in the web app and worker, and do not rotate it while messages are queued. `deploy.sh` refreshes the scheduler image after later deployments if the opt-in scheduler container already exists. Mail accepts `EMAIL_REPLY_TO`; `REPLY_TO` remains a compatibility alias for the older deployment configuration.
 
 ## Health release
 `/api/health` reports `RAILWAY_GIT_COMMIT_SHA ?? RELEASE_SHA ?? RELEASE_COMMIT`. Railway behaviour is unchanged.
