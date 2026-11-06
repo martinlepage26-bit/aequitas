@@ -83,6 +83,22 @@ jobs:
       - run: npm run test
       - run: npm run build
 
+      # The production Docker image is the CT920 deployment artifact; a host
+      # npm build alone does not prove its PDF/OCR tools or scheduler entry
+      # point are present. Build the real image and verify those runtime bits.
+      - name: Build and verify production runtime image
+        run: |
+          docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
+          docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
+            for binary in pdftotext pdfimages pdftoppm tesseract; do
+              command -v "$binary"
+            done
+            tesseract --list-langs 2>/dev/null | grep -Fx eng
+            tesseract --list-langs 2>/dev/null | grep -Fx fra
+            test -f /app/scripts/scheduled-ops.ts
+            test -f /app/node_modules/tsx/dist/cli.mjs
+          '
+
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
       # M2's own "Done when" criterion (Section 19): "M2 E2E segment passes
