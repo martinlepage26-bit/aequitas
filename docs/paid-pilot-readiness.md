@@ -60,9 +60,9 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 ## Proposed pilot offer
 
 - One program, one isolated deployment, `RETAIL`, two-party cases, fr-CA and en-CA.
-- The agent handles the configured routine path without a case manager. Each party sees fixed bilingual proposal wording, can consent or decline, can ask for a person, and keeps control over their own evidence and outcome. Independent approver sign-off remains required unless the program explicitly enables consent-only resolution after owner and governance approval.
+- The agent handles the configured routine path without a case manager. Before evidence extraction or provider processing, each party must accept the current bilingual notice identifying the provider, account/project, model and prompt version; a missing choice returns the case to staff. Each party then sees fixed bilingual proposal wording, can consent or decline, can ask for a person, and keeps control over their own evidence and outcome. Independent approver sign-off remains required unless the program explicitly enables consent-only resolution after owner and governance approval.
 - Program staff remain available for every exception, request for review, decline, or case outside scope. Human-managed cases retain the separate approver step.
-- The agent remains off until the program rules, provider account and data terms, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
+- The agent remains off until the program rules, provider account and data terms, configured bilingual processing notices, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
 - Price, term and payment: **not set.** No billing is built.
 
 ## Commercial packaging and price logic (internal hypothesis; no price approved)
