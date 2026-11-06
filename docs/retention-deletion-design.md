@@ -2,7 +2,15 @@
 
 **Status:** engineering inventory and proposed target design; not an approved retention policy, legal opinion, privacy assessment, or deletion procedure.
 
-**Inspected:** application code at commit `b370b5a` on 2026-11-06. This review covers the repository only. It did not inspect a deployed database, object store, backup, provider account, email account, or production logs. The live host and its data state remain unverified.
+**Revalidated:** candidate source at commit `c98d5676c1f9b625050dffc4d18bd4f16e12e05c` on 2026-11-06. This review covers the repository only. It did not inspect a deployed database, object store, backup, provider account, email account, or production logs. The live host and its data state remain unverified.
+
+## Current-source recheck
+
+The current Prisma schema still has no case-retention policy, due date, legal-hold field, or purge state. The case data remains distributed across the tables listed below, and account identity is shared across case relations.
+
+The current source confirms that `CASE_DETAILS_UPDATED` stores before-and-after case details including the dispute description, respondent email, respondent name, and party ID in the event payload (`src/domain/caseDetails.ts`). Agent-processing acceptance also stores the exact configured notice in the event payload (`src/domain/caseAgent/agent.ts`). The event hash continues to cover canonical JSON payload and actor ID (`src/domain/events.ts`). Migrations still install append-only triggers for both `Event` and `ChronologyEntry`.
+
+`src/lib/storage.ts` still provides object deletion for rollback, with no retention coordinator or case purge caller. Evidence and export storage keys remain case-derived. These source checks do not establish whether production has separate controls or which copies, backups, and provider records exist.
 
 ## Release position
 
