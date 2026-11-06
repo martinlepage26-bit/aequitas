@@ -284,8 +284,8 @@ describe("routine path with no case-manager action", () => {
       const secondPageText = extractedPdfText.split("\f")[1]?.trim();
       if (!secondPageText) throw new Error("The OCR result did not contain a second PDF page.");
       return proposal(cId, rId, { citations: [
-        { evidence_item_id: complainantEvidence.evidence_item_id, relevance: "Receipt total on page two.", excerpt: secondPageText },
-        { evidence_item_id: respondentEvidence.evidence_item_id, relevance: "Respondent remedy account.", excerpt: "customer offered a repair voucher at the counter" },
+        { citation_id: "C1", evidence_item_id: complainantEvidence.evidence_item_id, relevance: "Receipt total on page two.", excerpt: secondPageText },
+        { citation_id: "C2", evidence_item_id: respondentEvidence.evidence_item_id, relevance: "Respondent remedy account.", excerpt: "customer offered a repair voucher at the counter" },
       ] });
     });
     const result = await runCaseAgent({ caseId: r.caseId, model, env: ENV });
