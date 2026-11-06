@@ -29,8 +29,8 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
               <Link className={styles.primaryAction} href={`/${locale}/auth/sign-in`}>
                 {t("signIn")}<span aria-hidden="true">→</span>
               </Link>
-              <Link className={styles.secondaryAction} href={`/${locale}/cases`}>
-                {t("myCases")}<span aria-hidden="true">↗</span>
+              <Link className={styles.secondaryAction} href={`/${locale}/demo`}>
+                {t("demoLink")}<span aria-hidden="true">↗</span>
               </Link>
             </div>
             {pilotContact && (

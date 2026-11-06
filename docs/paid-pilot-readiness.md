@@ -58,6 +58,8 @@ The manual journey is covered: submission → scanned evidence → positions →
 
 The automated case agent is the proposed routine workflow, but is off by default. Its program settings have no defaults; it needs the owner, operator and counsel decisions in `docs/case-agent-prototype.md` before any real case.
 
+The public `/fr-CA/demo` and `/en-CA/demo` routes provide a static walkthrough built from invented content and the app's fixed proposal template. They do not call a model or use case data, and are not a live product demonstration.
+
 ## Launch gates (policy or manual; not decided in code)
 
 1. **Release and hosting decision.** Confirm the deployed commit and host, and choose the pilot deployment. Merging into `main` may trigger Railway.

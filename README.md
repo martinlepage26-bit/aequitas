@@ -39,6 +39,7 @@ flowchart LR
 | How are AI proposals authorized and recorded? | [Pipeline writes](src/domain/pipeline/writes.ts) |
 | How is account takeover tested? | [HTTP/WebAuthn regression tests](test/integration/auth-takeover.test.ts) |
 | How does the method map to the backend? | [Core backend contract](docs/aequitas-core-backend.md) |
+| What does the routine path look like to a prospective user? | [Static synthetic walkthrough](src/app/[locale]/demo/page.tsx) |
 | Which checks run in CI? | [CI workflow](.github/workflows/ci.yml) |
 
 A useful review follows an eligible case through intake, evidence extraction, positions, a structured proposal, party consent, and a staff handoff when a rule or safety check requires one. Human-led cases remain supported. The agent must not turn a proposal into a binding decision or bypass either party's choice.

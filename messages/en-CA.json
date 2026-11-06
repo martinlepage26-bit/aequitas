@@ -927,7 +927,7 @@
     "tagline": "Each party sees only their own submissions.",
     "lead": "In an opted-in program, Aequitas can handle configured, eligible retail cases from intake through an evidence-cited proposal. Each party controls their submissions and chooses whether to consent; either party can ask for a person, and exceptions go to program staff.",
     "signIn": "Sign in with a passkey",
-    "myCases": "My cases",
+    "demoLink": "Explore a sample case",
     "otherLocale": "Français",
     "skipToContent": "Skip to content",
     "navigationLabel": "Main navigation",
@@ -972,6 +972,46 @@
       "body": "We are seeking one Québec program for a supervised pilot of Aequitas's optional case agent. For configured, eligible retail cases, it manages intake through an evidence-cited, non-binding proposal without case-manager action. Each party controls their submissions, chooses whether to consent, and can ask for a person; exceptions go to staff. The agent is off by default, and live-model quality and production operations have not yet been validated. Aequitas does not give legal advice.",
       "action": "Ask about a pilot"
     }
+  },
+  "caseDemo": {
+    "title": "A routine case, step by step",
+    "metadata": "A static, bilingual walkthrough of a fictional Aequitas retail dispute. No model is called.",
+    "kicker": "Synthetic walkthrough",
+    "intro": "See how a configured routine case could move from intake to an evidence-cited proposal, while each party keeps control of their own submissions and choice.",
+    "signIn": "Sign in with a passkey",
+    "home": "Back to Aequitas",
+    "imageCaption": "A shared record keeps each step traceable.",
+    "sampleNoticeTitle": "This is an illustration",
+    "sampleNoticeBody": "The people, business, evidence and result below are invented. The text is written for this page; no case data was entered and no model was called. Live-model quality and production operations have not been validated.",
+    "caseTitle": "A kettle stops working after purchase",
+    "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
+    "amountLabel": "Amount at stake",
+    "evidenceTitle": "Each side provides its own evidence",
+    "party": {
+      "complainant": "Buyer view",
+      "respondent": "Shop view"
+    },
+    "evidenceLabel": "Sample evidence excerpt",
+    "sample": {
+      "claim": "The kettle stopped working after three uses.",
+      "response": "The shop can replace the item after inspection.",
+      "complainantEvidence": "Electric kettle, $124.50, purchased October 12.",
+      "respondentEvidence": "Replacement available within 30 days after inspection."
+    },
+    "privacyNote": "This explainer shows both fictional views together. In a real case, each person sees only their own outcome and cited evidence. The staff summary and reasoning remain staff-only.",
+    "proposalTitle": "A non-binding proposal",
+    "proposalDescription": "The app's fixed wording presents the same structured proposal in each person's language.",
+    "workflowTitle": "What happens next",
+    "steps": {
+      "intake": { "title": "Intake and invitation", "description": "Program rules check the case, then the respondent is invited." },
+      "evidence": { "title": "Evidence and positions", "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff." },
+      "proposal": { "title": "A cited proposal", "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list." },
+      "choice": { "title": "Each person chooses", "description": "Both parties may consent. A decline, request for a person or uncertainty returns the case to program staff." }
+    },
+    "handoffTitle": "When a person needs to review",
+    "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",
+    "pilotStatus": "The case agent is off by default. This release candidate has been exercised with synthetic cases and a stub model only. It is not approved for real case data.",
+    "pilotAction": "Ask about a supervised pilot"
   },
   "auth": {
     "tagline": "each party sees only their own submissions",

@@ -927,7 +927,7 @@
     "tagline": "Chaque partie ne voit que ses propres éléments.",
     "lead": "Lorsqu’un programme active son agent, Aequitas peut traiter les dossiers admissibles de différend de consommation au détail, de la collecte des preuves à une proposition qui cite les preuves. Chaque partie garde le contrôle de ses propres soumissions et décide de consentir ou non. Chacune peut demander qu’une personne examine le dossier; les exceptions sont transmises au personnel du programme.",
     "signIn": "Se connecter avec une clé d'accès",
-    "myCases": "Mes dossiers",
+    "demoLink": "Voir un exemple de dossier",
     "otherLocale": "English",
     "skipToContent": "Aller au contenu",
     "navigationLabel": "Navigation principale",
@@ -972,6 +972,46 @@
       "body": "Nous cherchons un programme québécois pour un projet pilote supervisé de l’agent facultatif d’Aequitas. Si le programme l’active et configure ses règles, l’agent gère les dossiers admissibles de consommation au détail, de la collecte jusqu’à une proposition non contraignante qui cite les preuves, sans action d’un gestionnaire. Chaque partie garde le contrôle de ses propres soumissions, décide de consentir ou non et peut demander qu’une personne examine le dossier; les exceptions vont au personnel. L’agent est désactivé par défaut. La qualité d’un modèle en direct et le fonctionnement en production n’ont pas encore été validés. Aequitas ne donne pas d’avis juridique.",
       "action": "Demander un projet pilote"
     }
+  },
+  "caseDemo": {
+    "title": "Un dossier courant, étape par étape",
+    "metadata": "Un parcours statique et bilingue d'un différend fictif de vente au détail. Aucun modèle n'est appelé.",
+    "kicker": "Parcours synthétique",
+    "intro": "Voyez comment un dossier courant configuré pourrait passer de l'ouverture à une proposition qui cite les preuves, tandis que chaque partie garde le contrôle de ses propres soumissions et de son choix.",
+    "signIn": "Se connecter avec une clé d'accès",
+    "home": "Retour à Aequitas",
+    "imageCaption": "Un dossier commun conserve la trace de chaque étape.",
+    "sampleNoticeTitle": "Ceci est une illustration",
+    "sampleNoticeBody": "Les personnes, le commerce, les preuves et le résultat ci-dessous sont fictifs. Le texte a été rédigé pour cette page; aucune donnée de dossier n'a été saisie et aucun modèle n'a été appelé. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés.",
+    "caseTitle": "Une bouilloire cesse de fonctionner après l'achat",
+    "caseDescription": "Une personne signale un problème avec un appareil. Le magasin confirme qu'un remplacement est possible. Cet exemple présente deux courts extraits de preuve fictifs.",
+    "amountLabel": "Montant en jeu",
+    "evidenceTitle": "Chaque partie présente ses propres preuves",
+    "party": {
+      "complainant": "Vue de la partie plaignante",
+      "respondent": "Vue du commerce"
+    },
+    "evidenceLabel": "Extrait de preuve fictif",
+    "sample": {
+      "claim": "La bouilloire a cessé de fonctionner après trois utilisations.",
+      "response": "Le magasin peut remplacer l'article après inspection.",
+      "complainantEvidence": "Bouilloire électrique, 124,50 $, achetée le 12 octobre.",
+      "respondentEvidence": "Remplacement possible dans les 30 jours après inspection."
+    },
+    "privacyNote": "Cette explication présente les deux vues fictives ensemble. Dans un vrai dossier, chaque personne voit seulement son propre résultat et les preuves qui le soutiennent. Le résumé et le raisonnement du personnel restent réservés au personnel.",
+    "proposalTitle": "Une proposition non contraignante",
+    "proposalDescription": "Le texte fixe de l'application présente la même proposition structurée dans la langue de chaque personne.",
+    "workflowTitle": "La suite du parcours",
+    "steps": {
+      "intake": { "title": "Ouverture et invitation", "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation." },
+      "evidence": { "title": "Preuves et positions", "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel." },
+      "proposal": { "title": "Une proposition avec citations", "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions." },
+      "choice": { "title": "Chaque personne choisit", "description": "Les deux parties peuvent consentir. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel." }
+    },
+    "handoffTitle": "Quand une personne doit examiner le dossier",
+    "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
+    "pilotStatus": "L'agent est désactivé par défaut. Cette version candidate a été exercée avec des dossiers synthétiques et un modèle simulé seulement. Elle n'est pas approuvée pour des dossiers réels.",
+    "pilotAction": "Demander un projet pilote supervisé"
   },
   "auth": {
     "tagline": "chaque partie ne voit que ses propres éléments",
