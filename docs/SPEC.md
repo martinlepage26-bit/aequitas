@@ -46,7 +46,7 @@ From `Aequitas Core.txt`.
 | Issue | Case manager | Passes the human checklist. Graph integrity and clean evidence are rechecked. |
 | Consent | Each party | Give, decline or revoke. Both GIVEN gives `RESOLVED_CONSENT`. A decline gives `RESOLVED_DECLINED`. |
 | Contestation | Party or assigned manager | Open a challenge to a claim, synthesis, proposal or recommendation. An open contestation blocks consent-based resolution. |
-| Approver sign-off | Separate authorized case manager | New human-managed cases require a recorded rationale and approval of the current recommendation before consent can resolve them. Agent-managed cases currently close after both parties consent without separate approver sign-off; owner and counsel approval is still an open gate. |
+| Approver sign-off | Separate authorized case manager | New human-managed cases require a recorded rationale and approval of the current recommendation before consent can resolve them. Agent-managed cases also require sign-off by default. Consent-only resolution is available only when the program explicitly enables it after owner and governance approval; escalation restores the approval requirement. |
 | Withdraw or close | Party or manager | In human-managed cases, the complainant may withdraw. In agent-managed cases, the complainant may always withdraw and the respondent may do so only when the program explicitly enables it. Closing produces the export. |
 
 **Optional agent-managed path (off by default):** The service may take only a submitted, unassigned `OPEN` `RETAIL` case with a known amount within the configured limit. It invites the respondent, waits for both parties to join, waits for each party to mark evidence intake complete with clean evidence, and then requests both positions. It verifies current evidence files and extracts text before asking the model for a staff-only summary, exact excerpts and a remedy from a closed list. A locked write issues both version-bound outcomes and citations together. Both parties must consent to close; a decline, timeout, contestation, failed evidence or model check, or request for a person hands the file to staff. Parties receive only fixed bilingual wording and excerpts from their own evidence. See [case-agent-prototype.md](case-agent-prototype.md) for precise rules, limits and handoff reasons.
@@ -78,7 +78,7 @@ From `Aequitas Core.txt`.
 - conditional synthesis with revision conditions;
 - repair options with prerequisites, accountability and consent.
 
-**Limits:** exact-excerpt matching proves traceability only, not truth, independence, relevance or legal liability. OCR may misread text; a scan embedded on a page that also has a text layer may be omitted. Extraction caps: 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case.
+**Limits:** exact-excerpt matching proves traceability only, not truth, independence, relevance or legal liability. OCR may misread or omit text. The PDF extractor detects pages with embedded image objects, renders and OCRs those pages, and uses the OCR text for that page; the case agent hands the file to staff if extraction is partial or unreadable. Extraction caps: 25 MiB per file, 20 PDF pages, 12,000 characters per source, 12 files and 60,000 characters per case.
 
 ## 6. Access control
 
@@ -114,7 +114,7 @@ Next.js 16 / React 19, TypeScript, Prisma 7 + PostgreSQL, S3-compatible or local
 ## 11. Known gaps (stated in the repo)
 
 - **Live AI quality is unverified.** Automated tests use synthetic records and a stub model. The live evaluation is explicitly gated and still required before any real case.
-- **Production source provenance is unconfirmed.** On 2026-11-05 the public site returned HTTP 200 and `/api/health` reported release `d74ed342693a96a6dc75d8907d288131c0148385`, but GitHub did not resolve that SHA in this repository. The live landing page still describes human review and not the PR 14 agent mode. These public checks do not establish provider settings, worker state, or data/backup health.
+- **Production source provenance and current public availability are unconfirmed.** A previous read-only check on 2026-11-06 returned HTTP 200 from `/api/health` with release `d74ed342693a96a6dc75d8907d288131c0148385`; GitHub does not resolve that SHA in this repository. On a later check from the Codex Mac client on 2026-11-06, `/api/health`, both locale home pages, and both candidate demo routes returned HTTP 403. That client-level result does not distinguish edge filtering from an app-wide outage. The live source, demo availability, provider settings, worker state, and data/backup health remain unverified.
 - **Two parties only.** No multi-party membership. Roles are global, so the current product is one program per isolated deployment, not a multi-tenant SaaS.
 - **No retention or deletion service** and no translation-review workflow. The append-only event chain makes personal-data deletion a design decision.
 - **Notification retry and case-agent scheduling are opt-in deployment services.** The CT920 `scheduled` Compose profile retries queued notifications every 15 minutes and invokes the case agent every 10 minutes; neither is started by the default web stack. The agent also requires explicit program and provider settings.
