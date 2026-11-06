@@ -1,6 +1,6 @@
 import "../src/lib/loadEnv";
 import { prisma } from "../src/lib/prisma";
-import { summarizeCaseAgentTimings } from "../src/domain/caseAgent/metrics";
+import { summarizeCaseAgentOutcomes, summarizeCaseAgentTimings, type CaseAgentOutcomeEvent } from "../src/domain/caseAgent/metrics";
 
 function parseDay(value: string | undefined, flag: string): Date {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -37,27 +37,70 @@ async function main() {
   }
 
   try {
-    const events = await prisma.event.findMany({
+    const intakeStarts = await prisma.event.findMany({
       where: {
         createdAt: { gte: window.from, lt: window.to },
-        type: { in: ["EVIDENCE_INTAKE_OPENED", "RECOMMENDATION_ISSUED"] },
+        type: "EVIDENCE_INTAKE_OPENED",
         case: { is: { agentManaged: true, simulated: false } },
+      },
+      select: { caseId: true },
+      orderBy: [{ createdAt: "asc" }, { seq: "asc" }],
+    });
+    const intakeCaseIds = [...new Set(intakeStarts.map((event) => event.caseId))];
+    const intakeEvents = intakeCaseIds.length === 0 ? [] : await prisma.event.findMany({
+      where: {
+        caseId: { in: intakeCaseIds },
+        createdAt: { lt: window.to },
+        type: { in: ["EVIDENCE_INTAKE_OPENED", "RECOMMENDATION_ISSUED"] },
       },
       select: { caseId: true, type: true, createdAt: true },
       orderBy: [{ createdAt: "asc" }, { seq: "asc" }],
     });
-    const summary = summarizeCaseAgentTimings(events.map((event) => ({
+    const summary = summarizeCaseAgentTimings(intakeEvents.map((event) => ({
       caseId: event.caseId,
       type: event.type as "EVIDENCE_INTAKE_OPENED" | "RECOMMENDATION_ISSUED",
       createdAt: event.createdAt,
     })));
+
+    const enrolled = await prisma.event.findMany({
+      where: {
+        createdAt: { gte: window.from, lt: window.to },
+        type: "AGENT_ENROLLED",
+        case: { is: { agentManaged: true, simulated: false } },
+      },
+      select: { caseId: true },
+      orderBy: [{ createdAt: "asc" }, { seq: "asc" }],
+    });
+    const cohortCaseIds = [...new Set(enrolled.map((event) => event.caseId))];
+    const lifecycleEvents = cohortCaseIds.length === 0 ? [] : await prisma.event.findMany({
+      where: {
+        caseId: { in: cohortCaseIds },
+        createdAt: { lt: window.to },
+        type: { in: ["AGENT_ENROLLED", "RECOMMENDATION_ISSUED", "AGENT_ESCALATED", "CASE_CLOSED"] },
+      },
+      select: { caseId: true, type: true, createdAt: true, seq: true, payload: true },
+      orderBy: [{ caseId: "asc" }, { createdAt: "asc" }, { seq: "asc" }],
+    });
+    const agentOutcomes = summarizeCaseAgentOutcomes(lifecycleEvents.map((event) => ({
+      caseId: event.caseId,
+      type: event.type as CaseAgentOutcomeEvent["type"],
+      createdAt: event.createdAt,
+      seq: event.seq,
+      payload: event.payload,
+    })));
     console.log(JSON.stringify({
       generatedAt: new Date().toISOString(),
-      cohort: "non-simulated agent-managed cases with intake opened in the selected UTC window",
       fromInclusive: window.from.toISOString(),
       toExclusive: window.to.toISOString(),
       unit: "hours",
-      ...summary,
+      intakeToProposal: {
+        cohort: "non-simulated agent-managed cases with evidence intake opened in the selected UTC window; lifecycle events observed before the exclusive end date",
+        ...summary,
+      },
+      agentOutcomes: {
+        cohort: "non-simulated agent-managed cases enrolled in the selected UTC window; outcomes observed before the exclusive end date",
+        ...agentOutcomes,
+      },
     }));
   } catch {
     console.error("Case-agent timing metrics could not be read.");
