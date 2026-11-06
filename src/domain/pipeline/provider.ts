@@ -5,6 +5,7 @@ export const GEMINI_FLASH_MODEL = "gemini-3.8-flash";
 
 /** Current Workers AI evaluation candidate; review the model catalog before use. */
 export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+const WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 
 const PAID_PROVIDERS = new Set(["anthropic", "openai", "claude"]);
 
@@ -120,6 +121,7 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
           }],
           tool_choice: "required",
           temperature: 0,
+          max_tokens: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
         }),
         signal: AbortSignal.timeout(30_000),
       },

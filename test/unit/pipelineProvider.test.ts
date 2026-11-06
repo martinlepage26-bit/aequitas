@@ -121,6 +121,7 @@ describe("free pipeline provider", () => {
     expect(requestBody).toMatchObject({
       tool_choice: "required",
       temperature: 0,
+      max_tokens: 16_000,
       tools: [{
         name: "return_structured_output",
         parameters: { type: "object", required: ["value"] },
