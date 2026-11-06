@@ -103,6 +103,7 @@ export async function authorDraft(input: AuthorDraftInput): Promise<MutationOutc
     trigger: "author_draft",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: caseRow.id,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },

@@ -81,15 +81,18 @@ export interface WriteResult {
   notifications?: NotificationSpec[];
 }
 
-export interface RunMutationInput {
+interface RunMutationBase {
   trigger: Trigger;
   actorId: string;
   actorRole: GlobalRole | typeof SYSTEM;
-  fromState: CaseState | typeof NONE;
   /** Guard name -> the exact context object that guard function expects. */
   guardContexts: Record<string, unknown>;
   write: (tx: Prisma.TransactionClient) => Promise<WriteResult>;
 }
+
+export type RunMutationInput =
+  | (RunMutationBase & { fromState: typeof NONE; caseId?: never })
+  | (RunMutationBase & { fromState: CaseState; caseId: string });
 
 /**
  * ClamAV is a TCP connection this process reaches directly (src/lib/scan.ts) —
@@ -154,6 +157,18 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
 
   try {
     const data = await prisma.$transaction(async (tx) => {
+      if (input.fromState !== NONE) {
+        if (!input.caseId) throw new Error(`Mutation ${input.trigger} requires its caseId.`);
+        // Serialize this mutation for its case and verify the state snapshot
+        // before any domain write. This prevents stale transitions from
+        // resurrecting a withdrawn case or appending events out of order.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "Case"
+          WHERE "id" = ${input.caseId} AND "state" = ${input.fromState}::"CaseState"
+          FOR UPDATE
+        `;
+        if (locked.length !== 1) throw new StaleCaseError();
+      }
       const writeResult = await input.write(tx);
 
       for (const event of writeResult.eventPayloads) {
@@ -186,6 +201,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     return { ok: true, data };
   } catch (error) {
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
+    if (error instanceof StaleEvidenceVersionError) return { ok: false, step: "guard", reason: "This evidence version is no longer current. Reload the case before replacing evidence." };
     if (error instanceof IntakeNotReadyError) return { ok: false, step: "guard", reason: error.message, code: error.code };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
     if (error instanceof StaleCaseError) return { ok: false, step: "authorize-state", reason: "The case changed. Reload and try again." };
@@ -198,6 +214,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
 
 export class StaleDraftError extends Error {}
 class StaleCaseError extends Error {}
+class StaleEvidenceVersionError extends Error {}
 class ResolutionBlockedError extends Error {
   constructor(readonly blocker: ShownResolutionBlocker) {
     super(blocker);
@@ -323,6 +340,7 @@ export async function submitCase(input: SubmitCaseInput): Promise<MutationOutcom
     trigger: "submit_case",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
@@ -369,6 +387,7 @@ export async function openIntake(input: OpenIntakeInput): Promise<MutationOutcom
     trigger: "open_intake",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManagerOrUnclaimed: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -482,6 +501,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
     trigger: "submit_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
@@ -570,12 +590,18 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
     trigger: "supersede_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
       supersedesOwnItem: { actorId: input.actorId, priorItemSubmittedById: priorItem.submittedById },
     },
     write: async (tx) => {
+      const existingSuccessor = await tx.evidenceItem.findFirst({
+        where: { caseId: input.caseId, supersedesId: priorItem.id },
+        select: { id: true },
+      });
+      if (existingSuccessor) throw new StaleEvidenceVersionError();
       const locked = await tx.case.updateMany({
         where: { id: input.caseId, state: "EVIDENCE_INTAKE", simulated: caseRow.simulated, OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
         data: { state: "EVIDENCE_INTAKE" },
@@ -637,6 +663,7 @@ export async function submitChronology(input: SubmitChronologyInput): Promise<Mu
   if (!parsed.success) return { ok: false, step: "guard", reason: "A valid date, title, description and locale are required." };
   return runMutation({
     trigger: "submit_chronology", actorId: input.actorId, actorRole: input.actorRole, fromState: caseRow.state,
+    caseId: input.caseId,
     guardContexts: { isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId } },
     write: async (tx) => {
       // Serialize submissions and reject a manager closing intake after the
@@ -683,6 +710,7 @@ export async function setPartyIntakeReady(input: SetPartyIntakeReadyInput): Prom
     trigger: "mark_intake_ready",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
@@ -769,6 +797,7 @@ export async function closeIntake(input: CloseIntakeInput): Promise<MutationOutc
     trigger: "close_intake",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -804,22 +833,22 @@ export async function submitPosition(input: SubmitPositionInput): Promise<Mutati
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
-  const priorMax = await prisma.positionStatement.aggregate({
-    where: { caseId: input.caseId, partyId: input.actorId },
-    _max: { version: true },
-  });
-  const nextVersion = (priorMax._max.version ?? 0) + 1;
-
   return runMutation({
     trigger: "submit_position",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
       oneCurrentVersionPerParty: {},
     },
     write: async (tx) => {
+      const priorMax = await tx.positionStatement.aggregate({
+        where: { caseId: input.caseId, partyId: input.actorId },
+        _max: { version: true },
+      });
+      const nextVersion = (priorMax._max.version ?? 0) + 1;
       const position = await tx.positionStatement.create({
         data: {
           caseId: input.caseId,
@@ -865,6 +894,7 @@ export async function requestDraft(input: RequestDraftInput): Promise<MutationOu
     trigger: "request_draft",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1010,6 +1040,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
     trigger: "draft_completed",
     actorId: SYSTEM_ACTOR_ID,
     actorRole: SYSTEM,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       explanationRecordValidatesAgainstSchema: { schemaValidationError },
@@ -1101,6 +1132,7 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
     trigger: "issue_recommendation",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1187,6 +1219,7 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
     trigger: "give_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
@@ -1280,6 +1313,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
     trigger: "decline_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
@@ -1362,6 +1396,7 @@ export async function revokeConsent(input: RevokeConsentInput): Promise<Mutation
     trigger: "revoke_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isConsentingParty: { actorId: input.actorId, consentPartyId: existing.partyId },
@@ -1413,6 +1448,7 @@ export async function requestNewVersion(input: RequestNewVersionInput): Promise<
     trigger: "request_new_version",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1459,6 +1495,7 @@ export async function withdrawCase(input: WithdrawCaseInput): Promise<MutationOu
     trigger: "withdraw",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
@@ -1498,6 +1535,7 @@ export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<
     trigger: "close_case",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1548,6 +1586,7 @@ export async function reviewDraft(input: {
   }
   return runMutation({
     trigger: "review_draft", actorId: input.actorId, actorRole: input.actorRole, fromState: row.state,
+    caseId: row.id,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: row.caseManagerId },
       explanationRecordValid: { schemaValidationError },

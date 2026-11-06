@@ -199,6 +199,7 @@ export async function endParticipation(input: { actorId: string; actorRole: Glob
     trigger: "respondent_withdraw",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: row.id,
     fromState: row.state,
     guardContexts: { isCaseParty: { actorId: input.actorId, complainantId: row.complainantId, respondentId: row.respondentId } },
     write: async (tx) => {
@@ -409,6 +410,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
       trigger: "agent_issue",
       actorId: agent.id,
       actorRole: "CASE_AGENT",
+      caseId: row.id,
       fromState: row.state,
       guardContexts: {
         agentMayAct: { agentManaged: row.agentManaged, escalated: Boolean(row.agentEscalatedAt), actorIsCaseAgent: true },
@@ -522,6 +524,7 @@ async function takeCase(caseId: string, agentId: string, program: CaseAgentProgr
     trigger: "agent_open_intake",
     actorId: agentId,
     actorRole: "CASE_AGENT",
+    caseId,
     fromState: row.state,
     guardContexts: { agentMayAct: { agentManaged: true, escalated: false, actorIsCaseAgent: true } },
     write: async (tx) => {
@@ -589,6 +592,7 @@ async function intakeStep(
     trigger: "agent_close_intake",
     actorId: agentId,
     actorRole: "CASE_AGENT",
+    caseId,
     fromState: row.state,
     guardContexts: {
       agentMayAct: { agentManaged: row.agentManaged, escalated: Boolean(row.agentEscalatedAt), actorIsCaseAgent: true },
@@ -655,6 +659,7 @@ async function closeAsAgent(caseId: string, agentId: string): Promise<AgentRunRe
     trigger: "agent_close",
     actorId: agentId,
     actorRole: "CASE_AGENT",
+    caseId,
     fromState: row.state,
     guardContexts: {
       agentMayAct: { agentManaged: row.agentManaged, escalated: Boolean(row.agentEscalatedAt), actorIsCaseAgent: true },
