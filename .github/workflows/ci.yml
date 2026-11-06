@@ -104,7 +104,7 @@ jobs:
           const { readFileSync } = require('node:fs');
           const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 
-          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v1');
+          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v2');
           assert.equal(report.mode, 'stub');
           assert.equal(report.syntheticOnly, true);
           assert.equal(report.automatedChecksPassed, true);
@@ -138,6 +138,10 @@ jobs:
               citation.excerptStatus === 'verified' && typeof citation.excerpt === 'string'));
             assert.equal(fixture.generatedOutput.partyOutcomes.complainant.citationsUseOnlyThatPartyEvidence, true);
             assert.equal(fixture.generatedOutput.partyOutcomes.respondent.citationsUseOnlyThatPartyEvidence, true);
+            const citationIds = new Set(fixture.generatedOutput.citations.map((citation) => citation.citationId));
+            const proposalClaims = fixture.generatedOutput.claimEvidence.filter((claim) => claim.section === 'proposal');
+            assert.ok(proposalClaims.length > 0);
+            assert.ok(proposalClaims.every((claim) => claim.citationIds.length > 0 && claim.citationIds.every((id) => citationIds.has(id))));
           }
 
           assert.equal(byName.get('prompt-injection').actualDisposition, 'escalated');
