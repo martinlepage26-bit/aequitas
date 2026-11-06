@@ -28,7 +28,7 @@ This path does not use `ANTHROPIC_API_KEY` and it refuses `anthropic` and `opena
 | `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED` | Required for Gemini case data. Confirm the exact API-key project has an active billing account and uses Paid Tier terms; a key by itself does not identify its billing tier. |
 | `CLOUDFLARE_ACCOUNT_ID` | Only for `workers-ai` |
 | `CLOUDFLARE_API_TOKEN` | Only for `workers-ai` |
-| `AEQUITAS_WORKERS_AI_MODEL` | Optional. Default `@cf/meta/llama-3.1-8b-instruct-fp8` |
+| `AEQUITAS_WORKERS_AI_MODEL` | Optional. Default `@cf/google/gemma-4-26b-a4b-it` |
 
 The app does not send live case data to a provider until its terms-review flag is set. Gemini's unpaid tier uses submitted content to improve Google products and may involve human review; Google's terms say not to submit sensitive, confidential, or personal information to unpaid services. The paid Gemini API terms apply only when the exact project has active billing. See [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms) and [billing tiers](https://ai.google.dev/gemini-api/docs/billing). The Gemini paid-tier flag is an operator assertion; the app cannot verify the key's billing project. A privacy assessment and other legal decisions remain separate.
 

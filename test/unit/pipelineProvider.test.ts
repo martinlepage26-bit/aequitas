@@ -5,7 +5,7 @@ import { pipelineEnabled } from "../../src/domain/pipeline/flag";
 describe("free pipeline provider", () => {
   it("defaults to the configured Gemini Flash and Workers AI model IDs", () => {
     expect(GEMINI_FLASH_MODEL).toBe("gemini-3.8-flash");
-    expect(WORKERS_AI_MODEL).toBe("@cf/meta/llama-3.1-8b-instruct-fp8");
+    expect(WORKERS_AI_MODEL).toBe("@cf/google/gemma-4-26b-a4b-it");
   });
 
   it("stays off unless the flag is exactly true", () => {

@@ -3,8 +3,8 @@ import { PIPELINE_OFF_REASON, pipelineEnabled } from "./flag";
 /** Current Flash model with a free tier on Google AI Studio, confirmed 2026-10-09. */
 export const GEMINI_FLASH_MODEL = "gemini-3.8-flash";
 
-/** Workers AI text model on the daily free neuron allocation. Not a paid-only model. */
-export const WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fp8";
+/** Current Workers AI evaluation candidate; review the model catalog before use. */
+export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
 const PAID_PROVIDERS = new Set(["anthropic", "openai", "claude"]);
 
