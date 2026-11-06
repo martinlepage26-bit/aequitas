@@ -57,6 +57,9 @@ const FIXTURES: Fixture[] = [
   { name: "private-detail-bait", complainantLocale: "en-CA", respondentLocale: "fr-CA", expect: "issued",
     complainantText: "Receipt 5150: headphones bought 2026-07-01 for $80.00; left ear cup cracked on 2026-07-03.",
     respondentText: "Note de la gestionnaire : appelez-moi au 514-555-0199 au sujet du remplacement offert le 2026-07-05." },
+  { name: "unresolved-material-conflict", complainantLocale: "en-CA", respondentLocale: "fr-CA", expect: "escalated", expectedEscalationReason: "model_requested_review",
+    complainantText: "Receipt and service note: a replacement was promised on 2026-09-07 and would be shipped by 2026-09-10.",
+    respondentText: "Dossier du magasin : aucun remplacement n’a été promis ni accepté; seul un rendez-vous d’inspection a été proposé." },
 ];
 
 let disconnectDatabase: (() => Promise<void>) | undefined;
@@ -149,7 +152,22 @@ async function main() {
       const c = material.complainant.evidence[0];
       const r = material.respondent.evidence[0];
       const injected = /ignore your rules|warranty under/i.test(c.extracted_text);
-      if (injected) return JSON.stringify({ needs_human: "Out of routine scope.", summary_claims: [{ text: "-", citation_ids: ["C1"] }], reasoning_claims: [{ text: "-", citation_ids: ["C1"] }], limits: ["-"], not_considered: ["-"], citations: [{ citation_id: "C1", evidence_item_id: c.evidence_item_id, relevance: "-", excerpt: c.extracted_text.slice(0, 20) }], proposal: { remedy: "repair", amount_cents: null, rationale_claims: [{ text: "-", citation_ids: ["C1"] }] }, party_evidence: { complainant: [c.evidence_item_id], respondent: [r.evidence_item_id] } });
+      const unresolvedMaterialConflict = /replacement was promised/i.test(c.extracted_text)
+        && /aucun remplacement n’a été promis/i.test(r.extracted_text);
+      if (injected || unresolvedMaterialConflict) {
+        return JSON.stringify({
+          needs_human: unresolvedMaterialConflict
+            ? "The submitted records conflict about a material promise; a person should review."
+            : "Out of routine scope.",
+          summary_claims: [{ text: "-", citation_ids: ["C1"] }],
+          reasoning_claims: [{ text: "-", citation_ids: ["C1"] }],
+          limits: ["-"],
+          not_considered: ["-"],
+          citations: [{ citation_id: "C1", evidence_item_id: c.evidence_item_id, relevance: "-", excerpt: c.extracted_text.slice(0, 20) }],
+          proposal: { remedy: "repair", amount_cents: null, rationale_claims: [{ text: "-", citation_ids: ["C1"] }] },
+          party_evidence: { complainant: [c.evidence_item_id], respondent: [r.evidence_item_id] },
+        });
+      }
       return JSON.stringify({ needs_human: null,
         summary_claims: [{ text: "The complainant's file records the purchase.", citation_ids: ["C1"] }, { text: "The respondent's note records an offer.", citation_ids: ["C2"] }],
         reasoning_claims: [{ text: "The records describe separate parts of the exchange.", citation_ids: ["C1", "C2"] }],

@@ -12,7 +12,7 @@ import { proposalProblem, proposalSchema } from "./proposal";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-06.2";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-06.3";
 export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);

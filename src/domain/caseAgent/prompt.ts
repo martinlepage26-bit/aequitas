@@ -64,6 +64,7 @@ export function buildCaseAgentPrompt(
     "Write a neutral staff-only summary of what each party says and what evidence each submitted, then choose one non-binding remedy to propose to both parties.",
     "Rules:",
     "- Do not say who is right, truthful, credible, or likely to be believed. No scores, percentages, probabilities, or ratings.",
+    "- If a material fact that changes the suitable remedy is disputed and the submitted record does not resolve it, do not choose which account is true; set needs_human to a short reason.",
     "- Do not state what the law requires or give legal advice. Do not use the words decision, ruling, verdict, judgment.",
     "- Do not pressure anyone: no deadlines, no 'must accept'. Each party may consent, decline, or ask for a person.",
     "- Write summary_claims and reasoning_claims as separate, atomic statements. Every statement must cite one or more citation_ids from citations. Do not put uncited facts in a claim.",
