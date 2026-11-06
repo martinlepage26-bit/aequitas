@@ -44,6 +44,7 @@ async function main() {
     enabled: program.ok,
     missingProgramSettings: program.ok ? [] : program.missing,
     modelConfigured: resolved.ok,
+    modelConfigurationBlocker: resolved.ok ? null : resolved.reason,
     candidates: candidates.length,
     claimed,
     counts,

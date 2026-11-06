@@ -39,22 +39,61 @@ describe("free pipeline provider", () => {
   it("fails closed for case data until provider terms and Gemini's paid tier are confirmed", () => {
     const env = {
       AEQUITAS_PIPELINE_ENABLED: "true",
+      GEMINI_PROJECT_ID: "synthetic-project",
       GEMINI_API_KEY: "synthetic-test-only",
     };
     expect(resolveCaseDataModel(env).ok).toBe(false);
-    expect(resolveCaseDataModel({ ...env, AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true" }).ok).toBe(false);
     expect(resolveCaseDataModel({
       ...env,
       AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
       AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true",
+    }).ok).toBe(false);
+    const reviewedGemini = {
+      ...env,
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash",
+    };
+    expect(resolveCaseDataModel(reviewedGemini).ok).toBe(false);
+    expect(resolveCaseDataModel({
+      ...reviewedGemini,
+      AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project",
     }).ok).toBe(true);
     expect(resolveCaseDataModel({
       AEQUITAS_PIPELINE_ENABLED: "true",
       AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
-      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
       CLOUDFLARE_ACCOUNT_ID: "account",
       CLOUDFLARE_API_TOKEN: "token",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: `workers-ai:account:${WORKERS_AI_MODEL}`,
     }).ok).toBe(true);
+  });
+
+  it("invalidates provider approval when the account, project or model changes", () => {
+    const gemini = {
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      GEMINI_PROJECT_ID: "approved-project",
+      GEMINI_API_KEY: "synthetic-test-only",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:approved-project:gemini-3.8-flash",
+      AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "approved-project",
+    };
+    expect(resolveCaseDataModel(gemini).ok).toBe(true);
+    expect(resolveCaseDataModel({ ...gemini, GEMINI_PROJECT_ID: "other-project" }).ok).toBe(false);
+    expect(resolveCaseDataModel({ ...gemini, GEMINI_MODEL: "gemini-other-model" }).ok).toBe(false);
+    expect(resolveCaseDataModel({ ...gemini, AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "other-project" }).ok).toBe(false);
+
+    const workers = {
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      CLOUDFLARE_ACCOUNT_ID: "approved-account",
+      CLOUDFLARE_API_TOKEN: "synthetic-test-only",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: `workers-ai:approved-account:${WORKERS_AI_MODEL}`,
+    };
+    expect(resolveCaseDataModel(workers).ok).toBe(true);
+    expect(resolveCaseDataModel({
+      ...workers,
+      AEQUITAS_PIPELINE_PROVIDER: "cloudflare",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: `workers-ai:approved-account:${WORKERS_AI_MODEL}`,
+    }).ok).toBe(true);
+    expect(resolveCaseDataModel({ ...workers, CLOUDFLARE_ACCOUNT_ID: "other-account" }).ok).toBe(false);
+    expect(resolveCaseDataModel({ ...workers, AEQUITAS_WORKERS_AI_MODEL: "@cf/google/another-model" }).ok).toBe(false);
   });
 
   it("returns only provider-reported token counts for Gemini and Workers AI", async () => {

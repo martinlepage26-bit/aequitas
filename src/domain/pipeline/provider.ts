@@ -201,6 +201,23 @@ export function resolveFreeTextModel(
   return { ok: true, model: geminiModel(apiKey, model, fetchImpl) };
 }
 
+/** Stable non-secret identity that a provider-terms review must match. */
+export function caseDataProviderApprovalIdentity(env: Record<string, string | undefined>): string | null {
+  const selected = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
+  const provider = selected === "cloudflare" ? "workers-ai" : selected;
+  if (provider === "gemini") {
+    const projectId = env.GEMINI_PROJECT_ID?.trim();
+    const model = env.GEMINI_MODEL?.trim() || GEMINI_FLASH_MODEL;
+    return projectId && model ? `gemini:${projectId}:${model}` : null;
+  }
+  if (provider === "workers-ai") {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const model = env.AEQUITAS_WORKERS_AI_MODEL?.trim() || WORKERS_AI_MODEL;
+    return accountId && model ? `workers-ai:${accountId}:${model}` : null;
+  }
+  return null;
+}
+
 /**
  * Model access for live case material. Provider credentials alone do not
  * establish acceptable data terms: Gemini's unpaid tier uses submitted
@@ -212,12 +229,26 @@ export function resolveCaseDataModel(
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
   fetchImpl: typeof fetch = fetch,
 ): { ok: true; model: TextCompletion } | { ok: false; reason: string } {
-  if (env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED !== "true") {
-    return { ok: false, reason: "Review the selected provider and account's current data terms before processing case data; set AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true after review." };
+  const identity = caseDataProviderApprovalIdentity(env);
+  if (!identity) {
+    const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
+    if (provider === "gemini") {
+      return { ok: false, reason: "Set GEMINI_PROJECT_ID to the project that owns the configured Gemini API key before approving Gemini case-data processing." };
+    }
+    if (provider === "workers-ai" || provider === "cloudflare") {
+      return { ok: false, reason: "Set CLOUDFLARE_ACCOUNT_ID and the selected Workers AI model before approving case-data processing." };
+    }
+    return { ok: false, reason: "Select Gemini or Workers AI before approving case-data processing." };
   }
   const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
-  if (provider === "gemini" && env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED !== "true") {
-    return { ok: false, reason: "Gemini case processing requires confirmation that this API key belongs to an active-billing Paid Tier project; set AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true after checking it." };
+  if (env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR?.trim() !== identity) {
+    return { ok: false, reason: "Review the current data terms for the exact provider, account/project and model; set AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR to their current identity after review." };
+  }
+  if (provider === "gemini") {
+    const projectId = env.GEMINI_PROJECT_ID?.trim();
+    if (env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR?.trim() !== projectId) {
+      return { ok: false, reason: "Confirm the exact Gemini API-key project has active billing and Paid Tier terms; set AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR to that project ID after checking it." };
+    }
   }
   return resolveFreeTextModel(env, fetchImpl);
 }

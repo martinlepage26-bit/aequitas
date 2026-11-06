@@ -35,8 +35,9 @@ const ENV = {
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
   AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
-  AEQUITAS_AI_PROVIDER_TERMS_REVIEWED: "true",
-  AEQUITAS_GEMINI_PAID_TIER_CONFIRMED: "true",
+  AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash",
+  AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project",
+  GEMINI_PROJECT_ID: "synthetic-project",
   GEMINI_API_KEY: "synthetic-test-only",
 };
 const COMPLAINANT_POSITION = "The kettle stopped heating after three days and the store refused an exchange at the counter.";

@@ -74,6 +74,7 @@ async function main() {
       enabled: program.ok,
       missingProgramSettings: program.ok ? [] : program.missing,
       modelConfigured: model.ok,
+      modelConfigurationBlocker: model.ok ? null : model.reason,
       serviceAccountCount,
       runtimeConfigured: program.ok && model.ok && serviceAccountCount === 1,
       readyForNewCases: program.ok && model.ok && serviceAccountCount === 1 && mailIsConfigured && caseAgentWorkerHealthy,

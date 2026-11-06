@@ -102,7 +102,7 @@ async function sourceWithBody(caseId: string, body: string) {
 }
 
 describe("phase 2 pipeline contracts", () => {
-  it("fails closed without provider-term review and Gemini paid-tier confirmation", async () => {
+  it("fails closed unless provider terms and Gemini paid tier match the configured identity", async () => {
     const caseId = await assignedCase();
     const assumption = await recordAssumption({ ...actor(caseId), text: "The delivery date may differ.", origin: "CASE_FRAMING" });
     if (!assumption.ok) throw new Error(assumption.reason);
@@ -111,8 +111,9 @@ describe("phase 2 pipeline contracts", () => {
     const keys = [
       "AEQUITAS_PIPELINE_ENABLED",
       "AEQUITAS_PIPELINE_PROVIDER",
-      "AEQUITAS_AI_PROVIDER_TERMS_REVIEWED",
-      "AEQUITAS_GEMINI_PAID_TIER_CONFIRMED",
+      "AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR",
+      "AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR",
+      "GEMINI_PROJECT_ID",
       "GEMINI_API_KEY",
       "GOOGLE_AI_API_KEY",
     ] as const;
@@ -126,18 +127,19 @@ describe("phase 2 pipeline contracts", () => {
       }) as typeof fetch;
       process.env.AEQUITAS_PIPELINE_ENABLED = "true";
       process.env.AEQUITAS_PIPELINE_PROVIDER = "gemini";
+      process.env.GEMINI_PROJECT_ID = "synthetic-project";
       process.env.GEMINI_API_KEY = "synthetic-test-only";
-      delete process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED;
-      delete process.env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED;
+      delete process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR;
+      delete process.env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR;
 
       const termsBlocked = await runClaimDecomposition(actor(caseId), undefined);
       expect(termsBlocked.ok).toBe(false);
-      if (!termsBlocked.ok) expect(termsBlocked.reason).toContain("AEQUITAS_AI_PROVIDER_TERMS_REVIEWED");
+      if (!termsBlocked.ok) expect(termsBlocked.reason).toContain("AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR");
 
-      process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED = "true";
+      process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR = "gemini:synthetic-project:gemini-3.8-flash";
       const tierBlocked = await runClaimDecomposition(actor(caseId), undefined);
       expect(tierBlocked.ok).toBe(false);
-      if (!tierBlocked.ok) expect(tierBlocked.reason).toContain("AEQUITAS_GEMINI_PAID_TIER_CONFIRMED");
+      if (!tierBlocked.ok) expect(tierBlocked.reason).toContain("AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR");
       expect(providerRequests).toBe(0);
       expect(await prisma.pipelineProposal.count({ where: { caseId } })).toBe(0);
       expect(await prisma.claim.count({ where: { caseId } })).toBe(0);
