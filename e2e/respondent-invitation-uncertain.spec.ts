@@ -61,7 +61,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const response = page.waitForResponse((item) => item.url().endsWith(`/api/cases/${caseId}/invite-respondent`));
     await page.getByRole("button", { name: invite.send, exact: true }).click();
     expect((await response).status()).toBe(202);
-    await expect(page.getByRole("status")).toHaveText(invite.uncertain);
+    await expect(page.getByRole("region", { name: invite.title }).getByRole("status")).toHaveText(invite.uncertain);
     await expect(page.getByRole("button", { name: invite.openConfirm, exact: true })).toHaveCount(0);
     expect(requests).toBe(1);
 
@@ -75,7 +75,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       expiresAt: new Date(Date.now() + DAY),
     } });
     await page.reload();
-    await expect(page.getByRole("status")).toHaveText(invite.uncertain);
+    await expect(page.getByRole("region", { name: invite.title }).getByRole("status")).toHaveText(invite.uncertain);
     await expect(page.getByRole("button", { name: invite.openConfirm, exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: invite.send, exact: true })).toHaveCount(0);
     await context.close();
