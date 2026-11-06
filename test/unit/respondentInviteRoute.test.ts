@@ -12,10 +12,13 @@ const mocks = vi.hoisted(() => ({
   invitationUpdate: vi.fn(),
   issueInviteToken: vi.fn(),
   invitePath: vi.fn(),
+  emailConfigured: vi.fn(),
+  sendInvitationEmail: vi.fn(),
 }));
 
 vi.mock("../../src/lib/session", () => ({ requireSession: mocks.session }));
 vi.mock("../../src/lib/invite", () => ({ issueInviteToken: mocks.issueInviteToken, invitePath: mocks.invitePath }));
+vi.mock("../../src/lib/mail", () => ({ emailConfigured: mocks.emailConfigured, sendInvitationEmail: mocks.sendInvitationEmail }));
 vi.mock("../../src/lib/prisma", () => ({
   prisma: {
     $transaction: mocks.transaction,
@@ -58,27 +61,30 @@ beforeEach(() => {
   mocks.invitationFindUnique.mockResolvedValue({ id: "invitation-1", userId: "respondent-1", revokedAt: null, claimedAt: null });
   mocks.issueInviteToken.mockReturnValue({ token: "synthetic-token", expiresAt });
   mocks.invitePath.mockReturnValue("/fr-CA/invite/synthetic-token");
+  mocks.emailConfigured.mockReturnValue(true);
+  mocks.sendInvitationEmail.mockResolvedValue("accepted");
   vi.stubEnv("RESEND_API_KEY", "test-key");
   vi.stubEnv("EMAIL_FROM", "aequitas@example.org");
   vi.stubEnv("EMAIL_REPLY_TO", "aequitas@example.org");
   vi.stubEnv("APP_URL", "https://aequitas.example");
+  vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-for-respondent-route-tests");
 });
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 
 describe("respondent invitation delivery uncertainty", () => {
   it("keeps a link that may have been emailed and returns a clear 202 state", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic lost response")));
+    mocks.sendInvitationEmail.mockResolvedValue("pending");
 
     const response = await POST(request(), params);
 
     expect(response.status).toBe(202);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual({ status: "delivery_uncertain", expiresAt: expiresAt.toISOString() });
+    expect(await response.json()).toEqual({ status: "delivery_pending", expiresAt: expiresAt.toISOString() });
     expect(mocks.invitationCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: "respondent-1", issuedById: "complainant-1" }) });
     expect(mocks.invitationFindUnique).not.toHaveBeenCalled();
     expect(mocks.invitationUpdateMany).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.sendInvitationEmail).toHaveBeenCalledWith({ invitationId: "invitation-1" });
   });
 
   it("does not rotate an active invitation whose email status is uncertain", async () => {
@@ -97,16 +103,16 @@ describe("respondent invitation delivery uncertainty", () => {
   });
 
   it("revokes a definitely rejected link before allowing a retry", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: "invalid recipient" }, { status: 422 })));
+    mocks.sendInvitationEmail.mockResolvedValue("rejected");
 
     const response = await POST(request(), params);
 
-    expect(response.status).toBe(502);
-    expect(await response.json()).toEqual({ message: "The invitation could not be emailed. Please retry." });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ message: "Invitation email is unavailable." });
     expect(mocks.invitationFindUnique).toHaveBeenCalledWith({ where: { id: "invitation-1" } });
     expect(mocks.invitationUpdateMany).toHaveBeenLastCalledWith({
       where: { id: "invitation-1", revokedAt: null, claimedAt: null },
-      data: { revokedAt: expect.any(Date) },
+      data: expect.objectContaining({ revokedAt: expect.any(Date), deliveryPayloadCiphertext: null, deliveryLeaseUntil: null }),
     });
   });
 });

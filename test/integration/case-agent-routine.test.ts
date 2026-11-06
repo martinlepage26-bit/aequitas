@@ -82,14 +82,15 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-function stubEmail(fail = false) {
+function stubEmail(failure: "none" | "uncertain" | "rejected" = "none") {
   const acceptedByIdempotencyKey = new Map<string, string>();
   providerRequests = [];
   vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
     const body = String(init.body);
     const idempotencyKey = new Headers(init.headers).get("Idempotency-Key");
     providerRequests.push({ idempotencyKey, body });
-    if (fail) return new Response("{}", { status: 500 });
+    if (failure === "uncertain") return new Response("{}", { status: 500 });
+    if (failure === "rejected") return new Response("{}", { status: 422 });
     if (idempotencyKey && acceptedByIdempotencyKey.has(idempotencyKey)) {
       return new Response(JSON.stringify({ id: acceptedByIdempotencyKey.get(idempotencyKey) }), { status: 200 });
     }
@@ -378,48 +379,49 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     expect(await prisma.coiDeclaration.count({ where: { caseId: r.caseId } })).toBe(0);
   });
 
-  it("an invitation the email provider refuses goes to a person", async () => {
+  it("an invitation the email provider definitely rejects goes to a person", async () => {
     const r = await submittedCase();
-    stubEmail(true);
+    stubEmail("rejected");
     await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
     expect(await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
-    const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
-    expect(invitation).toMatchObject({ emailedAt: null, revokedAt: null });
+    const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId }, orderBy: { createdAt: "desc" } });
+    expect(invitation).toMatchObject({ emailedAt: null, revokedAt: expect.any(Date), deliveryPayloadCiphertext: null });
   });
 
-  it("hands off with the invite still active if the emailedAt write fails on the retry too", async () => {
+  it("keeps an accepted invitation queued when the delivery result cannot be persisted", async () => {
     const r = await submittedCase();
     sentTo.length = 0;
     stubEmail();
     await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
-    // The send path tries once and retries once; fail both timestamp writes.
-    const timestampWrite = vi.spyOn(prisma.invitation, "update").mockRejectedValue(new Error("synthetic database write failure"));
+    // Both idempotent sends are accepted, but neither result can be stored.
+    const deliveryWrite = vi.spyOn(prisma.invitation, "updateMany").mockRejectedValue(new Error("synthetic database write failure"));
     try {
-      expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "escalated", reason: "invitation_failed" });
+      expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "waiting", reason: "respondent_invitation_pending" });
     } finally {
-      timestampWrite.mockRestore();
+      deliveryWrite.mockRestore();
     }
 
     const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
-    expect(invitation.emailedAt).toBeNull();
-    // A later scheduled run neither re-sends nor rotates the link.
-    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "skipped", reason: "escalated" });
+    expect(invitation).toMatchObject({ emailedAt: null, revokedAt: null, deliveryAttempts: 1 });
+    expect(invitation.deliveryPayloadCiphertext).not.toBeNull();
+    // A later agent pass neither re-sends nor rotates the still-queued link.
+    expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "waiting", reason: "respondent_invitation_pending" });
     expect(await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } })).toMatchObject({ tokenHash: invitation.tokenHash, emailedAt: null, revokedAt: null });
     const invitationRequests = providerRequests.filter((request) => request.idempotencyKey?.startsWith("invitation/"));
     expect(invitationRequests.map((request) => request.idempotencyKey)).toEqual([`invitation/${invitation.id}`, `invitation/${invitation.id}`]);
     expect(sentTo).toEqual([r.respondentEmail]);
   });
 
-  it("recovers a transient emailedAt write failure without sending a duplicate invitation", async () => {
+  it("recovers a transient outbox update failure without delivering duplicate invitations", async () => {
     const r = await submittedCase();
     sentTo.length = 0;
     stubEmail();
     await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
-    const timestampWrite = vi.spyOn(prisma.invitation, "update").mockRejectedValueOnce(new Error("synthetic database write failure"));
+    const deliveryWrite = vi.spyOn(prisma.invitation, "updateMany").mockRejectedValueOnce(new Error("synthetic database write failure"));
     try {
       expect(await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).toEqual({ status: "respondent_invited" });
     } finally {
-      timestampWrite.mockRestore();
+      deliveryWrite.mockRestore();
     }
 
     const invitation = await prisma.invitation.findFirstOrThrow({ where: { userId: r.respondentId, revokedAt: null, claimedAt: null } });
