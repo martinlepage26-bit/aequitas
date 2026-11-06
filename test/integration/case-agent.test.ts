@@ -447,6 +447,36 @@ describe("case agent: party isolation", () => {
     expect(types(s.complainantId)).toContain("AGENT_ESCALATED");
     expect(types(s.respondentId)).not.toContain("AGENT_ESCALATED");
   });
+
+  it("reports that the case closed when closure wins a race with a request for a person", async () => {
+    const s = await positionsCase();
+    expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(goodOutput(s))), env: ENV })).status).toBe("issued");
+    const recommendationId = (await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } })).currentRecommendationId!;
+    await consent(s, s.complainantId, "COMPLAINANT", await issuedOutcome(s.caseId, s.complainantId), recommendationId);
+    await consent(s, s.respondentId, "RESPONDENT", await issuedOutcome(s.caseId, s.respondentId), recommendationId);
+
+    // Return the in-flight party-request snapshot, then let the scheduled agent
+    // finish the already-consented case before the request attempts escalation.
+    const originalFindUnique = prisma.case.findUnique.bind(prisma.case);
+    const closeBeforeEscalation = async (args: Parameters<typeof prisma.case.findUnique>[0]) => {
+      const observed = await originalFindUnique(args);
+      expect((await runCaseAgent({ caseId: s.caseId, model: null, env: ENV })).status).toBe("closed");
+      return observed;
+    };
+    const lookup = vi.spyOn(prisma.case, "findUnique").mockImplementationOnce(
+      closeBeforeEscalation as unknown as typeof prisma.case.findUnique,
+    );
+    try {
+      expect(await requestHumanReview({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId }))
+        .toMatchObject({ ok: false, status: 409 });
+    } finally {
+      lookup.mockRestore();
+    }
+
+    const closed = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(closed).toMatchObject({ state: "CLOSED", agentEscalationReason: null });
+    expect(await verifyCase(prisma, closed)).toEqual([]);
+  });
 });
 
 describe("case agent: unsupported or unsafe cases go to a person", () => {

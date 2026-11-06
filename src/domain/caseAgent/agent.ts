@@ -144,8 +144,17 @@ export async function requestHumanReview(input: { actorId: string; actorRole: Gl
   if (!caseRow || !isParty) return { ok: false, status: 404, reason: "Case not found." };
   if (!caseRow.agentManaged || caseRow.state === "CLOSED") return { ok: false, status: 409, reason: "This case is not managed by the automated assistant." };
   if (caseRow.agentEscalatedAt) return { ok: true };
-  await escalateCase(caseRow.id, input.actorId, "party_request");
-  return { ok: true };
+  const escalated = await escalateCase(caseRow.id, input.actorId, "party_request");
+  if (escalated) return { ok: true };
+
+  // Another party may have won the same request, or the agent may have closed
+  // the case between the first read and the conditional escalation write.
+  const current = await prisma.case.findUnique({
+    where: { id: caseRow.id },
+    select: { state: true, agentManaged: true, agentEscalatedAt: true },
+  });
+  if (current?.agentManaged && current.agentEscalatedAt) return { ok: true };
+  return { ok: false, status: 409, reason: "The case changed before the request for a person could be recorded. Reload to check its current status." };
 }
 
 /**
