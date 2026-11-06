@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const db = vi.hoisted(() => ({ invitation: { update: vi.fn() }, notification: { findMany: vi.fn(), update: vi.fn() } }));
+const db = vi.hoisted(() => ({ invitation: { update: vi.fn() }, accountRecovery: { update: vi.fn() }, notification: { findMany: vi.fn(), update: vi.fn() } }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
-import { CASE_AWAITING_MANAGER_KIND, CASE_REOPENED_KIND, CASE_AGENT_POSITIONS_REQUESTED_KIND, OUTCOME_NEEDS_ANSWER_KIND, emailConfigured, notificationEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, CASE_REOPENED_KIND, CASE_AGENT_POSITIONS_REQUESTED_KIND, OUTCOME_NEEDS_ANSWER_KIND, emailConfigured, notificationEmail, sendAccountRecoveryEmail, sendInvitationEmail, deliverPendingNotifications } from "../../src/lib/mail";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.resetAllMocks(); });
 function configure() {
@@ -105,6 +105,61 @@ describe("Resend delivery", () => {
       .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(db.invitation.update).not.toHaveBeenCalled();
+  });
+  it("sends the localized recovery link with a recovery-specific idempotency key", async () => {
+    configure();
+    const fetch = vi.fn().mockResolvedValue(Response.json({ id: "resend-recovery" })); vi.stubGlobal("fetch", fetch);
+
+    expect(await sendAccountRecoveryEmail({ email: "owner@example.com", locale: "en-CA", token: "recovery-token", recoveryId: "recovery-1" })).toBe("accepted");
+
+    const [url, request] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.resend.com/emails");
+    expect(JSON.parse(request.body)).toMatchObject({
+      from: "aequitas@pharos-ai.ca",
+      reply_to: "aequitas@pharos-ai.ca",
+      to: ["owner@example.com"],
+      subject: "Recover your Aequitas access",
+      text: expect.stringContaining("https://aequitas.example/en-CA/auth/recover/recovery-token"),
+    });
+    expect(request.headers["Idempotency-Key"]).toBe("recovery/recovery-1");
+    expect(db.accountRecovery.update).toHaveBeenCalledWith({ where: { id: "recovery-1" }, data: { emailedAt: expect.any(Date) } });
+  });
+  it("retries uncertain recovery delivery once with the identical payload and idempotency key", async () => {
+    configure();
+    const fetch = vi.fn().mockRejectedValueOnce(new Error("synthetic lost response")).mockResolvedValueOnce(Response.json({ id: "resend-recovery-recovered" }));
+    vi.stubGlobal("fetch", fetch);
+
+    expect(await sendAccountRecoveryEmail({ email: "owner@example.com", locale: "fr-CA", token: "recovery-token", recoveryId: "recovery-retry" })).toBe("accepted");
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["recovery/recovery-retry", "recovery/recovery-retry"]);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(db.accountRecovery.update).toHaveBeenCalledTimes(1);
+  });
+  it("retries the same recovery request when recording provider acceptance fails transiently", async () => {
+    configure();
+    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ id: "resend-recovery-accepted" })).mockResolvedValueOnce(Response.json({ id: "resend-recovery-accepted" }));
+    vi.stubGlobal("fetch", fetch);
+    db.accountRecovery.update.mockRejectedValueOnce(new Error("synthetic database interruption")).mockResolvedValueOnce(undefined);
+
+    expect(await sendAccountRecoveryEmail({ email: "owner@example.com", locale: "en-CA", token: "recovery-token", recoveryId: "recovery-record-retry" })).toBe("accepted");
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["recovery/recovery-record-retry", "recovery/recovery-record-retry"]);
+    expect(db.accountRecovery.update).toHaveBeenCalledTimes(2);
+  });
+  it("returns uncertain after both recovery attempts fail to record acceptance", async () => {
+    configure();
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ id: "resend-recovery-accepted" }))); vi.stubGlobal("fetch", fetch);
+    db.accountRecovery.update.mockRejectedValue(new Error("synthetic persistent database interruption"));
+
+    await expect(sendAccountRecoveryEmail({ email: "owner@example.com", locale: "en-CA", token: "recovery-token", recoveryId: "recovery-record-uncertain" }))
+      .rejects.toMatchObject({ name: "EmailDeliveryError", certainty: "uncertain" });
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+    expect(db.accountRecovery.update).toHaveBeenCalledTimes(2);
   });
   it("keeps failed notifications pending and retries with the same idempotency key", async () => {
     configure();

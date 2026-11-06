@@ -119,5 +119,5 @@ The public `/fr-CA/demo` and `/en-CA/demo` routes provide a static walkthrough b
 ## Known defects and limits
 
 - Two parties only. No translation-review workflow.
-- Invitation emails are sent directly (`src/lib/mail.ts`) with one immediate retry using the same provider idempotency key; if delivery remains uncertain, the active link is preserved and staff must resolve it. Account-recovery emails remain outside the retried outbox.
+- Invitation and account-recovery emails are sent directly (`src/lib/mail.ts`) with one immediate retry using the same provider idempotency key. Invitations remain active and return to staff after persistent uncertainty; a recovery token remains active while the endpoint keeps its generic response. Neither flow has a durable retry queue; real-host delivery still needs checking.
 - Storage cleanup after a crashed write is manual.
