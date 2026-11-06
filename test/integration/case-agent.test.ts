@@ -125,13 +125,16 @@ type Output = Record<string, unknown>;
 function goodOutput(s: Setup): Output {
   return {
     needs_human: null,
-    summary: "The complainant reports a kettle that stopped heating; the respondent reports a clearance sale and a repair voucher offer.",
-    reasoning: "Both submissions agree a kettle was bought and a remedy was discussed at the counter. They differ on which remedy applies.",
+    summary_claims: [
+      { text: "The receipt records a kettle purchase and the full price paid.", citation_ids: ["C1"] },
+      { text: "The store's shelf tag says final sale.", citation_ids: ["C2"] },
+    ],
+    reasoning_claims: [{ text: "The submitted documents record the purchase and the store's sale condition.", citation_ids: ["C1", "C2"] }],
     limits: ["The kettle itself was not examined."],
     not_considered: ["Any loss beyond the purchase price."],
     citations: [
-      { evidence_item_id: s.complainantEvidence, relevance: "Purchase record.", excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." },
-      { evidence_item_id: s.respondentEvidence, relevance: "Sale conditions shown in store.", excerpt: "Clearance shelf tag: final sale." },
+      { citation_id: "C1", evidence_item_id: s.complainantEvidence, relevance: "Purchase record.", excerpt: "kettle purchase on 2026-10-02; paid full price $89.99." },
+      { citation_id: "C2", evidence_item_id: s.respondentEvidence, relevance: "Sale conditions shown in store.", excerpt: "Clearance shelf tag: final sale." },
     ],
     proposal: { remedy: "replacement", amount_cents: null },
     party_evidence: { complainant: [s.complainantEvidence], respondent: [s.respondentEvidence] },
@@ -244,10 +247,14 @@ describe("case agent: normal completion", () => {
     expect(row.state).toBe("ISSUED");
     const rec = await prisma.recommendation.findUniqueOrThrow({ where: { id: row.currentRecommendationId! } });
     expect(rec).toMatchObject({ status: "ISSUED", issuedById: agentId, modelId: "agent:test:stub" });
-    const explanation = rec.explanation as { evidence_citations: Array<{ evidence_item_id: string; extracted_span: { start_char: number; end_char: number; source_sha256: string; extracted_text_sha256: string; extraction_method: string } }> };
+    const explanation = rec.explanation as {
+      evidence_citations: Array<{ citation_id: string; evidence_item_id: string; extracted_span: { start_char: number; end_char: number; source_sha256: string; extracted_text_sha256: string; extraction_method: string } }>;
+      claim_evidence: Array<{ section: string; text: string; citation_ids: string[] }>;
+    };
     expect(explanation.evidence_citations).toHaveLength(2);
     expect(explanation.evidence_citations[0]).toMatchObject({
       evidence_item_id: s.complainantEvidence,
+      citation_id: "C1",
       extracted_span: {
         start_char: COMPLAINANT_EVIDENCE_TEXT.indexOf("kettle purchase"),
         end_char: COMPLAINANT_EVIDENCE_TEXT.indexOf("kettle purchase") + Array.from("kettle purchase on 2026-10-02; paid full price $89.99.").length,
@@ -257,6 +264,11 @@ describe("case agent: normal completion", () => {
       },
     });
     expect(explanation.evidence_citations[0]).not.toHaveProperty("excerpt");
+    expect(explanation.claim_evidence).toEqual([
+      { section: "summary", text: "The receipt records a kettle purchase and the full price paid.", citation_ids: ["C1"] },
+      { section: "summary", text: "The store's shelf tag says final sale.", citation_ids: ["C2"] },
+      { section: "reasoning", text: "The submitted documents record the purchase and the store's sale condition.", citation_ids: ["C1", "C2"] },
+    ]);
     const c = await issuedOutcome(s.caseId, s.complainantId);
     const r = await issuedOutcome(s.caseId, s.respondentId);
     expect([c.authoredById, r.authoredById]).toEqual([agentId, agentId]);
@@ -370,8 +382,8 @@ describe("case agent: least privilege", () => {
 describe("case agent: party isolation", () => {
   it("never puts model-written text in front of a party", async () => {
     const s = await positionsCase();
-    const out = goodOutput(s) as { summary: string; citations: Array<{ relevance: string }> };
-    out.summary = `Staff only: ${RESPONDENT_POSITION}`;
+    const out = goodOutput(s) as { summary_claims: Array<{ text: string; citation_ids: string[] }>; citations: Array<{ relevance: string }> };
+    out.summary_claims[0].text = `Staff only: ${RESPONDENT_POSITION}`;
     out.citations[0].relevance = `Leak attempt: ${RESPONDENT_POSITION}`;
     expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(out)), env: ENV })).status).toBe("issued");
     const c = await issuedOutcome(s.caseId, s.complainantId);
@@ -528,9 +540,9 @@ describe("case agent: model failure", () => {
   ] as const)("%s", async (_label, kind, reason) => {
     const s = await positionsCase();
     const model = kind === null ? null : typeof kind !== "string" ? kind : stub(() => {
-      const out = goodOutput(s) as Record<string, unknown> & { reasoning: string; citations: Array<{ evidence_item_id: string }> };
+      const out = goodOutput(s) as Record<string, unknown> & { reasoning_claims: Array<{ text: string; citation_ids: string[] }>; citations: Array<{ evidence_item_id: string }> };
       if (kind === "needs_human") out.needs_human = "The dispute turns on a warranty question.";
-      if (kind === "credibility") out.reasoning = "The customer's account is more credible.";
+      if (kind === "credibility") out.reasoning_claims[0].text = "The customer's account is more credible.";
       if (kind === "unknown") out.citations[0].evidence_item_id = randomUUID();
       return JSON.stringify(out);
     });

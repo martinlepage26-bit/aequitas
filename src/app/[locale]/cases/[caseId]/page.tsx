@@ -459,6 +459,33 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
               <strong>{t("recommendation.reasoningLabel")}:</strong> {recommendation.explanation.reasoning}
             </p>
           )}
+          {recommendation.explanation.claim_evidence && recommendation.explanation.claim_evidence.length > 0 && (
+            <>
+              <p><strong>{t("recommendation.claimEvidenceLabel")}:</strong></p>
+              <ul>
+                {recommendation.explanation.claim_evidence.map((claim, index) => (
+                  <li key={`${claim.section}-${index}`}>
+                    {claim.text}
+                    <ul>
+                      {claim.citation_ids.map((citationId) => {
+                        const citation = recommendation.explanation.evidence_citations.find((item) => item.citation_id === citationId);
+                        if (!citation) return null;
+                        const source = caseRow.evidenceItems.find((item) => item.id === citation.evidence_item_id);
+                        return (
+                          <li key={citationId}>
+                            <a href={`#evidence-${citation.evidence_item_id}`}>
+                              {source?.title ?? t("recommendation.citedEvidenceFallback")}
+                            </a>
+                            {citation.relevance ? ` — ${citation.relevance}` : ""}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {recommendation.explanation.evidence_citations.length > 0 && (
             <>
               <p>
@@ -466,7 +493,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
               </p>
               <ul>
                 {recommendation.explanation.evidence_citations.map((c) => (
-                  <li key={c.evidence_item_id}>
+                  <li key={c.citation_id ?? c.evidence_item_id}>
                     <a href={`#evidence-${c.evidence_item_id}`}>
                       {c.relevance || caseRow.evidenceItems.find((e) => e.id === c.evidence_item_id)?.title || t("recommendation.citedEvidenceFallback")}
                     </a>

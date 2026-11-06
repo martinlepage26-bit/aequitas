@@ -373,10 +373,14 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     };
   });
   const explanation: ExplanationRecord = {
-    summary: out.summary,
+    summary: out.summary_claims.map((claim) => claim.text).join(" "),
     proposed_outcome: `Structured proposal: ${out.proposal.remedy}${out.proposal.amount_cents !== null ? ` (${out.proposal.amount_cents} CAD cents)` : ""}. Each party received fixed wording in their language.`,
-    reasoning: out.reasoning,
+    reasoning: out.reasoning_claims.map((claim) => claim.text).join(" "),
     evidence_citations: evidenceCitations,
+    claim_evidence: [
+      ...out.summary_claims.map((claim) => ({ section: "summary" as const, ...claim })),
+      ...out.reasoning_claims.map((claim) => ({ section: "reasoning" as const, ...claim })),
+    ],
     limits: out.limits,
     not_considered: out.not_considered,
     knowledge_sources: [],

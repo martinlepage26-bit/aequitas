@@ -113,10 +113,13 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const model = { provider: "test", model: "stub", complete: async (prompt: string) => {
       expect(prompt).toContain(texts[c.id]);
       return JSON.stringify({
-        needs_human: null, summary: "Staff-only summary.", reasoning: "Both files agree on the purchase.", limits: ["The kettle was not examined."], not_considered: ["Other losses."],
+        needs_human: null,
+        summary_claims: [{ text: "The buyer's file records the purchase.", citation_ids: ["C1"] }, { text: "The seller's file records a repair offer.", citation_ids: ["C2"] }],
+        reasoning_claims: [{ text: "Both files record parts of the exchange.", citation_ids: ["C1", "C2"] }],
+        limits: ["The kettle was not examined."], not_considered: ["Other losses."],
         citations: [
-          { evidence_item_id: idOf(c.id), relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
-          { evidence_item_id: idOf(r.id), relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
+          { citation_id: "C1", evidence_item_id: idOf(c.id), relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
+          { citation_id: "C2", evidence_item_id: idOf(r.id), relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
         ],
         proposal: { remedy: "refund_partial", amount_cents: 4500 },
         party_evidence: { complainant: [idOf(c.id)], respondent: [idOf(r.id)] },

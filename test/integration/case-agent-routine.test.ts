@@ -190,12 +190,15 @@ async function positions(r: Routine) {
 
 const proposal = (cId: string, rId: string, over: Record<string, unknown> = {}) => JSON.stringify({
   needs_human: null,
-  summary: "The buyer reports a kettle that stopped heating; the seller reports a repair voucher offer.",
-  reasoning: "Both files agree on the purchase and that a remedy was discussed.",
+  summary_claims: [
+    { text: "The buyer's file records the kettle purchase.", citation_ids: ["C1"] },
+    { text: "The seller reports a repair voucher offer.", citation_ids: ["C2"] },
+  ],
+  reasoning_claims: [{ text: "The submitted records document the purchase and a remedy offer.", citation_ids: ["C1", "C2"] }],
   limits: ["The kettle was not examined."], not_considered: ["Losses beyond the price paid."],
   citations: [
-    { evidence_item_id: cId, relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
-    { evidence_item_id: rId, relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
+    { citation_id: "C1", evidence_item_id: cId, relevance: "Purchase record.", excerpt: "kettle bought 2026-10-02 for $89.99" },
+    { citation_id: "C2", evidence_item_id: rId, relevance: "Remedy offered.", excerpt: "offered a repair voucher at the counter" },
   ],
   proposal: { remedy: "repair", amount_cents: null },
   party_evidence: { complainant: [cId], respondent: [rId] },
@@ -475,7 +478,7 @@ describe("untrusted documents and model output", () => {
     const lying = await submittedCase();
     const ids = await toPositions(lying, `${C_TEXT} ${INJECTION}`);
     await positions(lying);
-    expect(await runCaseAgent({ caseId: lying.caseId, model: stub(() => proposal(ids.cId, ids.rId, { reasoning: "The respondent is lying." })), env: ENV })).toEqual({ status: "escalated", reason: "model_output_rejected" });
+    expect(await runCaseAgent({ caseId: lying.caseId, model: stub(() => proposal(ids.cId, ids.rId, { reasoning_claims: [{ text: "The respondent is lying.", citation_ids: ["C1", "C2"] }] })), env: ENV })).toEqual({ status: "escalated", reason: "model_output_rejected" });
     const consenting = await submittedCase();
     const more = await toPositions(consenting);
     await positions(consenting);
@@ -484,8 +487,8 @@ describe("untrusted documents and model output", () => {
   });
 
   it.each([
-    ["fabricated excerpt", (c: string, r: string) => proposal(c, r, { citations: [{ evidence_item_id: c, relevance: "x", excerpt: "kettle bought 2026-10-02 for $49.99" }, { evidence_item_id: r, relevance: "y", excerpt: "offered a repair voucher at the counter" }] })],
-    ["excerpt from the other party's file", (c: string, r: string) => proposal(c, r, { citations: [{ evidence_item_id: c, relevance: "x", excerpt: "offered a repair voucher at the counter" }, { evidence_item_id: r, relevance: "y", excerpt: "offered a repair voucher at the counter" }] })],
+    ["fabricated excerpt", (c: string, r: string) => proposal(c, r, { citations: [{ citation_id: "C1", evidence_item_id: c, relevance: "x", excerpt: "kettle bought 2026-10-02 for $49.99" }, { citation_id: "C2", evidence_item_id: r, relevance: "y", excerpt: "offered a repair voucher at the counter" }] })],
+    ["excerpt from the other party's file", (c: string, r: string) => proposal(c, r, { citations: [{ citation_id: "C1", evidence_item_id: c, relevance: "x", excerpt: "offered a repair voucher at the counter" }, { citation_id: "C2", evidence_item_id: r, relevance: "y", excerpt: "offered a repair voucher at the counter" }] })],
     ["outcome points to the other party's evidence", (c: string, r: string) => proposal(c, r, { party_evidence: { complainant: [r], respondent: [r] } })],
   ])("%s is rejected and nothing is written", async (_label, build) => {
     const r = await submittedCase();
@@ -499,7 +502,7 @@ describe("untrusted documents and model output", () => {
     const r = await submittedCase();
     const { cId, rId } = await toPositions(r);
     await positions(r);
-    await runCaseAgent({ caseId: r.caseId, model: stub(() => proposal(cId, rId, { summary: `Staff only: ${R_TEXT}` })), env: ENV });
+    await runCaseAgent({ caseId: r.caseId, model: stub(() => proposal(cId, rId, { summary_claims: [{ text: `Staff only: ${R_TEXT}`, citation_ids: ["C2"] }] })), env: ENV });
     const view = JSON.stringify(await readPartyOutcomes(r.caseId, { userId: r.complainantId, globalRole: "COMPLAINANT" }));
     expect(view).not.toContain("repair voucher at the counter");
     expect(view).not.toContain(rId);

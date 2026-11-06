@@ -108,9 +108,12 @@ async function main() {
       const c = material.complainant.evidence[0];
       const r = material.respondent.evidence[0];
       const injected = /ignore your rules|warranty under/i.test(c.extracted_text);
-      if (injected) return JSON.stringify({ needs_human: "Out of routine scope.", summary: "-", reasoning: "-", limits: ["-"], not_considered: ["-"], citations: [{ evidence_item_id: c.evidence_item_id, relevance: "-", excerpt: c.extracted_text.slice(0, 20) }], proposal: { remedy: "repair", amount_cents: null }, party_evidence: { complainant: [c.evidence_item_id], respondent: [r.evidence_item_id] } });
-      return JSON.stringify({ needs_human: null, summary: "Synthetic summary.", reasoning: "Synthetic reasoning.", limits: ["The item was not examined."], not_considered: ["Other losses."],
-        citations: [{ evidence_item_id: c.evidence_item_id, relevance: "Purchase.", excerpt: c.extracted_text.slice(0, 24) }, { evidence_item_id: r.evidence_item_id, relevance: "Offer.", excerpt: r.extracted_text.slice(0, 24) }],
+      if (injected) return JSON.stringify({ needs_human: "Out of routine scope.", summary_claims: [{ text: "-", citation_ids: ["C1"] }], reasoning_claims: [{ text: "-", citation_ids: ["C1"] }], limits: ["-"], not_considered: ["-"], citations: [{ citation_id: "C1", evidence_item_id: c.evidence_item_id, relevance: "-", excerpt: c.extracted_text.slice(0, 20) }], proposal: { remedy: "repair", amount_cents: null }, party_evidence: { complainant: [c.evidence_item_id], respondent: [r.evidence_item_id] } });
+      return JSON.stringify({ needs_human: null,
+        summary_claims: [{ text: "The complainant's file records the purchase.", citation_ids: ["C1"] }, { text: "The respondent's note records an offer.", citation_ids: ["C2"] }],
+        reasoning_claims: [{ text: "The records describe separate parts of the exchange.", citation_ids: ["C1", "C2"] }],
+        limits: ["The item was not examined."], not_considered: ["Other losses."],
+        citations: [{ citation_id: "C1", evidence_item_id: c.evidence_item_id, relevance: "Purchase.", excerpt: c.extracted_text.slice(0, 24) }, { citation_id: "C2", evidence_item_id: r.evidence_item_id, relevance: "Offer.", excerpt: r.extracted_text.slice(0, 24) }],
         proposal: { remedy: "replacement", amount_cents: null }, party_evidence: { complainant: [c.evidence_item_id], respondent: [r.evidence_item_id] } });
     } };
   }

@@ -12,19 +12,25 @@ import { proposalProblem, proposalSchema } from "./proposal";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-05.3";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-06.1";
 export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const ids = z.array(z.string().uuid()).max(50);
+const citationIds = z.array(z.string().regex(/^C[1-9]\d{0,2}$/)).min(1).max(10);
+const linkedClaim = z.object({
+  text: text(500),
+  citation_ids: citationIds,
+}).strict();
 
 export const agentOutputSchema = z.object({
   needs_human: z.string().trim().max(500).nullable(),
-  summary: text(1500),
-  reasoning: text(4000),
+  summary_claims: z.array(linkedClaim).min(1).max(8),
+  reasoning_claims: z.array(linkedClaim).min(1).max(10),
   limits: z.array(text(500)).min(1).max(10),
   not_considered: z.array(text(500)).min(1).max(10),
   citations: z.array(z.object({
+    citation_id: z.string().regex(/^C[1-9]\d{0,2}$/),
     evidence_item_id: z.string().uuid(),
     relevance: text(500),
     excerpt: z.string().min(12).max(MAX_CITATION_EXCERPT_CHARACTERS).refine((value) => value.trim().length > 0),
@@ -81,7 +87,13 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   const out = parsed.data;
   if (out.needs_human) return { ok: false, escalation: "model_requested_review", detail: "model asked for a person" };
 
-  const texts = [out.summary, out.reasoning, ...out.limits, ...out.not_considered, ...out.citations.map((c) => c.relevance)];
+  const texts = [
+    ...out.summary_claims.map((claim) => claim.text),
+    ...out.reasoning_claims.map((claim) => claim.text),
+    ...out.limits,
+    ...out.not_considered,
+    ...out.citations.map((c) => c.relevance),
+  ];
   for (const value of texts) {
     const problem = agentTextProblem(value);
     if (problem) return { ok: false, escalation: "model_output_rejected", detail: problem };
@@ -89,7 +101,9 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
 
   const all = new Set([...ctx.complainantEvidenceIds, ...ctx.respondentEvidenceIds]);
   const cited = out.citations.map((c) => c.evidence_item_id);
-  if (new Set(cited).size !== cited.length || cited.some((id) => !all.has(id))) {
+  const citationKeys = out.citations.map((c) => c.citation_id);
+  if (new Set(cited).size !== cited.length || cited.some((id) => !all.has(id))
+    || new Set(citationKeys).size !== citationKeys.length) {
     return { ok: false, escalation: "model_output_rejected", detail: "citation not in current clean case evidence" };
   }
   for (const citation of out.citations) {
@@ -98,6 +112,18 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
     if (start < 0 || source?.text.lastIndexOf(citation.excerpt) !== start) {
       return { ok: false, escalation: "model_output_rejected", detail: "citation excerpt is absent or ambiguous in the current evidence extract" };
     }
+  }
+  const citationKeySet = new Set(citationKeys);
+  const referencedCitationKeys = new Set<string>();
+  for (const claim of [...out.summary_claims, ...out.reasoning_claims]) {
+    if (new Set(claim.citation_ids).size !== claim.citation_ids.length
+      || claim.citation_ids.some((id) => !citationKeySet.has(id))) {
+      return { ok: false, escalation: "model_output_rejected", detail: "claim points to a missing or duplicate evidence citation" };
+    }
+    claim.citation_ids.forEach((id) => referencedCitationKeys.add(id));
+  }
+  if (citationKeys.some((id) => !referencedCitationKeys.has(id))) {
+    return { ok: false, escalation: "model_output_rejected", detail: "evidence citation is not linked to a summary or reasoning claim" };
   }
   // Isolation: each party's outcome may point only to that party's own evidence,
   // and only to items with a verified excerpt.

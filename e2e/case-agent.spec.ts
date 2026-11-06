@@ -119,10 +119,13 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     const enrolled = await enrollCaseAgent({ actorId: m.id, actorRole: "CASE_MANAGER", caseId }, ENV);
     if (!enrolled.ok) throw new Error(enrolled.reason);
     const run = await runCaseAgent({ caseId, env: ENV, model: { provider: "test", model: "stub", complete: async () => JSON.stringify({
-      needs_human: null, summary: "Summary.", reasoning: "Reasoning.", limits: ["Limit."], not_considered: ["Other losses."],
+      needs_human: null,
+      summary_claims: [{ text: "The receipt records the purchase.", citation_ids: ["C1"] }, { text: "The store note records the offered remedy.", citation_ids: ["C2"] }],
+      reasoning_claims: [{ text: "The records describe different parts of the exchange.", citation_ids: ["C1", "C2"] }],
+      limits: ["Limit."], not_considered: ["Other losses."],
       citations: [
-        { evidence_item_id: ids[0], relevance: "Receipt documents the purchase.", excerpt: evidence[0].excerpt },
-        { evidence_item_id: ids[1], relevance: "Store note records the offered remedy.", excerpt: evidence[1].excerpt },
+        { citation_id: "C1", evidence_item_id: ids[0], relevance: "Receipt documents the purchase.", excerpt: evidence[0].excerpt },
+        { citation_id: "C2", evidence_item_id: ids[1], relevance: "Store note records the offered remedy.", excerpt: evidence[1].excerpt },
       ],
       proposal: { remedy: "repair", amount_cents: null },
       party_evidence: { complainant: [ids[0]], respondent: [ids[1]] },
@@ -154,12 +157,17 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await complainantCitations.getByRole("button", { name: messages.workspace.partyOutcome.viewExcerpt }).click();
     await expect(complainantCitations.locator("blockquote")).toHaveText(evidence[0].excerpt);
     expect(await cp.content()).not.toContain(outcomeR);
+    expect(await cp.content()).not.toContain("The receipt records the purchase.");
     await mp.goto(`/${locale}/cases/${caseId}`);
     await expect(mp.locator("#case-agent-status")).toHaveText(copy.managerActive);
+    await expect(mp.getByText(messages.workspace.recommendation.claimEvidenceLabel, { exact: true })).toBeVisible();
+    await expect(mp.getByText("The receipt records the purchase.", { exact: true })).toBeVisible();
+    await expect(mp.getByRole("link", { name: "File COMPLAINANT" }).first()).toBeVisible();
 
     await rp.goto(`/${locale}/cases/${caseId}`);
     await expect(rp.locator("#your-outcome")).toHaveText(outcomeR);
     expect(await rp.content()).not.toContain(outcomeC);
+    expect(await rp.content()).not.toContain("The receipt records the purchase.");
     expect(await rp.content()).not.toContain("File COMPLAINANT");
     const respondentCitations = rp.getByRole("region", { name: messages.workspace.partyOutcome.citationHeading });
     await expect(respondentCitations.getByRole("link", { name: "File RESPONDENT" })).toBeVisible();

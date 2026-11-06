@@ -9,13 +9,16 @@ const respondentEvidenceId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 function validReply() {
   return {
     needs_human: null,
-    summary: "Le reçu indique le prix payé. The store note records a repair voucher offer.",
-    reasoning: "The records describe different parts of the exchange and do not establish what happened to the kettle.",
+    summary_claims: [
+      { text: "Le reçu indique le prix payé.", citation_ids: ["C1"] },
+      { text: "The store note records a repair voucher offer.", citation_ids: ["C2"] },
+    ],
+    reasoning_claims: [{ text: "The records describe different parts of the exchange and do not establish what happened to the kettle.", citation_ids: ["C1", "C2"] }],
     limits: ["The appliance was not independently examined."],
     not_considered: ["No costs beyond the listed purchase price were included."],
     citations: [
-      { evidence_item_id: complainantEvidenceId, relevance: "The receipt records the purchase total.", excerpt: "kettle purchased 2026-10-02; total paid $89.99." },
-      { evidence_item_id: respondentEvidenceId, relevance: "The store note records the proposed repair remedy.", excerpt: "item marked final sale; repair voucher offered on 2026-10-05." },
+      { citation_id: "C1", evidence_item_id: complainantEvidenceId, relevance: "The receipt records the purchase total.", excerpt: "kettle purchased 2026-10-02; total paid $89.99." },
+      { citation_id: "C2", evidence_item_id: respondentEvidenceId, relevance: "The store note records the proposed repair remedy.", excerpt: "item marked final sale; repair voucher offered on 2026-10-05." },
     ],
     proposal: { remedy: "repair", amount_cents: null },
     party_evidence: { complainant: [complainantEvidenceId], respondent: [respondentEvidenceId] },

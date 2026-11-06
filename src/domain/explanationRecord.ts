@@ -21,6 +21,9 @@ import { FORBIDDEN_TERMS } from "../i18n/glossary";
  * generated content. It does not and cannot guarantee "properly traced to
  * evidence" for a dollar figure — that remains a human review judgment,
  * per Section 9's own UI requirement (case manager reviews before issuing).
+ * Case-agent records additionally link each summary and reasoning claim to
+ * a verified extracted span. The link makes review traceable; it cannot prove
+ * that the quoted wording semantically supports the claim.
  */
 
 const NUMERIC_SCORE_PATTERN = /\d+\s*%|\b\d+(?:\.\d+)?\s*\/\s*(?:5|10)\b|\bstar rating\b|\bstars?\s+out of\b/i;
@@ -36,12 +39,21 @@ const extractedSpanSchema = z.object({
 }).strict();
 
 const evidenceCitationSchema = z.object({
+  // The autonomous case agent uses a stable per-response key to link each
+  // generated claim to this exact, hash-verified span. Older records omit it.
+  citation_id: z.string().regex(/^C[1-9]\d{0,2}$/).optional(),
   evidence_item_id: z.string().uuid("evidence_item_id must be a UUID"),
   relevance: z.string().min(1, "relevance is required"),
   // The autonomous agent adds a server-computed pointer into a hash-verified
   // extraction. Older AI and human-authored records remain valid without it.
   extracted_span: extractedSpanSchema.optional(),
 });
+
+const claimEvidenceSchema = z.object({
+  section: z.enum(["summary", "reasoning"]),
+  text: z.string().min(1).max(500),
+  citation_ids: z.array(z.string().regex(/^C[1-9]\d{0,2}$/)).min(1).max(10),
+}).strict();
 
 export function scanForForbiddenContent(value: string): string | null {
   if (NUMERIC_SCORE_PATTERN.test(value)) {
@@ -104,6 +116,8 @@ export type AiGeneratedFields = z.infer<typeof aiGeneratedFieldsSchema>;
 /** The full stored explanation record — AI-generated fields plus model/reviewer metadata our own code attaches. */
 export const explanationRecordSchema = aiGeneratedFieldsSchema.extend({
   evidence_citations: z.array(evidenceCitationSchema),
+  // Optional so historical AI and human-authored records remain readable.
+  claim_evidence: z.array(claimEvidenceSchema).optional(),
   conflict_knowledge: conflictKnowledgeMapSchema.optional(),
   knowledge_sources: z.array(knowledgeSourceSchema).optional(),
   model: z.object({
@@ -114,6 +128,42 @@ export const explanationRecordSchema = aiGeneratedFieldsSchema.extend({
     user_id: z.string().uuid().nullable(),
     issued_at: z.string().datetime().nullable(),
   }),
+}).superRefine((record, ctx) => {
+  const citationIds = record.evidence_citations.flatMap((citation) => citation.citation_id ? [citation.citation_id] : []);
+  if (new Set(citationIds).size !== citationIds.length) {
+    ctx.addIssue({ code: "custom", path: ["evidence_citations"], message: "citation_id values must be unique" });
+  }
+  for (const [index, citation] of record.evidence_citations.entries()) {
+    if (citation.citation_id && !citation.extracted_span) {
+      ctx.addIssue({ code: "custom", path: ["evidence_citations", index, "extracted_span"], message: "agent citation IDs require a verified extracted span" });
+    }
+  }
+  const linkedClaims = record.claim_evidence ?? [];
+  if (citationIds.length > 0 && linkedClaims.length === 0) {
+    ctx.addIssue({ code: "custom", path: ["claim_evidence"], message: "agent citation IDs require claim-to-evidence links" });
+  }
+  if (linkedClaims.length === 0) return;
+  const citationIdSet = new Set(citationIds);
+  const usedCitationIds = new Set<string>();
+  for (const [index, claim] of linkedClaims.entries()) {
+    if (!record[claim.section].includes(claim.text)) {
+      ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "text"], message: "claim text must appear in its summary or reasoning" });
+    }
+    if (new Set(claim.citation_ids).size !== claim.citation_ids.length) {
+      ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "citation_ids"], message: "claim citation IDs must be unique" });
+    }
+    for (const citationId of claim.citation_ids) {
+      if (!citationIdSet.has(citationId)) {
+        ctx.addIssue({ code: "custom", path: ["claim_evidence", index, "citation_ids"], message: `unknown citation_id ${citationId}` });
+      }
+      usedCitationIds.add(citationId);
+    }
+  }
+  for (const citationId of citationIds) {
+    if (!usedCitationIds.has(citationId)) {
+      ctx.addIssue({ code: "custom", path: ["evidence_citations"], message: `citation_id ${citationId} is not linked to a claim` });
+    }
+  }
 });
 
 export type ExplanationRecord = z.infer<typeof explanationRecordSchema>;

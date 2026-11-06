@@ -1,4 +1,4 @@
-# Case agent (2026-11-05)
+# Case agent (2026-11-06)
 
 Status: **off by default; tested on synthetic data with a stub model only.** No live model has been evaluated. Do not enable it for real cases before the decisions at the end of this page are made.
 
@@ -15,9 +15,10 @@ All workflow decisions are deterministic code under the program's configured rul
    - extracts text (see below)
    - stops for a person if anything is unreadable, partial or over the limits
 
-   The model returns a staff-only summary, citations with exact excerpts, a structured proposal (`refund_full`, `refund_partial`, `store_credit`, `replacement` or `repair`, plus an amount where one applies), and the evidence each party's outcome relies on. Deterministic checks then require:
+   The model returns a staff-only summary and reasoning as separate claims, citations with exact excerpts, a structured proposal (`refund_full`, `refund_partial`, `store_credit`, `replacement` or `repair`, plus an amount where one applies), and the evidence each party's outcome relies on. Every summary or reasoning claim must point to one or more citation IDs; the stored record preserves those claim-to-quote links. Deterministic checks then require:
    - a strict schema with no extra fields
    - every excerpt appearing exactly once in the cited file's extraction
+   - every summary and reasoning claim pointing to an existing exact-quote citation, with no unlinked citation
    - each party's outcome pointing only to that party's own evidence
    - an amount that is needed by the remedy and not above the amount at stake
    - no verdict, credibility, score, legal-advice, binding or pressuring language in any model text
@@ -55,8 +56,8 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 
 - **Limits:** 25 MiB per file, 12,000 characters per source, 12 files and 60,000 characters per case. Exceeding any of them goes to a person.
 - **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. When a page contains an embedded image, OCR replaces that page's text-layer extraction so visible text and scanned content are assessed together.
-- **Citations:** each records the evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. A party opening a cited excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
-- **What an exact excerpt proves:** only that the text exists in the extraction. It does not prove the document is authentic, accurate or relevant.
+- **Citations:** each records a stable response citation ID, evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. Summary and reasoning claims reference these IDs. A party opening a cited outcome excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
+- **What the links prove:** they make it possible to trace each staff summary or reasoning claim to an exact excerpt in a hash-verified extraction. They do not prove that the excerpt semantically supports the claim, or that the document is authentic, accurate or relevant. Staff review and live-model evaluation are still required.
 
 ## Privacy and party choice
 
@@ -70,7 +71,7 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 - **State machine.** It holds exactly `agent_open_intake`, `agent_close_intake`, `agent_issue` and `agent_close`, each guarded by `agentMayAct` (opted in, not escalated, actor is the agent). A unit test asserts it holds nothing else.
 - **No case access.** `caseReadAccess` gives it nothing, so it cannot use any route.
 - **What it cannot do.** Tests show it cannot consent, decline, approve, write outcomes as a manager, request a person, or administer users.
-- **Audit.** Every agent write appends hash-chained events attributed to the agent, with the model id, the prompt version (`case-agent-2026-11-05.3`) and a digest of the material it saw.
+- **Audit.** Every agent write appends hash-chained events attributed to the agent, with the model id, the prompt version (`case-agent-2026-11-06.1`) and a digest of the material it saw. Claim-to-quote links are staff-only and removed from party views.
 
 ## Program configuration (no defaults)
 

@@ -13,10 +13,13 @@ const ctx = {
   amountAtStakeCents: 8999,
 };
 const ok = {
-  needs_human: null, summary: "s", reasoning: "r", limits: ["l"], not_considered: ["n"],
+  needs_human: null,
+  summary_claims: [{ text: "The receipt records the purchase price.", citation_ids: ["C1"] }],
+  reasoning_claims: [{ text: "The submitted records document the purchase and the sale condition.", citation_ids: ["C1", "C2"] }],
+  limits: ["l"], not_considered: ["n"],
   citations: [
-    { evidence_item_id: C, relevance: "x", excerpt: "the kettle purchase cost $89.99" },
-    { evidence_item_id: R, relevance: "y", excerpt: "Clearance tag says final sale" },
+    { citation_id: "C1", evidence_item_id: C, relevance: "x", excerpt: "the kettle purchase cost $89.99" },
+    { citation_id: "C2", evidence_item_id: R, relevance: "y", excerpt: "Clearance tag says final sale" },
   ],
   proposal: { remedy: "repair", amount_cents: null },
   party_evidence: { complainant: [C], respondent: [R] },
@@ -34,6 +37,11 @@ describe("case agent output checks", () => {
     expect(check({ ...ok, citations: [ok.citations[0], ok.citations[0]] }).ok).toBe(false);
     expect(check({ ...ok, party_evidence: { complainant: [C], respondent: [C] } }).ok).toBe(false);
     expect(check({ ...ok, party_evidence: { complainant: [C, R], respondent: [R] } }).ok).toBe(false);
+  });
+  it("requires every summary and reasoning claim to reference a verified citation key", () => {
+    expect(check({ ...ok, summary_claims: [{ text: "Unlinked claim.", citation_ids: [] }] }).ok).toBe(false);
+    expect(check({ ...ok, summary_claims: [{ text: "Unknown source.", citation_ids: ["C9"] }] }).ok).toBe(false);
+    expect(check({ ...ok, reasoning_claims: [{ text: "No claim points to C2.", citation_ids: ["C1"] }] }).ok).toBe(false);
   });
   it("rejects invented, ambiguous, or missing citation excerpts", () => {
     expect(check({ ...ok, citations: [{ ...ok.citations[0], excerpt: "the seller charged $89.99" }, ok.citations[1]] }).ok).toBe(false);

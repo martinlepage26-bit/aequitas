@@ -321,6 +321,7 @@
       "proposedOutcomeLabel": "Proposed outcome",
       "reasoningLabel": "Reasoning",
       "citationsLabel": "Cited evidence",
+      "claimEvidenceLabel": "Summary and reasoning claims linked to evidence",
       "limitsLabel": "Limits",
       "notConsideredLabel": "Not considered",
       "modelLabel": "Drafted by {model} (prompt {version})",

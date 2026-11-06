@@ -17,6 +17,7 @@ const explanation = {
     { evidence_item_id: "ev-own", relevance: "OWN-RELEVANCE" },
     { evidence_item_id: "ev-other", relevance: "OTHER-RELEVANCE" },
   ],
+  claim_evidence: [{ section: "summary" as const, text: "OTHER-CLAIM-LINK-TEXT", citation_ids: ["C1"] }],
   knowledge_sources: [
     { id: "src-own-ev", kind: "evidence_content", record_id: "ev-own" },
     { id: "src-other-ev", kind: "evidence_content", record_id: "ev-other" },
@@ -72,6 +73,8 @@ describe("filterExplanationForParty", () => {
     expect(serialized).not.toContain("OTHER-CLAIM");
     expect(serialized).not.toContain("OTHER-EXCERPT");
     expect(serialized).not.toContain("OTHER-RELEVANCE");
+    expect(serialized).not.toContain("OTHER-CLAIM-LINK-TEXT");
+    expect(filtered.claim_evidence).toEqual([]);
     expect(serialized).not.toContain("MIXED-CLAIM");
     expect(serialized).not.toContain("OTHER-POSITION-WORDING");
     expect(serialized).not.toContain("LAW-CLAIM");
@@ -99,6 +102,7 @@ describe("filterExplanationForParty", () => {
       proposed_outcome: "OWN-OUTCOME",
       reasoning: "OWN-REASONING",
       evidence_citations: [{ evidence_item_id: "ev-own", relevance: "OWN-RELEVANCE" }],
+      claim_evidence: [{ section: "reasoning" as const, text: "STAFF-ONLY-CLAIM-LINK", citation_ids: ["C1"] }],
       knowledge_sources: [{ id: "src-own-ev", kind: "evidence_metadata", record_id: "ev-own" }],
       conflict_knowledge: {
         claims: [{ id: "c-own", statement: "OWN-CLAIM", citations: [{ source_id: "src-own-ev", excerpt: "OWN-EXCERPT" }] }],
@@ -110,6 +114,8 @@ describe("filterExplanationForParty", () => {
     expect(filtered.proposed_outcome).toBe("OWN-OUTCOME");
     expect(filtered.reasoning).toBe("OWN-REASONING");
     expect(filtered.evidence_citations).toEqual([{ evidence_item_id: "ev-own", relevance: "OWN-RELEVANCE" }]);
+    expect(filtered.claim_evidence).toEqual([]);
+    expect(JSON.stringify(filtered)).not.toContain("STAFF-ONLY-CLAIM-LINK");
     expect(filtered.conflict_knowledge?.claims?.map((claim) => claim.statement)).toEqual(["OWN-CLAIM"]);
   });
 
