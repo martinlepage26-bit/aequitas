@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
 import { resolveCaseDataModel, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { blankHumanReviewChecklist, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
-import { characterCount, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
+import { characterCount, parseEvaluationPricing, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
 import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/evaluationApproval";
 
 /**
@@ -24,7 +24,9 @@ import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/eva
  * `--review-report` file contains sanitized generated text and cited excerpts
  * from these synthetic fixtures for manual semantic review. The ordinary
  * report holds outcomes, timings, character counts, and provider-reported
- * token usage when available. It does not report billed currency cost. A small
+ * token usage when available. Optional operator-supplied input and output rates
+ * add an estimate only when provider token counts are complete; the report never
+ * claims invoice cost. A small
  * synthetic run does not show the agent is safe or ready for real disputes.
  */
 
@@ -68,6 +70,7 @@ let clearEvaluationBudget: (() => Promise<void>) | undefined;
 
 async function main() {
   const args = process.argv.slice(2);
+  const evaluationPricing = parseEvaluationPricing(args);
   const live = args.includes("--live");
   const stub = args.includes("--stub");
   const reviewFlagIndex = args.findIndex((arg) => arg === "--review-report");
@@ -417,7 +420,7 @@ async function main() {
       responseCharacters: callMetrics.some((call) => call.responseCharacters !== null)
         ? callMetrics.reduce((sum, call) => sum + (call.responseCharacters ?? 0), 0)
         : null,
-      tokenUsage: tokenTotals(callMetrics),
+      tokenUsage: tokenTotals(callMetrics, evaluationPricing),
       bothPartyOutcomesIssued: outcome.status === "issued" ? bothPartyOutcomesIssued : null,
       complainantFixedTextInPartyLanguage,
       respondentFixedTextInPartyLanguage,
@@ -445,7 +448,13 @@ async function main() {
     modelCalls,
     maxModelCalls: FIXTURES.length,
     withinCallLimit,
-    tokenUsage: tokenTotals(allModelCallMetrics),
+    providerPricing: evaluationPricing ? {
+      currency: "USD",
+      basis: "operator-supplied USD prices per million tokens multiplied by provider-reported token counts",
+      inputUsdPerMillion: evaluationPricing.inputUsdPerMillion,
+      outputUsdPerMillion: evaluationPricing.outputUsdPerMillion,
+    } : null,
+    tokenUsage: tokenTotals(allModelCallMetrics, evaluationPricing),
     results,
     caveat: "Synthetic cases only. Not evidence that the agent is safe or ready for real disputes.",
   };
