@@ -14,6 +14,7 @@ import { AGENT_OUTPUT_JSON_SCHEMA, AGENT_PROMPT_VERSION, checkAgentOutput } from
 import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
 import { renderProposal } from "./proposal";
+import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, EmailDeliveryError, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
@@ -59,6 +60,8 @@ export type EscalationReason =
   | "model_failed"
   | "model_requested_review"
   | "model_output_rejected"
+  | "daily_model_call_limit_reached"
+  | "model_budget_unavailable"
   | "program_rules_incomplete";
 
 export type AgentRunResult =
@@ -298,6 +301,12 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   const program = config.program;
   if (current.state === "OPEN" && !current.agentManaged) {
     if (!input.model) return { status: "skipped", reason: "model_unavailable" };
+    try {
+      const usage = await caseAgentDailyModelUsage(now);
+      if (usage.used >= program.maxModelCallsPerUtcDay) return { status: "skipped", reason: "daily_model_call_limit_reached" };
+    } catch {
+      return { status: "skipped", reason: "model_budget_unavailable" };
+    }
     return takeCase(current.id, agent.id, program);
   }
   if (!current.agentManaged) return { status: "skipped", reason: "not_enrolled" };
@@ -363,9 +372,17 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   }
 
   const digest = materialDigest(first, evidenceSources);
+  const prompt = buildCaseAgentPrompt(first, evidenceSources);
+  let modelCallReserved = false;
+  try {
+    modelCallReserved = await reserveCaseAgentModelCall(program.maxModelCallsPerUtcDay, now);
+  } catch {
+    // Fail closed if the budget store is unavailable; never call the provider.
+    return escalate("model_budget_unavailable");
+  }
+  if (!modelCallReserved) return escalate("daily_model_call_limit_reached");
   let raw: string;
   try {
-    const prompt = buildCaseAgentPrompt(first, evidenceSources);
     if (input.model.completeWithJsonSchema) {
       raw = (await input.model.completeWithJsonSchema(prompt, AGENT_OUTPUT_JSON_SCHEMA)).text;
     } else {

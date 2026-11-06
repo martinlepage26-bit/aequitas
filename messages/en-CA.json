@@ -694,6 +694,8 @@
         "model_failed": "The model request failed.",
         "model_requested_review": "The assistant could not propose an outcome safely.",
         "model_output_rejected": "The assistant's proposal failed the safety checks.",
+        "daily_model_call_limit_reached": "The program's daily automated review limit was reached. A person will review this case.",
+        "model_budget_unavailable": "The automated review limit could not be checked. A person will review this case.",
         "invitation_failed": "The respondent invitation could not be delivered.",
         "respondent_no_response": "The respondent did not join within the program's response period.",
         "submission_missing": "A required submission was missing at the end of the program's period.",

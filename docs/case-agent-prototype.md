@@ -42,7 +42,7 @@ Reasons:
 | Evidence | `evidence_rejected`, `evidence_inadequate`, `evidence_extraction_failed`, `evidence_limit_exceeded` |
 | Process | `contestation_open` |
 | Program configuration | `program_rules_incomplete` |
-| Model | `model_unavailable`, `model_failed`, `model_requested_review`, `model_output_rejected` |
+| Model and capacity | `model_unavailable`, `model_failed`, `model_requested_review`, `model_output_rejected`, `daily_model_call_limit_reached`, `model_budget_unavailable` |
 
 ## Evidence the agent actually reads
 
@@ -79,6 +79,7 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 |---|---|
 | `AEQUITAS_CASE_AGENT_ENABLED=true` | Program-level switch. |
 | `AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS` | Largest amount at stake the agent may handle. |
+| `AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY` | Required positive integer. Maximum outbound proposal-model call attempts across all workers per UTC day. Every reserved attempt counts, including provider failures; reaching the limit hands cases at the proposal step to staff. |
 | `AEQUITAS_CASE_AGENT_INTAKE_DAYS` | Maximum time from opening intake to complete evidence and mark both sides ready; an incomplete case goes to a person when it expires. |
 | `AEQUITAS_CASE_AGENT_RESPONSE_DAYS` | Time to join after an invitation, to submit a position, and to answer a proposal. |
 | `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW` | `true` or `false`. |
@@ -87,6 +88,8 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 | `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` | Also required for Gemini. Confirm the exact API key belongs to a project with active billing; the app cannot inspect the provider billing tier. |
 
 If program rules are missing or invalid, the agent takes no new case and hands active agent-managed cases back to staff. New cases also wait in the normal queue until an approved provider is configured. Email delivery must be configured for the respondent invitation; otherwise the case goes to a person.
+
+The daily call ceiling is enforced with an atomic PostgreSQL counter shared by all scheduler workers and resets at 00:00 UTC. The counter stores only one aggregate row per UTC day, with no case or party identifiers. It limits call volume, not dollars: model prices and token use vary, so operators must also configure provider-side spend alerts or limits. When capacity is exhausted, new open cases stay in the ordinary case-manager queue; cases already managed by the agent are handed back at the proposal step. If the usage store cannot be checked, new cases stay in the ordinary queue, active cases are handed to staff, and the agent makes no model request.
 
 **Runtime model.** The agent uses the existing `TextCompletion` interface: Gemini (`GEMINI_API_KEY`, optional `GEMINI_MODEL`) or Cloudflare Workers AI (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `AEQUITAS_WORKERS_AI_MODEL`), selected by `AEQUITAS_PIPELINE_PROVIDER`. Anthropic and OpenAI are refused on this path. Calls are billed to the deployment's own provider account, not to Claude Code Cloud credits. Current provider data terms and transfer conditions still require program and counsel review.
 
@@ -103,7 +106,7 @@ For the first live evaluation, Cloudflare Workers AI remains the preferred candi
 
 `npm run agent:status` also reports aggregate scheduler heartbeats for both scheduled operations. It marks a worker never observed, running, healthy, overdue, stalled, failed or interrupted; the rows contain only operation names, schedule intervals, outcomes, exit codes and timestamps, never case identifiers, party data, evidence or provider errors.
 
-**Operator status.** `npm run agent:status` prints aggregate readiness, case-state, escalation, lease, notification and scheduler heartbeat data; it omits case IDs, party details, evidence, addresses, provider errors and secrets. A recent healthy heartbeat shows the operation completed within two configured intervals; it cannot prove that the scheduler process did not stop immediately after its last heartbeat. Check the scheduled-profile logs for exact operational errors and the provider account for usage and billed cost.
+**Operator status.** `npm run agent:status` prints aggregate readiness, case-state, escalation, lease, notification, UTC-day model-call usage and scheduler heartbeat data; it omits case IDs, party details, evidence, addresses, provider errors and secrets. A recent healthy heartbeat shows the operation completed within two configured intervals; it cannot prove that the scheduler process did not stop immediately after its last heartbeat. Check the scheduled-profile logs for exact operational errors and the provider account for usage and billed cost.
 
 ## Evaluation
 

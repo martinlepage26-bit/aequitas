@@ -86,11 +86,11 @@ The manual journey is covered: submission → scanned evidence → positions →
 ## Onboarding steps
 
 1. Martin chooses the release commit and deploys it to the single pilot host. Not done here.
-2. Run `npx prisma migrate deploy` to apply all pending schema migrations on the selected release, including the notification-attempt and case-agent scheduler fields.
+2. Run `npx prisma migrate deploy` to apply all pending schema migrations on the selected release, including notification attempts, case-agent scheduler fields and the daily aggregate model-call counter.
 3. Invite the program's case managers (`/admin/invites` or `scripts/issue-invite.ts`); each enrols a passkey on the production hostname.
 4. Grant approver to one staff member who will not manage the same cases (`scripts/grant-approver.ts`).
 5. Publish current consent statements in fr-CA and en-CA.
-6. Set the program's explicit amount limit, intake and response periods, respondent-withdrawal rule, and consent-only resolution policy. Keep `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=false` unless the owner explicitly approves waiving independent sign-off. Review the selected provider's current terms; set `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` and, for Gemini, `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` only after verification. Start the CT920 scheduled profile so failed notifications retry every 15 minutes and the case agent runs every 10 minutes. Confirm both operations report healthy with `npm run agent:status`; new cases remain unprocessed until complete program settings and an approved provider configuration are present.
+6. Set the program's explicit amount limit, daily UTC model-call ceiling, intake and response periods, respondent-withdrawal rule, and consent-only resolution policy. The daily ceiling limits call volume, not provider dollars; set provider-side spend limits or alerts separately. Keep `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=false` unless the owner explicitly approves waiving independent sign-off. Review the selected provider's current terms; set `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED=true` and, for Gemini, `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED=true` only after verification. Start the CT920 scheduled profile so failed notifications retry every 15 minutes and the case agent runs every 10 minutes. Confirm both operations report healthy with `npm run agent:status`; new cases remain unprocessed until complete program settings and an approved provider configuration are present.
 7. Set `AEQUITAS_PILOT_CONTACT_URL` at build time if the landing page should show the pilot contact.
 8. Run one synthetic case end to end with program staff before any real file.
 

@@ -908,3 +908,11 @@ model ScheduledOperationHeartbeat {
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
 }
+
+// Aggregate-only deployment-wide model-call ceiling; contains no case data.
+model CaseAgentDailyUsage {
+  utcDay     DateTime @id @db.Date
+  modelCalls Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

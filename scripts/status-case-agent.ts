@@ -4,6 +4,7 @@ import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { resolveCaseAgentModel } from "../src/domain/caseAgent/agent";
 import { scheduledOperationHealth, SCHEDULED_OPERATIONS } from "../src/domain/scheduledOperations";
 import { emailConfigured, notificationBacklog } from "../src/lib/mail";
+import { caseAgentDailyModelUsage } from "../src/domain/caseAgent/modelBudget";
 
 /**
  * Read-only, aggregate-only view of case-agent readiness and work queues.
@@ -15,6 +16,7 @@ async function main() {
   const model = resolveCaseAgentModel();
   const mailIsConfigured = emailConfigured();
   const serviceAccountCount = await prisma.user.count({ where: { globalRole: "CASE_AGENT" } });
+  const modelUsageToday = await caseAgentDailyModelUsage(now);
 
   const [activeRows, escalationRows, unassignedEscalations, activeLeases, expiredLeases, latestAttempt, mailBacklog, heartbeatRows] = await Promise.all([
     prisma.case.groupBy({
@@ -75,6 +77,11 @@ async function main() {
       serviceAccountCount,
       runtimeConfigured: program.ok && model.ok && serviceAccountCount === 1,
       readyForNewCases: program.ok && model.ok && serviceAccountCount === 1 && mailIsConfigured && caseAgentWorkerHealthy,
+      dailyModelCalls: {
+        ...modelUsageToday,
+        limit: program.ok ? program.program.maxModelCallsPerUtcDay : null,
+        remaining: program.ok ? Math.max(0, program.program.maxModelCallsPerUtcDay - modelUsageToday.used) : null,
+      },
     },
     cases: {
       unassignedRetailOpenWithinLimit: eligibleOpenPool,

@@ -30,6 +30,7 @@ vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: t
 const ENV = {
   AEQUITAS_CASE_AGENT_ENABLED: "true",
   AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+  AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000",
   AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
@@ -262,6 +263,31 @@ describe("case agent: party-controlled intake", () => {
 });
 
 describe("case agent: normal completion", () => {
+  it("enforces one shared daily model-call limit atomically across concurrent cases", async () => {
+    const a = await positionsCase();
+    const b = await positionsCase();
+    const modelA = stub(() => JSON.stringify(goodOutput(a)));
+    const modelB = stub(() => JSON.stringify(goodOutput(b)));
+    const now = new Date("2040-01-02T12:00:00.000Z");
+    const env = { ...ENV, AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1" };
+    await prisma.caseAgentDailyUsage.deleteMany({ where: { utcDay: now } });
+
+    try {
+      const results = await Promise.all([
+        runCaseAgent({ caseId: a.caseId, model: modelA, env, now }),
+        runCaseAgent({ caseId: b.caseId, model: modelB, env, now }),
+      ]);
+
+      expect(results.filter((result) => result.status === "issued")).toHaveLength(1);
+      expect(results.filter((result) => result.status === "escalated" && result.reason === "daily_model_call_limit_reached")).toHaveLength(1);
+      expect(modelA.calls + modelB.calls).toBe(1);
+      const { caseAgentDailyModelUsage } = await import("../../src/domain/caseAgent/modelBudget");
+      expect(await caseAgentDailyModelUsage(now)).toEqual({ utcDay: "2040-01-02", used: 1 });
+    } finally {
+      await prisma.caseAgentDailyUsage.deleteMany({ where: { utcDay: now } });
+    }
+  });
+
   it("uses schema-aware output, issues cited outcomes, resolves on consent, then closes with a verified record", async () => {
     const s = await positionsCase();
     const model = structuredStub((prompt) => {

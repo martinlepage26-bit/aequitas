@@ -21,7 +21,7 @@ import en from "../messages/en-CA.json";
 
 const port = process.env.PLAYWRIGHT_PORT ?? 3000;
 const DAY = 24 * 60 * 60 * 1000;
-const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true" };
+const ENV = { AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000", AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000", AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7", AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5", AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true", AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true" };
 const NO_CALL_MODEL = { provider: "test", model: "not-called-before-proposal", async complete() { throw new Error("The model must not be called before both positions are submitted."); } };
 
 async function contextFor(browser: Browser, userId: string, globalRole: string): Promise<BrowserContext> {

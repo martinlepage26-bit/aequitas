@@ -233,3 +233,9 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Queue.** Escalations with no assigned manager notify every case manager with a passkey. `caseReadAccess` makes such a case claimable, and `POST /api/cases/[id]/claim` assigns it with a no-conflict declaration.
 - **Timeouts.** Respondent not joining, a missing submission or position, or an unanswered proposal past the configured period goes to a person.
 - **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Live mode needs operator approval (`AEQUITAS_CASE_AGENT_EVAL_APPROVED`) and a configured provider; neither was available, so live quality is untested.
+
+## Daily case-agent model-call ceiling (2026-11-06)
+
+- **Required deployment setting.** `AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY` has no default and must be a positive PostgreSQL integer before the agent is enabled.
+- **Enforcement.** Each outbound proposal-model attempt atomically reserves one shared daily slot in PostgreSQL. Provider failures count. At the ceiling, proposal-stage cases are handed to the case-manager queue; if the aggregate counter cannot be read or written, no provider call is made.
+- **Boundary.** The counter resets at 00:00 UTC and contains no case or party data. It limits call volume, not billed dollars; the operator must also set provider-side spend controls.
