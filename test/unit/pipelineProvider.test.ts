@@ -89,6 +89,56 @@ describe("free pipeline provider", () => {
     }
   });
 
+  it("requests one schema-bound tool call for Workers AI structured completions", async () => {
+    let requestUrl = "";
+    let requestBody: Record<string, unknown> | undefined;
+    const workersFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input);
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({ result: { tool_calls: [{
+        name: "return_structured_output",
+        arguments: { value: "synthetic result" },
+      }] } }), { status: 200 });
+    }) as typeof fetch;
+    const workers = resolveFreeTextModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      CLOUDFLARE_ACCOUNT_ID: "account",
+      CLOUDFLARE_API_TOKEN: "test-only",
+    }, workersFetch);
+    expect(workers.ok).toBe(true);
+    if (!workers.ok) return;
+
+    await expect(workers.model.completeWithJsonSchema?.("synthetic prompt", {
+      type: "object",
+      properties: { value: { type: "string" } },
+      required: ["value"],
+    })).resolves.toBe('{"value":"synthetic result"}');
+    expect(requestUrl).toBe(`https://api.cloudflare.com/client/v4/accounts/account/ai/run/${WORKERS_AI_MODEL}`);
+    expect(requestBody).toMatchObject({
+      tool_choice: "required",
+      temperature: 0,
+      tools: [{
+        name: "return_structured_output",
+        parameters: { type: "object", required: ["value"] },
+      }],
+    });
+  });
+
+  it("refuses missing or unexpected Workers AI structured tool calls", async () => {
+    for (const tool_calls of [[], [{ name: "other_tool", arguments: {} }]]) {
+      const fetchImpl = (async () => new Response(JSON.stringify({ result: { tool_calls } }), { status: 200 })) as typeof fetch;
+      const workers = resolveFreeTextModel({
+        AEQUITAS_PIPELINE_ENABLED: "true",
+        AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+        CLOUDFLARE_ACCOUNT_ID: "account",
+        CLOUDFLARE_API_TOKEN: "test-only",
+      }, fetchImpl);
+      expect(workers.ok).toBe(true);
+      if (workers.ok) await expect(workers.model.completeWithJsonSchema?.("synthetic prompt", {})).rejects.toThrow();
+    }
+  });
+
   it("does not invent token counts when the provider omits usage metadata", async () => {
     const fetchImpl = (async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "{}" }] } }] }), { status: 200 })) as typeof fetch;
     const resolved = resolveFreeTextModel({ AEQUITAS_PIPELINE_ENABLED: "true", GEMINI_API_KEY: "test-only" }, fetchImpl);

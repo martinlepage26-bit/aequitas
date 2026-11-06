@@ -41,6 +41,11 @@ export const agentOutputSchema = z.object({
   party_evidence: z.object({ complainant: ids.min(1), respondent: ids.min(1) }).strict(),
 }).strict();
 
+/** Shared with provider-native structured generation; Zod remains the final validator. */
+export const AGENT_OUTPUT_JSON_SCHEMA = Object.fromEntries(
+  Object.entries(z.toJSONSchema(agentOutputSchema)).filter(([key]) => key !== "$schema"),
+);
+
 export type AgentOutput = z.infer<typeof agentOutputSchema>;
 
 /**

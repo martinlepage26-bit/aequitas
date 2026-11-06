@@ -10,7 +10,7 @@ import { generateExportBundle } from "../exportBundle";
 import { extractStoredEvidence, MAX_CASE_EXTRACTED_CHARACTERS, MAX_EVIDENCE_FILES, type EvidenceExtraction } from "../../lib/evidenceText";
 import { digestPartyOutcomeCitations, type PartyOutcomeCitationPointer } from "../partyOutcomeCitations";
 import { runMutation, type MutationOutcome, type WriteResult } from "../mutate";
-import { AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
+import { AGENT_OUTPUT_JSON_SCHEMA, AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
 import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
 import { renderProposal } from "./proposal";
@@ -346,7 +346,10 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   const digest = materialDigest(first, evidenceSources);
   let raw: string;
   try {
-    raw = await input.model.complete(buildCaseAgentPrompt(first, evidenceSources));
+    const prompt = buildCaseAgentPrompt(first, evidenceSources);
+    raw = input.model.completeWithJsonSchema
+      ? await input.model.completeWithJsonSchema(prompt, AGENT_OUTPUT_JSON_SCHEMA)
+      : await input.model.complete(prompt);
   } catch {
     return escalate("model_failed");
   }

@@ -12,6 +12,8 @@ export interface TextCompletion {
   provider: string;
   model: string;
   complete(prompt: string): Promise<string>;
+  /** Optional provider-native constrained output. Callers must still validate the returned JSON. */
+  completeWithJsonSchema?(prompt: string, schema: Record<string, unknown>): Promise<string>;
   /** Optional provider-reported metering. Never estimate tokens from text. */
   completeWithUsage?(prompt: string): Promise<TextCompletionWithUsage>;
 }
@@ -102,9 +104,53 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
       usage: usageCounts(usage?.prompt_tokens, usage?.completion_tokens, usage?.total_tokens),
     };
   }
+
+  async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>): Promise<string> {
+    const response = await fetchImpl(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          tools: [{
+            name: "return_structured_output",
+            description: "Return the requested result using this exact JSON object schema. Do not call any external service.",
+            parameters: schema,
+          }],
+          tool_choice: "required",
+          temperature: 0,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    if (!response.ok) throw new Error(`Workers AI structured request failed (${response.status}).`);
+    const body = (await response.json()) as {
+      result?: { tool_calls?: unknown };
+      tool_calls?: unknown;
+    };
+    const toolCalls = body.result?.tool_calls ?? body.tool_calls;
+    if (!Array.isArray(toolCalls) || toolCalls.length !== 1) {
+      throw new Error("Workers AI did not return exactly one structured output call.");
+    }
+    const call = toolCalls[0] as { name?: unknown; arguments?: unknown; function?: { name?: unknown; arguments?: unknown } };
+    const name = call.name ?? call.function?.name;
+    if (name !== "return_structured_output") throw new Error("Workers AI returned an unexpected structured output call.");
+    let args = call.arguments ?? call.function?.arguments;
+    if (typeof args === "string") {
+      try { args = JSON.parse(args) as unknown; }
+      catch { throw new Error("Workers AI returned invalid structured output arguments."); }
+    }
+    if (!args || typeof args !== "object" || Array.isArray(args)) {
+      throw new Error("Workers AI returned invalid structured output arguments.");
+    }
+    return JSON.stringify(args);
+  }
+
   return {
     provider: "workers-ai",
     model,
+    completeWithJsonSchema,
     completeWithUsage,
     async complete(prompt: string) { return (await completeWithUsage(prompt)).text; },
   };
