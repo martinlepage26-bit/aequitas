@@ -160,7 +160,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     expect(await cp.content()).not.toContain("The receipt records the purchase.");
     await mp.goto(`/${locale}/cases/${caseId}`);
     await expect(mp.locator("#case-agent-status")).toHaveText(copy.managerActive);
-    await expect(mp.getByText(messages.workspace.recommendation.claimEvidenceLabel, { exact: true })).toBeVisible();
+    await expect(mp.getByText(`${messages.workspace.recommendation.claimEvidenceLabel}:`, { exact: true })).toBeVisible();
     await expect(mp.getByText("The receipt records the purchase.", { exact: true })).toBeVisible();
     await expect(mp.getByRole("link", { name: "File COMPLAINANT" }).first()).toBeVisible();
 
