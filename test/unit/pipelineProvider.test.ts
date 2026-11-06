@@ -95,10 +95,13 @@ describe("free pipeline provider", () => {
     const workersFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       requestUrl = String(input);
       requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      return new Response(JSON.stringify({ result: {
-        tool_calls: [{ name: "return_structured_output", arguments: { value: "synthetic result" } }],
+      return new Response(JSON.stringify({
+        choices: [{ message: { tool_calls: [{
+          type: "function",
+          function: { name: "return_structured_output", arguments: JSON.stringify({ value: "synthetic result" }) },
+        }] } }],
         usage: { prompt_tokens: 29, completion_tokens: 11, total_tokens: 40 },
-      } }), { status: 200 });
+      }), { status: 200 });
     }) as typeof fetch;
     const workers = resolveFreeTextModel({
       AEQUITAS_PIPELINE_ENABLED: "true",
@@ -117,21 +120,26 @@ describe("free pipeline provider", () => {
       text: '{"value":"synthetic result"}',
       usage: { promptTokens: 29, completionTokens: 11, totalTokens: 40 },
     });
-    expect(requestUrl).toBe(`https://api.cloudflare.com/client/v4/accounts/account/ai/run/${WORKERS_AI_MODEL}`);
+    expect(requestUrl).toBe("https://api.cloudflare.com/client/v4/accounts/account/ai/v1/chat/completions");
     expect(requestBody).toMatchObject({
+      model: WORKERS_AI_MODEL,
       tool_choice: "required",
+      parallel_tool_calls: false,
       temperature: 0,
-      max_tokens: 16_000,
+      max_completion_tokens: 16_000,
       tools: [{
-        name: "return_structured_output",
-        parameters: { type: "object", required: ["value"] },
+        type: "function",
+        function: {
+          name: "return_structured_output",
+          parameters: { type: "object", required: ["value"] },
+        },
       }],
     });
   });
 
   it("refuses missing or unexpected Workers AI structured tool calls", async () => {
-    for (const tool_calls of [[], [{ name: "other_tool", arguments: {} }]]) {
-      const fetchImpl = (async () => new Response(JSON.stringify({ result: { tool_calls } }), { status: 200 })) as typeof fetch;
+    for (const tool_calls of [[], [{ type: "function", function: { name: "other_tool", arguments: "{}" } }]]) {
+      const fetchImpl = (async () => new Response(JSON.stringify({ choices: [{ message: { tool_calls } }] }), { status: 200 })) as typeof fetch;
       const workers = resolveFreeTextModel({
         AEQUITAS_PIPELINE_ENABLED: "true",
         AEQUITAS_PIPELINE_PROVIDER: "workers-ai",

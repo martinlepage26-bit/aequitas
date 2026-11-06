@@ -107,39 +107,42 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
   }
 
   async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>): Promise<TextCompletionWithUsage> {
+    // Use Chat Completions because its documented contract exposes required tool choice.
     const response = await fetchImpl(
-      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,
       {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
+          model,
           messages: [{ role: "user", content: prompt }],
-          tools: [{
+          tools: [{ type: "function", function: {
             name: "return_structured_output",
             description: "Return the requested result using this exact JSON object schema. Do not call any external service.",
             parameters: schema,
-          }],
+          } }],
           tool_choice: "required",
+          parallel_tool_calls: false,
           temperature: 0,
-          max_tokens: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
+          max_completion_tokens: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
         }),
         signal: AbortSignal.timeout(30_000),
       },
     );
     if (!response.ok) throw new Error(`Workers AI structured request failed (${response.status}).`);
     const body = (await response.json()) as {
-      result?: { tool_calls?: unknown; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } };
-      tool_calls?: unknown;
+      choices?: Array<{ message?: { tool_calls?: unknown } }>;
       usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
     };
-    const toolCalls = body.result?.tool_calls ?? body.tool_calls;
+    const toolCalls = body.choices?.[0]?.message?.tool_calls;
     if (!Array.isArray(toolCalls) || toolCalls.length !== 1) {
       throw new Error("Workers AI did not return exactly one structured output call.");
     }
-    const call = toolCalls[0] as { name?: unknown; arguments?: unknown; function?: { name?: unknown; arguments?: unknown } };
-    const name = call.name ?? call.function?.name;
-    if (name !== "return_structured_output") throw new Error("Workers AI returned an unexpected structured output call.");
-    let args = call.arguments ?? call.function?.arguments;
+    const call = toolCalls[0] as { function?: { name?: unknown; arguments?: unknown } };
+    if (call.function?.name !== "return_structured_output") {
+      throw new Error("Workers AI returned an unexpected structured output call.");
+    }
+    let args = call.function.arguments;
     if (typeof args === "string") {
       try { args = JSON.parse(args) as unknown; }
       catch { throw new Error("Workers AI returned invalid structured output arguments."); }
@@ -147,10 +150,9 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     if (!args || typeof args !== "object" || Array.isArray(args)) {
       throw new Error("Workers AI returned invalid structured output arguments.");
     }
-    const usage = body.result?.usage ?? body.usage;
     return {
       text: JSON.stringify(args),
-      usage: usageCounts(usage?.prompt_tokens, usage?.completion_tokens, usage?.total_tokens),
+      usage: usageCounts(body.usage?.prompt_tokens, body.usage?.completion_tokens, body.usage?.total_tokens),
     };
   }
 
