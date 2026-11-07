@@ -128,6 +128,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     for (const page of [cp, rp]) {
       await page.reload();
       await expect(page.locator("#case-agent-processing-choice")).toBeVisible();
+      await expect(page.locator("#case-agent-processing-choice")).toContainText(messages.workspace.caseAgent.processingIntro);
       await expect(page.locator("#case-agent-processing-choice")).toContainText("synthetic-e2e-project");
       await expect(page.locator("#case-agent-processing-choice")).toContainText("gemini-3.8-flash");
       const notice = locale === "fr-CA" ? ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR : ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN;
