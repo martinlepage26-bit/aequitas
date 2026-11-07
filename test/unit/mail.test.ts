@@ -6,6 +6,7 @@ const db = vi.hoisted(() => ({
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
 import {
   CASE_AWAITING_MANAGER_KIND,
+  RECOMMENDATION_APPROVAL_REQUIRED_KIND,
   CASE_REOPENED_KIND,
   CASE_AGENT_POSITIONS_REQUESTED_KIND,
   OUTCOME_NEEDS_ANSWER_KIND,
@@ -85,6 +86,21 @@ describe("Resend notification delivery", () => {
     expect(sent.text).toContain("Tenancy");
     expect(sent.text).not.toContain(description);
     expect(sent.text).not.toContain("case-secret");
+  });
+
+  it("localizes independent agent-approval alerts without exposing dispute content", () => {
+    configure();
+    const description = "The buyer's file contains sensitive personal details.";
+    const french = notificationEmail({ kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND, locale: "fr-CA", caseId: "case-secret", referenceNumber: "AE-2026-000112", category: "RETAIL" });
+    const english = notificationEmail({ kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND, locale: "en-CA", caseId: "case-secret", referenceNumber: "AE-2026-000112", category: "RETAIL" });
+
+    expect(french.subject).toBe("Un dossier attend une approbation indépendante");
+    expect(french.text).toContain("AE-2026-000112");
+    expect(french.text).toContain("https://aequitas.example/fr-CA/cases/case-secret");
+    expect(english.subject).toBe("A case needs independent sign-off");
+    expect(english.text).toContain("AE-2026-000112");
+    expect(english.text).toContain("https://aequitas.example/en-CA/cases/case-secret");
+    expect(`${french.text} ${english.text}`).not.toContain(description);
   });
 
   it("localizes outcome, reopening and position requests without including the other party's outcome", () => {

@@ -9,7 +9,7 @@ import { validateExplanationRecord, type ExplanationRecord } from "../explanatio
 import { generateExportBundle } from "../exportBundle";
 import { extractStoredEvidence, MAX_CASE_EXTRACTED_CHARACTERS, MAX_EVIDENCE_FILES, type EvidenceExtraction } from "../../lib/evidenceText";
 import { digestPartyOutcomeCitations, type PartyOutcomeCitationPointer } from "../partyOutcomeCitations";
-import { runMutation, type MutationOutcome, type WriteResult } from "../mutate";
+import { independentApproverNotifications, runMutation, type MutationOutcome, type WriteResult } from "../mutate";
 import { AGENT_OUTPUT_JSON_SCHEMA, AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
 import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
@@ -17,6 +17,7 @@ import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
 import { processingConsentMatches } from "./processingConsent";
+import { consentAloneResolves } from "../resolution";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, MAX_DELIVERY_ATTEMPTS, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { encryptEmailPayload, invitationEmailPayload } from "../../lib/emailPayload";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
@@ -610,6 +611,9 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
             payload: { partyId, outcomeId: outcome.id, version: outcome.version, citationDigest: digestPartyOutcomeCitations(citationPointers) },
           });
         }
+        const approvalNotifications = consentAloneResolves(row)
+          ? []
+          : await independentApproverNotifications(tx, row.id, [row.caseManagerId, agent.id]);
         return {
           caseId: row.id,
           toState: "ISSUED",
@@ -622,6 +626,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
           notifications: [
             { userId: row.complainantId, kind: "recommendation_issued", locale: row.complainant.locale },
             { userId: row.respondentId, kind: "recommendation_issued", locale: row.respondent.locale },
+            ...approvalNotifications,
           ],
         };
       },

@@ -16,6 +16,7 @@ import { readPartyOutcomes } from "../../src/domain/partyOutcome";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { verifyCase } from "../../src/domain/verifyEvents";
+import { RECOMMENDATION_APPROVAL_REQUIRED_KIND } from "../../src/lib/mail";
 
 /**
  * The routine path with no case-manager action: a submitted case is taken
@@ -255,6 +256,7 @@ describe("routine path with no case-manager action", () => {
     const { cId, rId } = await toPositions(r);
     expect(sentTo).toEqual([r.respondentEmail]);
     expect(await prisma.notification.count({ where: { caseId: r.caseId, kind: "agent_managing" } })).toBe(2);
+    expect(await prisma.notification.count({ where: { caseId: r.caseId, kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND } })).toBe(0);
     expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("waiting");
     await positions(r);
     const model = stub((prompt) => {
@@ -287,6 +289,10 @@ describe("routine path with no case-manager action", () => {
     expect((await runCaseAgent({ caseId: r.caseId, model, env })).status).toBe("issued");
     expect(await loadResolutionBlockers(prisma, r.caseId)).toContain("APPROVAL_REQUIRED");
     expect((await consent(r, r.complainantId, "COMPLAINANT")).ok).toBe(false);
+    const approvalNotices = await prisma.notification.findMany({ where: { caseId: r.caseId, kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND }, select: { userId: true } });
+    expect(approvalNotices.map((notice) => notice.userId)).toContain(approverId);
+    expect(approvalNotices.map((notice) => notice.userId)).not.toContain(queueManagerId);
+    expect(approvalNotices.map((notice) => notice.userId)).not.toContain(secondManagerId);
 
     expect((await approveResolution({ caseId: r.caseId, actorId: approverId, actorRole: "CASE_MANAGER", rationale: "Independent review of the synthetic proposal." })).ok).toBe(true);
     expect((await consent(r, r.complainantId, "COMPLAINANT")).ok).toBe(true);

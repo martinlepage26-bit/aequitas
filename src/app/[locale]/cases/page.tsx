@@ -38,14 +38,63 @@ export default async function CaseListPage({ params }: { params: Promise<{ local
             orderBy: { createdAt: "desc" },
           });
 
-  const rows = cases.map((c) => {
+  // Any non-consent-only recommendation needs independent sign-off. Give only
+  // a designated approver cases they can review, including cases owned by a
+  // different case manager.
+  const approverFlags = session.globalRole === "CASE_MANAGER"
+    ? await prisma.user.findUnique({ where: { id: session.userId }, select: { isApprover: true } })
+    : null;
+  const approvalCandidates = approverFlags?.isApprover
+    ? await prisma.case.findMany({
+        where: {
+          state: "ISSUED",
+          currentRecommendationId: { not: null },
+          AND: [
+            { OR: [
+              { agentManaged: false, consentOnlyResolution: false },
+              { agentManaged: true, agentConsentOnlyResolution: false },
+              { agentManaged: true, agentEscalatedAt: { not: null } },
+            ] },
+            { OR: [{ caseManagerId: null }, { caseManagerId: { not: session.userId } }] },
+          ],
+        },
+        include: {
+          ...include,
+          syntheses: { orderBy: { version: "desc" }, take: 1, select: { createdById: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const recommendationIds = [...new Set(approvalCandidates.map((c) => c.currentRecommendationId).filter((id): id is string => Boolean(id)))];
+  const currentRecommendations = recommendationIds.length
+    ? await prisma.recommendation.findMany({
+        where: { id: { in: recommendationIds } },
+        select: { id: true, issuedById: true, status: true, reviews: { where: { action: "APPROVED" }, select: { id: true }, take: 1 } },
+      })
+    : [];
+  const pendingRecommendationIds = new Set(currentRecommendations
+    .filter((recommendation) => recommendation.status === "ISSUED" && recommendation.reviews.length === 0 && recommendation.issuedById !== session.userId)
+    .map((recommendation) => recommendation.id));
+  const pendingApprovalCases = approvalCandidates.filter((c) =>
+    c.currentRecommendationId !== null
+    && pendingRecommendationIds.has(c.currentRecommendationId)
+    && c.syntheses[0]?.createdById !== session.userId,
+  );
+  const approvalCaseIds = new Set(pendingApprovalCases.map((c) => c.id));
+  const visibleCases = [...cases, ...pendingApprovalCases].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const rows = visibleCases.map((c) => {
     const otherPartyName = session.globalRole === "COMPLAINANT" ? c.respondent.displayName : c.complainant.displayName;
     return {
       id: c.id,
       referenceNumber: c.referenceNumber,
       state: c.state,
       stateLabel: tState(c.state),
-      detail: session.globalRole === "CASE_MANAGER" && c.caseManagerId === null ? t("unclaimed") : t("otherParty", { name: otherPartyName }),
+      detail: approvalCaseIds.has(c.id)
+        ? t("approvalNeeded")
+        : session.globalRole === "CASE_MANAGER" && c.caseManagerId === null
+          ? t("unclaimed")
+          : t("otherParty", { name: otherPartyName }),
       href: `/${locale}/cases/${c.id}`,
     };
   });

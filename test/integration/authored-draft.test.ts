@@ -29,6 +29,7 @@ import { issuePartyOutcome, readPartyOutcomes } from "../../src/domain/partyOutc
 import { generateExportBundle, buildExportRecord } from "../../src/domain/exportBundle";
 import { HUMAN_AUTHORED_MODEL_ID, HUMAN_AUTHORED_PROMPT_VERSION } from "../../src/domain/humanAuthored";
 import { verifyCase } from "../../src/domain/verifyEvents";
+import { RECOMMENDATION_APPROVAL_REQUIRED_KIND } from "../../src/lib/mail";
 
 /**
  * A pilot program must be able to complete a case with no model configured.
@@ -85,6 +86,7 @@ beforeAll(async () => {
     mk("other-manager", "CASE_MANAGER"), mk("approver", "CASE_MANAGER", true), mk("admin", "ADMIN"),
   ]);
   [complainantId, respondentId, managerId, otherManagerId, approverId, adminId] = [c.id, r.id, m.id, om.id, a.id, ad.id];
+  await prisma.webAuthnCredential.create({ data: { userId: approverId, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
   const statement = await prisma.consentStatementVersion.create({
     data: { version: Number.parseInt(randomUUID().replaceAll("-", "").slice(0, 8), 16) % 2_000_000_000, locale: "fr-CA", body: "Énoncé de consentement synthétique.", effectiveFrom: new Date() },
   });
@@ -207,8 +209,19 @@ describe("author_draft: the full synthetic journey without a model", () => {
     // Issuance stays a separate step for the assigned manager only.
     expect((await issueRecommendation({ actorId: otherManagerId, actorRole: "CASE_MANAGER", caseId })).ok).toBe(false);
     expect((await issueRecommendation({ actorId: complainantId, actorRole: "COMPLAINANT", caseId })).ok).toBe(false);
-    const issued = await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId });
+    const savedResendKey = process.env.RESEND_API_KEY;
+    process.env.RESEND_API_KEY = "";
+    let issued: Awaited<ReturnType<typeof issueRecommendation>>;
+    try {
+      issued = await issueRecommendation({ actorId: managerId, actorRole: "CASE_MANAGER", caseId });
+    } finally {
+      if (savedResendKey === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = savedResendKey;
+    }
     expect(issued.ok, issued.ok ? "" : issued.reason).toBe(true);
+    const approvalNotices = await prisma.notification.findMany({ where: { caseId, kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND }, select: { userId: true } });
+    expect(approvalNotices.map((notice) => notice.userId)).toContain(approverId);
+    expect(approvalNotices.map((notice) => notice.userId)).not.toContain(managerId);
     const v2 = await prisma.recommendation.findUniqueOrThrow({ where: { id: v2Id } });
     expect(v2.status).toBe("ISSUED");
     expect(v2.issuedById).toBe(managerId);

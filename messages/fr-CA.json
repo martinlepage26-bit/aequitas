@@ -892,6 +892,7 @@
     "empty": "Aucun dossier pour l'instant.",
     "startNew": "Ouvrir un nouveau dossier",
     "unclaimed": "Non attribué",
+    "approvalNeeded": "En attente de votre approbation indépendante",
     "otherParty": "Avec {name}",
     "viewLink": "Voir",
     "resumeLink": "Reprendre le brouillon",

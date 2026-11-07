@@ -11,6 +11,8 @@ export const OUTCOME_NEEDS_ANSWER_KIND = "outcome_needs_answer";
 export const CASE_REOPENED_KIND = "case_reopened";
 /** Queued for both parties when an automated case agent opens the position stage. */
 export const CASE_AGENT_POSITIONS_REQUESTED_KIND = "case_agent_positions_requested";
+/** Queued for independent approvers when an agent's proposal needs sign-off. */
+export const RECOMMENDATION_APPROVAL_REQUIRED_KIND = "recommendation_approval_required";
 
 function replyToAddress() {
   return process.env.EMAIL_REPLY_TO?.trim() || process.env.REPLY_TO?.trim() || "";
@@ -259,6 +261,20 @@ export function notificationEmail(input: {
       : {
           subject: "A new outcome needs your answer",
           text: `The mediator issued a new outcome on your case. Your earlier answer no longer applies. Sign in to read the outcome and consent or decline:\n\n${link}`,
+        };
+  }
+  if (input.kind === RECOMMENDATION_APPROVAL_REQUIRED_KIND) {
+    const link = appUrl(`/${input.locale}/cases/${input.caseId}`);
+    const reference = input.referenceNumber ? ` ${input.referenceNumber}` : "";
+    const category = input.category ? resolveCategoryLabel(input.category, input.locale) : null;
+    return french
+      ? {
+          subject: "Un dossier attend une approbation indépendante",
+          text: `La recommandation actuelle du dossier${reference} attend l’examen d’une personne approbatrice avant que le consentement des deux parties puisse régler le dossier.${category ? `\nCatégorie : ${category}.` : ""}\n\nConnectez-vous pour examiner le dossier :\n\n${link}`,
+        }
+      : {
+          subject: "A case needs independent sign-off",
+          text: `The current recommendation in case${reference} needs an independent approver's review before both parties' consent can resolve it.${category ? `\nCategory: ${category}.` : ""}\n\nSign in to review the case:\n\n${link}`,
         };
   }
   if (input.kind === "agent_managing") {

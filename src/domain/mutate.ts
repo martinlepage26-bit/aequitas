@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { scanBuffer, type ScanResult } from "../lib/scan";
-import { CASE_AWAITING_MANAGER_KIND, deliverPendingNotifications } from "../lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, RECOMMENDATION_APPROVAL_REQUIRED_KIND, deliverPendingNotifications } from "../lib/mail";
 import { assertStoredIntake, missingIntakeFields } from "./intake";
 import { rollbackBuffer, uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
@@ -19,7 +19,7 @@ import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type Explanatio
 import { draftRecommendation } from "../ai/draftRecommendation";
 import { humanAuthoredIssueCheck } from "./humanAuthored";
 import { consentAnswerCounts, deriveGiveConsentState } from "./consent";
-import { BLOCKER_REASONS, loadResolutionBlockers, partyFacingBlockers, type ShownResolutionBlocker } from "./resolution";
+import { BLOCKER_REASONS, consentAloneResolves, loadResolutionBlockers, partyFacingBlockers, type ShownResolutionBlocker } from "./resolution";
 import {
   NONE,
   SYSTEM,
@@ -71,6 +71,23 @@ export interface NotificationSpec {
   userId: string;
   kind: string;
   locale: string;
+}
+
+/** Queues sign-off alerts only for designated approvers who can review independently. */
+export async function independentApproverNotifications(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  excludeUserIds: Array<string | null | undefined> = [],
+): Promise<NotificationSpec[]> {
+  const latestSynthesis = await tx.synthesisVersion.findFirst({ where: { caseId }, orderBy: { version: "desc" }, select: { createdById: true } });
+  const excluded = new Set([...excludeUserIds, latestSynthesis?.createdById].filter((id): id is string => Boolean(id)));
+  const approvers = await tx.user.findMany({
+    where: { globalRole: "CASE_MANAGER", isApprover: true, credentials: { some: {} } },
+    select: { id: true, locale: true },
+  });
+  return approvers
+    .filter((approver) => !excluded.has(approver.id))
+    .map((approver) => ({ userId: approver.id, kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND, locale: approver.locale }));
 }
 
 export interface WriteResult {
@@ -1161,6 +1178,9 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
         },
       });
       await tx.case.update({ where: { id: input.caseId }, data: { state: "ISSUED" } });
+      const approvalNotifications = consentAloneResolves(caseRow)
+        ? []
+        : await independentApproverNotifications(tx, caseRow.id, [caseRow.caseManagerId, input.actorId]);
       return {
         caseId: input.caseId,
         toState: "ISSUED",
@@ -1168,6 +1188,7 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
         notifications: [
           { userId: caseRow.complainantId, kind: "recommendation_issued", locale: caseRow.complainant.locale },
           { userId: caseRow.respondentId, kind: "recommendation_issued", locale: caseRow.respondent.locale },
+          ...approvalNotifications,
         ],
       };
     },

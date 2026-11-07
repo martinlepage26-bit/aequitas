@@ -892,6 +892,7 @@
     "empty": "No cases yet.",
     "startNew": "Start a new case",
     "unclaimed": "Unclaimed",
+    "approvalNeeded": "Awaiting your independent sign-off",
     "otherParty": "With {name}",
     "viewLink": "View",
     "resumeLink": "Resume draft",
