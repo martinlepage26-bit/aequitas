@@ -17,6 +17,7 @@ import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
 import { processingConsentMatches } from "./processingConsent";
+import { caseAgentPolicyFromEvents, createCaseAgentPolicySnapshot } from "./policy";
 import { consentAloneResolves } from "../resolution";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, MAX_DELIVERY_ATTEMPTS, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { encryptEmailPayload, invitationEmailPayload } from "../../lib/emailPayload";
@@ -118,9 +119,10 @@ export async function enrollCaseAgent(input: { actorId: string; actorRole: Globa
   if (caseRow.category !== "RETAIL") return { ok: false, status: 409, reason: "The case agent handles retail disputes only." };
   if (caseRow.state !== "EVIDENCE_INTAKE" && caseRow.state !== "POSITIONS") return { ok: false, status: 409, reason: "The case agent can be enabled during intake or positions only." };
   if (caseRow.agentManaged) return { ok: true };
+  const policySnapshot = createCaseAgentPolicySnapshot(config.program);
   await prisma.$transaction(async (tx) => {
     const updated = await tx.case.updateMany({ where: { id: caseRow.id, agentManaged: false, state: caseRow.state }, data: { agentManaged: true, agentConsentOnlyResolution: config.program.consentOnlyResolution } });
-    if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: { origin: "case_manager", consentOnlyResolution: config.program.consentOnlyResolution } });
+    if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: { origin: "case_manager", consentOnlyResolution: config.program.consentOnlyResolution, policySnapshot } });
   });
   return { ok: true };
 }
@@ -287,9 +289,9 @@ export async function claimEscalatedCase(input: { actorId: string; actorRole: Gl
 /**
  * A party ends their participation. The complainant always may (existing
  * withdraw rule). The respondent may on an agent-managed case only when the
- * program's configured rule allows it; otherwise they decline or ask for a person.
+ * immutable enrollment policy allows it; otherwise they decline or ask for a person.
  */
-export async function endParticipation(input: { actorId: string; actorRole: GlobalRole; caseId: string }, env: Env = process.env): Promise<Outcome> {
+export async function endParticipation(input: { actorId: string; actorRole: GlobalRole; caseId: string }): Promise<Outcome> {
   const row = await prisma.case.findUnique({ where: { id: input.caseId }, include: { complainant: { select: { locale: true } } } });
   if (!row) return { ok: false, status: 404, reason: "Case not found." };
   if (input.actorRole === "COMPLAINANT" && row.complainantId === input.actorId) {
@@ -298,8 +300,13 @@ export async function endParticipation(input: { actorId: string; actorRole: Glob
     return result.ok ? { ok: true } : { ok: false, status: result.step === "not-found" ? 404 : 409, reason: result.reason };
   }
   if (input.actorRole !== "RESPONDENT" || row.respondentId !== input.actorId) return { ok: false, status: 404, reason: "Case not found." };
-  const program = caseAgentProgram(env);
-  if (!row.agentManaged || !program.ok || !program.program.respondentMayWithdraw) {
+  const enrollment = await prisma.event.findFirst({
+    where: { caseId: row.id, type: "AGENT_ENROLLED" },
+    orderBy: { seq: "asc" },
+    select: { type: true, payload: true },
+  });
+  const policy = caseAgentPolicyFromEvents(enrollment ? [enrollment] : []);
+  if (!row.agentManaged || !policy?.respondentMayWithdraw || policy.consentOnlyResolution !== row.agentConsentOnlyResolution) {
     return { ok: false, status: 409, reason: "The program does not let the respondent end participation here. You can decline or ask for a person." };
   }
   const result = await runMutation({
@@ -385,7 +392,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   const config = caseAgentProgram(env);
   const agent = await loadCaseAgentAccount();
   if (!agent) return { status: "skipped", reason: "agent_account_missing" };
-  const current = await prisma.case.findUnique({ where: { id: input.caseId }, select: { id: true, state: true, agentManaged: true, agentEscalatedAt: true } });
+  const current = await prisma.case.findUnique({ where: { id: input.caseId }, select: { id: true, state: true, agentManaged: true, agentEscalatedAt: true, agentConsentOnlyResolution: true } });
   if (!current) return { status: "skipped", reason: "case_missing" };
   if (current.agentEscalatedAt) return { status: "skipped", reason: "escalated" };
   const escalate = async (reason: EscalationReason): Promise<AgentRunResult> => {
@@ -393,18 +400,35 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     return { status: "escalated", reason };
   };
   if (!config.ok) return current.agentManaged ? escalate("program_rules_incomplete") : { status: "skipped", reason: "program_rules_incomplete" };
-  const program = config.program;
+  const configuredProgram = config.program;
   if (current.state === "OPEN" && !current.agentManaged) {
     if (!input.model) return { status: "skipped", reason: "model_unavailable" };
     try {
       const usage = await caseAgentDailyModelUsage(now);
-      if (usage.used >= program.maxModelCallsPerUtcDay) return { status: "skipped", reason: "daily_model_call_limit_reached" };
+      if (usage.used >= configuredProgram.maxModelCallsPerUtcDay) return { status: "skipped", reason: "daily_model_call_limit_reached" };
     } catch {
       return { status: "skipped", reason: "model_budget_unavailable" };
     }
-    return takeCase(current.id, agent.id, program);
+    return takeCase(current.id, agent.id, configuredProgram);
   }
   if (!current.agentManaged) return { status: "skipped", reason: "not_enrolled" };
+  const enrollment = await prisma.event.findFirst({
+    where: { caseId: current.id, type: "AGENT_ENROLLED" },
+    orderBy: { seq: "asc" },
+    select: { type: true, payload: true },
+  });
+  const policy = caseAgentPolicyFromEvents(enrollment ? [enrollment] : []);
+  if (!policy || policy.consentOnlyResolution !== current.agentConsentOnlyResolution) return escalate("program_rules_incomplete");
+  // The deployment can tighten the amount ceiling for safety, but cannot
+  // expand an enrolled case's eligibility or rewrite its other party terms.
+  const program: CaseAgentProgram = {
+    ...configuredProgram,
+    maxAmountCents: Math.min(configuredProgram.maxAmountCents, policy.maxAmountCents),
+    intakeDays: policy.intakeDays,
+    responseDays: policy.responseDays,
+    respondentMayWithdraw: policy.respondentMayWithdraw,
+    consentOnlyResolution: policy.consentOnlyResolution,
+  };
   const first = await loadMaterial(input.caseId);
   const row = first.caseRow;
   if (row.agentEscalatedAt) return { status: "skipped", reason: "escalated" };
@@ -670,6 +694,7 @@ async function takeCase(caseId: string, agentId: string, program: CaseAgentProgr
   if (row.caseManagerId) return { status: "skipped", reason: "assigned_to_person" };
   if (row.category !== "RETAIL") return { status: "skipped", reason: "out_of_scope_category" };
   if (row.amountAtStakeCents === null || row.amountAtStakeCents > program.maxAmountCents) return { status: "skipped", reason: "out_of_scope_amount" };
+  const policySnapshot = createCaseAgentPolicySnapshot(program);
   const result = await runMutation({
     trigger: "agent_open_intake",
     actorId: agentId,
@@ -683,7 +708,7 @@ async function takeCase(caseId: string, agentId: string, program: CaseAgentProgr
       return {
         caseId, toState: "EVIDENCE_INTAKE",
         eventPayloads: [
-          { type: "AGENT_ENROLLED", payload: { origin: "program_rules", consentOnlyResolution: program.consentOnlyResolution } },
+          { type: "AGENT_ENROLLED", payload: { origin: "program_rules", consentOnlyResolution: program.consentOnlyResolution, policySnapshot } },
           { type: "EVIDENCE_INTAKE_OPENED", payload: { origin: "case_agent" } },
         ],
         notifications: [

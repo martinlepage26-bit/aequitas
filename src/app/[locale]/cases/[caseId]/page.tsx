@@ -27,12 +27,8 @@ import CaseAgentPanel from "./CaseAgentPanel";
 import IntakeReadyButton from "./IntakeReadyButton";
 import { caseAgentEnabled } from "../../../../domain/caseAgent/agent";
 import { caseAgentProgram } from "../../../../domain/caseAgent/config";
+import { caseAgentPolicyFromEvents } from "../../../../domain/caseAgent/policy";
 import { processingConsentMatches } from "../../../../domain/caseAgent/processingConsent";
-
-function caseAgentRespondentMayWithdraw(): boolean {
-  const program = caseAgentProgram();
-  return program.ok && program.program.respondentMayWithdraw;
-}
 import { isHumanAuthoredModel } from "../../../../domain/humanAuthored";
 import IssueRecommendationForm from "./IssueRecommendationForm";
 import ConsentPanel from "./ConsentPanel";
@@ -74,6 +70,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
     },
   });
   if (!caseRow) notFound();
+  const caseAgentPolicy = caseAgentPolicyFromEvents(caseRow.events);
+  const caseAgentRespondentMayWithdraw = Boolean(caseAgentPolicy?.respondentMayWithdraw
+    && caseAgentPolicy.consentOnlyResolution === caseRow.agentConsentOnlyResolution);
 
   const consentRecords = caseRow.currentRecommendationId
     ? await prisma.consentRecord.findMany({ where: { recommendationId: caseRow.currentRecommendationId } })
@@ -441,7 +440,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           escalated={Boolean(caseRow.agentEscalatedAt)}
           escalationReason={access !== "party" ? caseRow.agentEscalationReason : null}
           canClaim={access === "claimable" && Boolean(caseRow.agentEscalatedAt)}
-          canEndParticipation={access === "party" && caseRow.agentManaged && (session.userId === caseRow.complainantId || caseAgentRespondentMayWithdraw())}
+          canEndParticipation={access === "party" && caseRow.agentManaged && (session.userId === caseRow.complainantId || caseAgentRespondentMayWithdraw)}
           closed={caseRow.state === "CLOSED"}
           canEnroll={access === "assigned-manager" && !caseRow.agentManaged && caseAgentEnabled() && caseRow.category === "RETAIL" && (caseRow.state === "EVIDENCE_INTAKE" || caseRow.state === "POSITIONS")}
           processingChoice={processingChoice}

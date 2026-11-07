@@ -236,6 +236,22 @@ const consent = async (r: Routine, partyId: string, role: "COMPLAINANT" | "RESPO
 };
 
 describe("routine path with no case-manager action", () => {
+  it("keeps the intake deadline recorded at enrollment after deployment settings change", async () => {
+    const r = await submittedCase();
+    stubEmail();
+    expect((await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV })).status).toBe("intake_opened");
+    expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("respondent_invited");
+    await joinRespondent(r);
+    const opened = await prisma.event.findFirstOrThrow({ where: { caseId: r.caseId, type: "EVIDENCE_INTAKE_OPENED" }, orderBy: { seq: "desc" } });
+
+    expect(await runCaseAgent({
+      caseId: r.caseId,
+      model: null,
+      env: { ...ENV, AEQUITAS_CASE_AGENT_INTAKE_DAYS: "30" },
+      now: new Date(opened.createdAt.getTime() + 8 * DAY),
+    })).toEqual({ status: "escalated", reason: "submission_missing" });
+  });
+
   it("waits for both parties to accept processing or hands the case to a person at expiry", async () => {
     const r = await submittedCase();
     await toPositions(r);
@@ -576,15 +592,14 @@ describe("ending participation, duplicate runs and concurrent updates", () => {
   it("either party can end participation under the program rule; the agent then closes", async () => {
     const r = await submittedCase();
     await toPositions(r);
-    expect((await endParticipation({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId }, { ...ENV, AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "false" })).ok).toBe(false);
-    expect((await endParticipation({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId }, ENV)).ok).toBe(true);
+    expect((await endParticipation({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId })).ok).toBe(true);
     expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("closed");
     const c = await submittedCase();
     stubEmail();
     await runCaseAgent({ caseId: c.caseId, model: NO_CALL_MODEL, env: ENV });
-    expect((await endParticipation({ actorId: c.complainantId, actorRole: "COMPLAINANT", caseId: c.caseId }, ENV)).ok).toBe(true);
+    expect((await endParticipation({ actorId: c.complainantId, actorRole: "COMPLAINANT", caseId: c.caseId })).ok).toBe(true);
     expect((await runCaseAgent({ caseId: c.caseId, model: null, env: ENV })).status).toBe("closed");
-    expect((await endParticipation({ actorId: c.respondentId, actorRole: "RESPONDENT", caseId: c.caseId }, ENV)).ok).toBe(false);
+    expect((await endParticipation({ actorId: c.respondentId, actorRole: "RESPONDENT", caseId: c.caseId })).ok).toBe(false);
   });
 
   it("duplicate scheduled runs open intake once, invite once, and issue once", async () => {

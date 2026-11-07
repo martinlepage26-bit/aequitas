@@ -8,9 +8,9 @@ import type { DisputeCategory, GlobalRole } from "../../src/generated/prisma";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
-import { acceptCaseAgentProcessing, enrollCaseAgent, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { acceptCaseAgentProcessing, enrollCaseAgent, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
-import { caseAgentProgram } from "../../src/domain/caseAgent/config";
+import { caseAgentProgram, DAY_MS } from "../../src/domain/caseAgent/config";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import * as evidenceText from "../../src/lib/evidenceText";
 import { readPartyOutcomeCitation } from "../../src/domain/partyOutcomeCitationAccess";
@@ -286,6 +286,37 @@ describe("case agent: party-controlled intake", () => {
 });
 
 describe("case agent: normal completion", () => {
+  it("keeps enrollment deadlines and withdrawal terms when deployment settings change", async () => {
+    const s = await positionsCase({ acceptProcessing: false });
+    const enrollment = await prisma.event.findFirstOrThrow({ where: { caseId: s.caseId, type: "AGENT_ENROLLED" } });
+    expect(enrollment.payload).toMatchObject({
+      origin: "case_manager",
+      policySnapshot: {
+        version: 1,
+        maxAmountCents: 500_000,
+        intakeDays: 7,
+        responseDays: 5,
+        respondentMayWithdraw: true,
+        consentOnlyResolution: true,
+      },
+    });
+
+    const changedSettings = {
+      ...ENV,
+      AEQUITAS_CASE_AGENT_INTAKE_DAYS: "30",
+      AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "1",
+      AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "false",
+      AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "false",
+    };
+    const latestPosition = await prisma.positionStatement.findFirstOrThrow({ where: { caseId: s.caseId }, orderBy: { createdAt: "desc" } });
+    expect(await runCaseAgent({ caseId: s.caseId, model: stub(() => ""), env: changedSettings, now: new Date(latestPosition.createdAt.getTime() + 2 * DAY_MS) })).toEqual({
+      status: "waiting",
+      reason: "awaiting_party_processing_choice",
+    });
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } })).agentConsentOnlyResolution).toBe(true);
+    expect((await endParticipation({ actorId: s.respondentId, actorRole: "RESPONDENT", caseId: s.caseId })).ok).toBe(true);
+  });
+
   it("waits for both parties to accept the current provider notice before extracting case files", async () => {
     const s = await positionsCase({ acceptProcessing: false });
     const model = stub(() => JSON.stringify(goodOutput(s)));
@@ -593,6 +624,12 @@ describe("case agent: party isolation", () => {
 });
 
 describe("case agent: unsupported or unsafe cases go to a person", () => {
+  it("hands a legacy agent-managed case without a policy snapshot to staff", async () => {
+    const s = await positionsCase({ enroll: false });
+    await prisma.case.update({ where: { id: s.caseId }, data: { agentManaged: true } });
+    expect(await runCaseAgent({ caseId: s.caseId, model: stub(() => ""), env: ENV })).toEqual({ status: "escalated", reason: "program_rules_incomplete" });
+  });
+
   it.each([
     ["amount above the program limit", { amount: 900_000 }, ENV, "out_of_scope_amount"],
     ["amount missing", { amount: null }, ENV, "out_of_scope_amount"],
