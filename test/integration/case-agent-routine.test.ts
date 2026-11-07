@@ -387,7 +387,7 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("skipped");
   });
 
-  it("does not assign a case that the complainant withdrew after escalation", async () => {
+  it("keeps a case the complainant withdrew after escalation claimable by a conflict-free manager only", async () => {
     const r = await submittedCase();
     stubEmail();
     await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
@@ -396,11 +396,16 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
       .toEqual({ status: "escalated", reason: "respondent_no_response" });
 
     expect((await withdrawCase({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId })).ok).toBe(true);
-    expect(await claimEscalatedCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: false }))
-      .toMatchObject({ ok: false, status: 404 });
-    expect(await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))
-      .toMatchObject({ state: "WITHDRAWN", caseManagerId: null });
+    expect(await claimEscalatedCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: true }))
+      .toMatchObject({ ok: false, status: 409 });
     expect(await prisma.coiDeclaration.count({ where: { caseId: r.caseId } })).toBe(0);
+
+    expect(await claimEscalatedCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: false }))
+      .toEqual({ ok: true });
+    expect(await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))
+      .toMatchObject({ state: "WITHDRAWN", caseManagerId: queueManagerId });
+    expect(await prisma.coiDeclaration.count({ where: { caseId: r.caseId } })).toBe(1);
+    expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("skipped");
   });
 
   it("an invitation the email provider definitely rejects goes to a person", async () => {
