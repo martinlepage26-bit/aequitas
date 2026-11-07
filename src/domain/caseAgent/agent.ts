@@ -83,8 +83,8 @@ export type AgentRunResult =
 type Env = Record<string, string | undefined>;
 
 /**
- * Runtime model through the existing provider interface (Gemini or Workers
- * AI, never Anthropic or OpenAI in this path). Gated by the agent flag, not
+ * Runtime model through the existing provider interface (Gemini, Vertex AI
+ * or Workers AI, never Anthropic or OpenAI in this path). Gated by the agent flag, not
  * the pipeline flag. Calls are made and billed by the deployment's own
  * provider account.
  */

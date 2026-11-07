@@ -32,7 +32,9 @@ describe("free pipeline provider", () => {
       return new Response("nope", { status: 500 });
     }) as typeof fetch;
     const enabled = { AEQUITAS_PIPELINE_ENABLED: "true" };
-    expect(resolveFreeTextModel({ ...enabled, AEQUITAS_PIPELINE_PROVIDER: "anthropic" }, fetchImpl).ok).toBe(false);
+    const unsupported = resolveFreeTextModel({ ...enabled, AEQUITAS_PIPELINE_PROVIDER: "anthropic" }, fetchImpl);
+    expect(unsupported.ok).toBe(false);
+    if (!unsupported.ok) expect(unsupported.reason).toContain("Gemini, Vertex AI or Cloudflare Workers AI");
     expect(resolveFreeTextModel({ ...enabled, AEQUITAS_PIPELINE_PROVIDER: "openai" }, fetchImpl).ok).toBe(false);
     expect(resolveFreeTextModel(enabled, fetchImpl).ok).toBe(false);
     expect(resolveFreeTextModel({ AEQUITAS_PIPELINE_ENABLED: "false", GEMINI_API_KEY: "free-key" }, fetchImpl).ok).toBe(false);
@@ -48,10 +50,10 @@ describe("free pipeline provider", () => {
   });
 
   it("uses the Montréal Vertex AI route with bounded, single-request structured output", async () => {
-    let clientIdentity: { project: string; location: string } | undefined;
+    let clientOptions: Parameters<VertexAiClientFactory>[0] | undefined;
     let latestRequest: Parameters<VertexAiClient["models"]["generateContent"]>[0] | undefined;
     const factory: VertexAiClientFactory = (input) => {
-      clientIdentity = { project: input.project, location: input.location };
+      clientOptions = input;
       return {
         models: {
           async generateContent(request) {
@@ -84,7 +86,14 @@ describe("free pipeline provider", () => {
       text: "{\"ok\":true}",
       usage: { promptTokens: 23, completionTokens: 9, totalTokens: 32 },
     });
-    expect(clientIdentity).toEqual({ project: "synthetic-project", location: VERTEX_CANADA_LOCATION });
+    expect(clientOptions).toMatchObject({
+      enterprise: true,
+      project: "synthetic-project",
+      location: VERTEX_CANADA_LOCATION,
+      apiVersion: "v1",
+      httpOptions: { timeout: 30_000, retryOptions: { attempts: 1 } },
+    });
+    expect(clientOptions?.httpOptions?.fetch).toBe(fetch);
     expect(latestRequest).toMatchObject({
       model: VERTEX_CANADA_MODEL,
       contents: "synthetic prompt",

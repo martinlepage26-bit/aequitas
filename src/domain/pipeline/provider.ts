@@ -64,11 +64,9 @@ export type VertexAiClient = {
   models: { generateContent(input: VertexGenerateInput): Promise<VertexGenerateResponse> };
 };
 
-export type VertexAiClientFactory = (input: {
-  project: string;
-  location: string;
-  fetchImpl: typeof fetch;
-}) => VertexAiClient;
+export type VertexAiClientFactory = (
+  options: NonNullable<ConstructorParameters<typeof GoogleGenAI>[0]>,
+) => VertexAiClient;
 
 function tokenCount(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
@@ -261,18 +259,8 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
   };
 }
 
-function defaultVertexAiClientFactory(input: Parameters<VertexAiClientFactory>[0]): VertexAiClient {
-  return new GoogleGenAI({
-    vertexai: true,
-    project: input.project,
-    location: input.location,
-    apiVersion: "v1",
-    httpOptions: {
-      timeout: 30_000,
-      retryOptions: { attempts: 1 },
-      fetch: input.fetchImpl,
-    },
-  }) as unknown as VertexAiClient;
+function defaultVertexAiClientFactory(options: Parameters<VertexAiClientFactory>[0]): VertexAiClient {
+  return new GoogleGenAI(options) as unknown as VertexAiClient;
 }
 
 function vertexAiModel(
@@ -282,7 +270,17 @@ function vertexAiModel(
   fetchImpl: typeof fetch,
   clientFactory: VertexAiClientFactory,
 ): TextCompletion {
-  const client = clientFactory({ project: projectId, location, fetchImpl });
+  const client = clientFactory({
+    enterprise: true,
+    project: projectId,
+    location,
+    apiVersion: "v1",
+    httpOptions: {
+      timeout: 30_000,
+      retryOptions: { attempts: 1 },
+      fetch: fetchImpl,
+    },
+  });
 
   async function requestCompletion(
     prompt: string,
@@ -344,7 +342,7 @@ export function resolveFreeTextModel(
   if (!pipelineEnabled(env)) return { ok: false, reason: PIPELINE_OFF_REASON };
   const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
   if (PAID_PROVIDERS.has(provider)) {
-    return { ok: false, reason: "This pipeline does not call Anthropic or OpenAI. Choose an approved Gemini or Cloudflare Workers AI configuration." };
+    return { ok: false, reason: "This pipeline does not call Anthropic or OpenAI. Choose an approved Gemini, Vertex AI or Cloudflare Workers AI configuration." };
   }
   if (provider === "workers-ai" || provider === "cloudflare") {
     const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
