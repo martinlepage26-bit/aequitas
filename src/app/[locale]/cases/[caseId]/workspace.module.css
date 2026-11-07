@@ -92,6 +92,7 @@
 .originRecord[data-origin="COMPLAINANT"] { --origin-accent: var(--role-complainant); }
 .originRecord[data-origin="RESPONDENT"] { --origin-accent: var(--role-respondent); }
 .originRecord[data-origin="CASE_MANAGER"] { --origin-accent: var(--role-manager); }
+.originRecord[data-origin="CASE_AGENT"] { --origin-accent: var(--role-manager); }
 .originRecord[data-origin="ADMIN"] { --origin-accent: var(--role-admin); }
 .originMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 8px; color: var(--muted); font-size: 0.875rem; }
 .originLabel {
@@ -187,6 +188,7 @@
 .activityList > li[data-origin="COMPLAINANT"] { --origin-accent: var(--role-complainant); }
 .activityList > li[data-origin="RESPONDENT"] { --origin-accent: var(--role-respondent); }
 .activityList > li[data-origin="CASE_MANAGER"] { --origin-accent: var(--role-manager); }
+.activityList > li[data-origin="CASE_AGENT"] { --origin-accent: var(--role-manager); }
 .activityList > li[data-origin="ADMIN"] { --origin-accent: var(--role-admin); }
 .activityDot { z-index: 1; width: 17px; height: 17px; margin-top: 3px; border: 3px solid var(--origin-accent); border-radius: 50%; background: var(--panel); }
 .activityCard { min-width: 0; padding: 11px 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
@@ -195,6 +197,7 @@
 .originLabel[data-origin="COMPLAINANT"] { --origin-accent: var(--role-complainant); }
 .originLabel[data-origin="RESPONDENT"] { --origin-accent: var(--role-respondent); }
 .originLabel[data-origin="CASE_MANAGER"] { --origin-accent: var(--role-manager); }
+.originLabel[data-origin="CASE_AGENT"] { --origin-accent: var(--role-manager); }
 .originLabel[data-origin="ADMIN"] { --origin-accent: var(--role-admin); }
 
 @media (min-width: 960px) {
