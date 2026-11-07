@@ -105,7 +105,7 @@ jobs:
 
       - name: Generate production image dependency inventory
         run: |
-          docker run --rm --entrypoint npm aequitas-ci-runtime sbom --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-runtime-node.spdx.json"
+          docker run --rm --entrypoint npm aequitas-ci-runtime sbom --package-lock-only --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-production-node.spdx.json"
           docker run --rm --entrypoint dpkg-query aequitas-ci-runtime -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-runtime-os-packages.txt"
           {
             printf 'source_sha=%s\n' "$GITHUB_SHA"
@@ -117,7 +117,7 @@ jobs:
         with:
           name: aequitas-runtime-inventory-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/aequitas-runtime-node.spdx.json
+            ${{ runner.temp }}/aequitas-production-node.spdx.json
             ${{ runner.temp }}/aequitas-runtime-os-packages.txt
             ${{ runner.temp }}/aequitas-runtime-image.txt
           if-no-files-found: error
