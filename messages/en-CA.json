@@ -993,7 +993,7 @@
     "home": "Back to Aequitas",
     "imageCaption": "A shared record keeps each step traceable.",
     "sampleNoticeTitle": "This is an illustration",
-    "sampleNoticeBody": "The people, business, evidence and result below are invented. The text is written for this page; no case data was entered and no model was called. Live-model quality and production operations have not been validated.",
+    "sampleNoticeBody": "The people, business, evidence and result below are invented. The text is written for this page; no case data was entered and no model was called. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
     "caseTitle": "A kettle stops working after purchase",
     "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
     "amountLabel": "Amount at stake",

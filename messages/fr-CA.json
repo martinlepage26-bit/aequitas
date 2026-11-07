@@ -993,7 +993,7 @@
     "home": "Retour à Aequitas",
     "imageCaption": "Un dossier commun conserve la trace de chaque étape.",
     "sampleNoticeTitle": "Ceci est une illustration",
-    "sampleNoticeBody": "Les personnes, le commerce, les preuves et le résultat ci-dessous sont fictifs. Le texte a été rédigé pour cette page; aucune donnée de dossier n'a été saisie et aucun modèle n'a été appelé. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés.",
+    "sampleNoticeBody": "Les personnes, le commerce, les preuves et le résultat ci-dessous sont fictifs. Le texte a été rédigé pour cette page; aucune donnée de dossier n'a été saisie et aucun modèle n'a été appelé. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés. Dans l’application, les citations permettent de retrouver les extraits dans les pièces déposées. Elles ne vérifient pas l’exactitude des pièces et ne prouvent pas qu’un extrait appuie la proposition.",
     "caseTitle": "Une bouilloire cesse de fonctionner après l'achat",
     "caseDescription": "Une personne signale un problème avec un appareil. Le magasin confirme qu'un remplacement est possible. Cet exemple présente deux courts extraits de preuve fictifs.",
     "amountLabel": "Montant en jeu",
