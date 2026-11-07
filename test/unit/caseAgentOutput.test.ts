@@ -100,7 +100,7 @@ describe("program rules", () => {
       "AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION",
       "AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN",
       "AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR",
-      "configured Gemini project or Workers AI account and model",
+      "configured Gemini project, Vertex AI project/region/model, or Workers AI account and model",
     ]);
     const configured = {
       AEQUITAS_CASE_AGENT_ENABLED: "true",
