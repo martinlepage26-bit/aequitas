@@ -124,4 +124,16 @@ describe("Resend notification delivery", () => {
     expect(frenchPositions.text).toContain("soumettre ou mettre à jour votre position");
     expect(englishPositions.text).toContain("submit or update your position");
   });
+
+  it("states the role-specific participation-ending rule in both agent enrollment emails", () => {
+    configure();
+    const french = notificationEmail({ kind: "agent_managing", locale: "fr-CA", caseId: "case-1" });
+    const english = notificationEmail({ kind: "agent_managing", locale: "en-CA", caseId: "case-1" });
+
+    expect(french.text).toContain("La partie plaignante peut mettre fin à sa participation avant la fermeture");
+    expect(french.text).toContain("la partie répondante ne peut le faire que si le programme le permet");
+    expect(english.text).toContain("The complainant can end participation before closure");
+    expect(english.text).toContain("the respondent can do so only when the program allows it");
+    expect(`${french.text} ${english.text}`).not.toContain("at any time");
+  });
 });

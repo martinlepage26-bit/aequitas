@@ -666,7 +666,7 @@
     },
     "caseAgent": {
       "title": "Automated assistant",
-      "partyNotice": "An automated assistant handles the routine steps of this case. It uses information submitted by both parties to prepare one shared proposal. Each party receives the same proposed remedy in their language. The proposal is not binding, is not legal advice, and does not judge who is telling the truth. You can consent, decline, ask for a person, or end your participation before the case closes.",
+      "partyNotice": "An automated assistant handles routine steps of this case. It uses information submitted by both parties to prepare one shared proposal, which each party receives in their language. The proposal is not binding, is not legal advice, and does not judge who is telling the truth. You can ask for a person before the case closes and accept or decline an issued proposal. The complainant can end participation before closure; the respondent can do so only when the program allows it. The case page shows the controls available to you.",
       "processingTitle": "Review automated processing",
       "processingProvider": "Provider: {provider}. Account or project: {account}. Model: {model}.",
       "processingIntro": "Once both parties accept, the service sends case information to the provider listed above, including the dispute description, both positions, chronology, and readable text extracted from evidence files. The assistant uses both parties' information together to prepare one proposal. Each party sees citations only to their own evidence; the assistant's written analysis stays with program staff. You can ask for a person instead.",
