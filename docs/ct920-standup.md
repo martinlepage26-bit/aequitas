@@ -1,11 +1,21 @@
 # Aequitas on CT920: production runbook (aeq-prod)
 
 Stood up 2026-10-12, 9:40 PM ET, by Air on Martin's voice order (relayed by Jade).
-**Status as of 2026-10-16 UTC: CT920 serves production at
+**Historical status as of 2026-10-16 UTC: CT920 serves production at
 `https://aequitas.app.pharos-ai.ca`.** Railway's app deployment is stopped and
 its GitHub source disconnected. Railway Postgres and ClamAV remain available
 for the agreed rollback window; do not shut them down without Martin's
 separate approval.
+
+**Latest read-only check, 2026-11-07 16:56 UTC:** CT920's clean deployment
+checkout is still at `d74ed342693a96a6dc75d8907d288131c0148385`; the app
+container is healthy on that image. No case-agent scheduler container, matching
+user cron entry, or matching user timer was found. The current state of
+Railway's app, database, write traffic, and rollback readiness was not verified.
+Treat the October 16 Railway statements below as historical, not current
+operational evidence. Do not use Railway as a migration source or failback until
+its live service and data lineage are independently verified. This runbook does
+not authorize a deployment or cutover.
 
 ## What runs
 
@@ -38,7 +48,7 @@ cd ~/aequitas-prod/src/deploy/ct920
 docker compose -p aeq-prod --profile scheduled ps
 docker compose -p aeq-prod logs -f app
 docker compose -p aeq-prod --profile scheduled stop  # stop app and scheduled work (clean SIGTERM for app)
-docker compose -p aeq-prod --profile scheduled down  # ROLLBACK: removes only aeq-prod containers; Railway is unaffected (it is parallel)
+docker compose -p aeq-prod --profile scheduled down  # stops/removes only aeq-prod containers; does not touch Railway or establish that Railway is a usable failback
 docker compose -p aeq-prod --profile scheduled down -v  # also deletes aeq-prod volumes (data!) — only with intent
 RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler  # resume scheduled work after an incident
 docker compose -p aeq-prod --profile scheduled logs scheduler
@@ -66,6 +76,11 @@ This restores a `pg_dump -Fc` into `aeq-prod-postgres` and then checks `prisma m
 Dumps live in `~/aequitas-prod/dumps/` (chmod 600).
 
 ## Gated cutover runbook. REQUIRES MARTIN'S EXPLICIT OK, routed through Metal with Argus checking
+**Current-state warning:** The steps below were written for the October 2026
+cutover plan. Before any write freeze, data copy, hostname switch, or rollback,
+verify which service currently receives user writes and prove the source and
+destination data match. The October 16 Railway status is not current evidence.
+
 1. Pre-checks: Earth/Metal PASS on the draft PR, `deploy.sh` healthy on the final SHA, AQ-D4 decided, off-box backup target working, and a test restore passing.
 2. Use Cloudflare Tunnel `aeq-prod` and the private Workers VPC Service to reach `127.0.0.1:18310`. The Worker custom domain is `aequitas.app.pharos-ai.ca`; it provisions the nested hostname certificate. Existing tunnels and the telecom site remain untouched.
 3. Announce the window. **Write freeze on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK).
