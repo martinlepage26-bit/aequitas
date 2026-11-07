@@ -120,11 +120,18 @@ export async function enrollCaseAgent(input: { actorId: string; actorRole: Globa
   if (caseRow.state !== "EVIDENCE_INTAKE" && caseRow.state !== "POSITIONS") return { ok: false, status: 409, reason: "The case agent can be enabled during intake or positions only." };
   if (caseRow.agentManaged) return { ok: true };
   const policySnapshot = createCaseAgentPolicySnapshot(config.program);
-  await prisma.$transaction(async (tx) => {
-    const updated = await tx.case.updateMany({ where: { id: caseRow.id, agentManaged: false, state: caseRow.state }, data: { agentManaged: true, agentConsentOnlyResolution: config.program.consentOnlyResolution } });
-    if (updated.count === 1) await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: { origin: "case_manager", consentOnlyResolution: config.program.consentOnlyResolution, policySnapshot } });
+  const enrolled = await prisma.$transaction(async (tx) => {
+    const updated = await tx.case.updateMany({
+      where: { id: caseRow.id, agentManaged: false, state: caseRow.state, caseManagerId: input.actorId, category: "RETAIL" },
+      data: { agentManaged: true, agentConsentOnlyResolution: config.program.consentOnlyResolution },
+    });
+    if (updated.count !== 1) return false;
+    await appendEvent(tx, { caseId: caseRow.id, type: "AGENT_ENROLLED", actorId: input.actorId, payload: { origin: "case_manager", consentOnlyResolution: config.program.consentOnlyResolution, policySnapshot } });
+    return true;
   });
-  return { ok: true };
+  return enrolled
+    ? { ok: true }
+    : { ok: false, status: 409, reason: "The case changed before the agent was enabled. Reload and try again." };
 }
 
 async function escalateCase(caseId: string, actorId: string, reason: EscalationReason): Promise<boolean> {

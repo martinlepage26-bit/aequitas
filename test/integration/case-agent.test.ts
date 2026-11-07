@@ -553,6 +553,31 @@ describe("case agent: least privilege", () => {
     const refused = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: tenancy.caseId }, ENV);
     expect(refused.ok || refused.status).toBe(409);
   });
+
+  it("refuses enrollment when the assignment changes after authorization is read", async () => {
+    const s = await positionsCase({ enroll: false });
+    const originalFindUnique = prisma.case.findUnique.bind(prisma.case);
+    const returnStaleEnrollmentSnapshot = async (args: Parameters<typeof prisma.case.findUnique>[0]) => {
+      const staleRow = await originalFindUnique(args);
+      await prisma.case.update({ where: { id: s.caseId }, data: { caseManagerId: otherManagerId } });
+      return staleRow;
+    };
+    const lookup = vi.spyOn(prisma.case, "findUnique").mockImplementationOnce(
+      returnStaleEnrollmentSnapshot as unknown as typeof prisma.case.findUnique,
+    );
+
+    let result: Awaited<ReturnType<typeof enrollCaseAgent>>;
+    try {
+      result = await enrollCaseAgent({ actorId: managerId, actorRole: "CASE_MANAGER", caseId: s.caseId }, ENV);
+    } finally {
+      lookup.mockRestore();
+    }
+
+    expect(result).toEqual({ ok: false, status: 409, reason: "The case changed before the agent was enabled. Reload and try again." });
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+    expect(row).toMatchObject({ caseManagerId: otherManagerId, agentManaged: false });
+    expect(await prisma.event.count({ where: { caseId: s.caseId, type: "AGENT_ENROLLED" } })).toBe(0);
+  });
 });
 
 describe("case agent: party isolation", () => {
