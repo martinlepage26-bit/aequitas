@@ -7,6 +7,7 @@ import { SESSION_COOKIE } from "../src/lib/session";
 import { expectNoAutomatedWcagViolations } from "./accessibility";
 import { createCase, submitCase } from "../src/domain/mutate";
 import { runCaseAgent } from "../src/domain/caseAgent/agent";
+import { CASE_AGENT_PROCESSING_HANDOFF_NOTICE_EN, CASE_AGENT_PROCESSING_HANDOFF_NOTICE_FR } from "../src/domain/caseAgent/processingConsent";
 import { verifyCase } from "../src/domain/verifyEvents";
 import fr from "../messages/fr-CA.json";
 import en from "../messages/en-CA.json";
@@ -131,7 +132,11 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await expect(page.locator("#case-agent-processing-choice")).toContainText(messages.workspace.caseAgent.processingIntro);
       await expect(page.locator("#case-agent-processing-choice")).toContainText("synthetic-e2e-project");
       await expect(page.locator("#case-agent-processing-choice")).toContainText("gemini-3.8-flash");
-      const notice = locale === "fr-CA" ? ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR : ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN;
+      // The page shows the program's configured notice followed by the
+      // app-supplied explanation of a handoff during a provider request.
+      const notice = locale === "fr-CA"
+        ? `${ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR}\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_FR}`
+        : `${ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN}\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_EN}`;
       await expect(page.locator("#case-agent-processing-choice blockquote")).toHaveText(notice);
       await expectNoAutomatedWcagViolations(page, `${locale} provider-processing choice`);
       const accepted = page.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/processing-choice` && res.request().method() === "POST");
