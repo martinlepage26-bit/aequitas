@@ -101,6 +101,38 @@ Questions en français, si l'échange se déroule en français :
 
 Record only aggregate counts, role-level responsibility, process-level effort and non-confidential procurement facts. Do not request complaint files or party identifiers. Keep estimates separate from observed facts; a discovery conversation is not buyer or pilot evidence without a named budget owner, eligible funded workflow and agreed next step.
 
+### Optional Manitoba vendor-routing inquiry — internal draft, unsent
+
+Use only if Martin selects Manitoba for discovery. The public Procurement and Supply Chain page lists `ProcServ@gov.mb.ca` for vendor questions and says the office can connect suppliers with relevant purchasing staff ([contact](https://gov.mb.ca/central/psc/index.html); [vendor guidance](https://www.gov.mb.ca/central/psc/api/api_faq.html)). Do not send to the CPO's consumer-complaint inbox. This message asks for routing only; it does not imply a buyer or procurement opportunity.
+
+**To:** `ProcServ@gov.mb.ca`
+
+**Subject:** Request for referral: consumer complaint workflow discovery
+
+**English**
+
+Hello Procurement and Supply Chain team,
+
+I’m a Montréal-based founder exploring Aequitas, an early bilingual software prototype for routine consumer-business complaint workflows. The case-agent path has been exercised only with synthetic cases and stub model output; it has not been live-model-evaluated or deployed for real cases. I’m trying to learn whether any current workflow gap merits further product work, before proposing or pricing a pilot.
+
+Your supplier guidance says vendors may contact Procurement and Supply Chain to connect with the appropriate purchasing staff. Could you point me to the right program or role for a short, process-level conversation about the Consumer Protection Office’s workflow and the general vendor qualification route? I’m not asking for complaint files, personal information, confidential operational detail, a procurement exception, or a purchase commitment. If a 20-minute conversation is not appropriate, a link to the right public process would help.
+
+Thank you,
+
+Martin Lepage, PhD
+
+**Français (Québec)**
+
+Bonjour,
+
+Je suis un fondateur montréalais qui explore Aequitas, un prototype logiciel bilingue pour les processus courants de traitement des différends entre consommateurs et entreprises. Le parcours d'agent a été exercé uniquement avec des dossiers synthétiques et des réponses de modèle simulées; il n'a pas été évalué avec un modèle en direct ni déployé pour des dossiers réels. Je cherche d'abord à savoir s'il existe une lacune de processus qui justifierait de poursuivre le développement, avant de proposer ou de chiffrer un projet pilote.
+
+Vos renseignements aux fournisseurs indiquent qu'ils peuvent communiquer avec Approvisionnement et chaîne d'approvisionnement afin d'être mis en relation avec le personnel d'achat approprié. Pourriez-vous m'indiquer le programme ou le rôle à contacter pour une courte discussion sur le processus de l'Office de la protection du consommateur et les étapes générales de qualification des fournisseurs? Je ne demande aucun dossier de plainte, renseignement personnel, détail opérationnel confidentiel, exception à l'approvisionnement ni engagement d'achat. Si un échange de 20 minutes ne convient pas, un lien vers le processus public approprié me serait utile.
+
+Merci,
+
+Martin Lepage, PhD
+
 ## Interview record
 
 Keep this record at the organization and role level; do not add personal contact details unless needed for an approved follow-up.
