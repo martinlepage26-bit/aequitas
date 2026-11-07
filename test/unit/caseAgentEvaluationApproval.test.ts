@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -23,15 +23,15 @@ const env: Record<string, string | undefined> = {
 };
 
 describe("case-agent evaluation approval", () => {
-  it("binds the approval to provider, account, model, and prompt version", () => {
-    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}`);
+  it("binds the approval to provider, account, model, prompt, and evaluation protocol versions", () => {
+    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`);
   });
 
   it("keeps live case processing blocked without an exact human-review attestation", () => {
     expect(caseAgentEvaluationApprovalBlocker(env)).toContain("AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR");
     expect(resolveCaseAgentModel(env)).toMatchObject({ ok: false });
 
-    const stale = { ...env, AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:old-version` };
+    const stale = { ...env, AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:old-version` };
     expect(caseAgentEvaluationApprovalBlocker(stale)).toContain(`prompt:${AGENT_PROMPT_VERSION}`);
     expect(resolveCaseAgentModel(stale)).toMatchObject({ ok: false });
   });
@@ -40,7 +40,7 @@ describe("case-agent evaluation approval", () => {
     expect(resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }).ok).toBe(true);
     const approved = {
       ...env,
-      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}`,
+      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`,
     };
     expect(caseAgentEvaluationApprovalBlocker(approved)).toBeNull();
     expect(resolveCaseAgentModel(approved).ok).toBe(true);
