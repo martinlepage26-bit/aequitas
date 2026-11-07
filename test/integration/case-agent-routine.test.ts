@@ -11,9 +11,10 @@ import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { acceptCaseAgentProcessing, claimEscalatedCase, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { caseAgentProgram } from "../../src/domain/caseAgent/config";
-import { createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
+import { closeCase, createCase, giveConsent, openIntake, setPartyIntakeReady, submitCase, submitPosition, withdrawCase } from "../../src/domain/mutate";
 import { readPartyOutcomes } from "../../src/domain/partyOutcome";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
+import { generateExportBundle } from "../../src/domain/exportBundle";
 import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { verifyCase } from "../../src/domain/verifyEvents";
 import { RECOMMENDATION_APPROVAL_REQUIRED_KIND } from "../../src/lib/mail";
@@ -585,6 +586,26 @@ describe("untrusted documents and model output", () => {
     const view = JSON.stringify(await readPartyOutcomes(r.caseId, { userId: r.complainantId, globalRole: "COMPLAINANT" }));
     expect(view).not.toContain("repair voucher at the counter");
     expect(view).not.toContain(rId);
+  });
+
+  it("lets a queue manager close an unassigned escalated case after a party withdraws", async () => {
+    const r = await submittedCase();
+    stubEmail();
+    await runCaseAgent({ caseId: r.caseId, model: NO_CALL_MODEL, env: ENV });
+    expect((await requestHumanReview({ actorId: r.respondentId, actorRole: "RESPONDENT", caseId: r.caseId })).ok).toBe(true);
+
+    // The agent has stopped, but the complainant may still withdraw. The
+    // queue must retain a human path to the required sealed export and close.
+    expect((await endParticipation({ actorId: r.complainantId, actorRole: "COMPLAINANT", caseId: r.caseId })).ok).toBe(true);
+    expect((await runCaseAgent({ caseId: r.caseId, model: null, env: ENV })).status).toBe("skipped");
+    expect((await claimEscalatedCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, hasConflict: false })).ok).toBe(true);
+
+    const bundle = await generateExportBundle({ caseId: r.caseId, actorId: queueManagerId });
+    const closed = await closeCase({ actorId: queueManagerId, actorRole: "CASE_MANAGER", caseId: r.caseId, exportSha256: bundle.sha256 });
+    expect(closed.ok).toBe(true);
+    const final = await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } });
+    expect(final).toMatchObject({ state: "CLOSED", caseManagerId: queueManagerId });
+    expect(await verifyCase(prisma, final)).toEqual([]);
   });
 });
 

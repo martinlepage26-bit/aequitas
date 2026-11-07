@@ -264,7 +264,11 @@ export async function acceptCaseAgentProcessing(input: {
 export async function claimEscalatedCase(input: { actorId: string; actorRole: GlobalRole; caseId: string; hasConflict: boolean }): Promise<Outcome> {
   if (input.actorRole !== "CASE_MANAGER") return { ok: false, status: 404, reason: "Case not found." };
   const row = await prisma.case.findUnique({ where: { id: input.caseId } });
-  if (!row || !row.agentEscalatedAt || row.caseManagerId || row.state === "CLOSED" || row.state === "WITHDRAWN") return { ok: false, status: 404, reason: "Case not found." };
+  // A party may withdraw after an unassigned case has been handed to the
+  // human queue. Keep that escalated case claimable so a conflict-free
+  // manager can generate its sealed export and close it; the agent itself
+  // remains stopped after escalation.
+  if (!row || !row.agentEscalatedAt || row.caseManagerId || row.state === "CLOSED") return { ok: false, status: 404, reason: "Case not found." };
   if (input.hasConflict) return { ok: false, status: 409, reason: "A case manager with a conflict of interest cannot take this case." };
   const taken = await prisma.$transaction(async (tx) => {
     const updated = await tx.case.updateMany({
