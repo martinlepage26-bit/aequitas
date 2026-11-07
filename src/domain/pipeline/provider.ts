@@ -12,11 +12,12 @@ const PAID_PROVIDERS = new Set(["anthropic", "openai", "claude"]);
 export interface TextCompletion {
   provider: string;
   model: string;
-  complete(prompt: string): Promise<string>;
+  /** Optional system instruction is kept separate from untrusted user content. */
+  complete(prompt: string, systemInstruction?: string): Promise<string>;
   /** Optional provider-native constrained output. Callers must still validate the returned JSON. */
-  completeWithJsonSchema?(prompt: string, schema: Record<string, unknown>): Promise<TextCompletionWithUsage>;
+  completeWithJsonSchema?(prompt: string, schema: Record<string, unknown>, systemInstruction?: string): Promise<TextCompletionWithUsage>;
   /** Optional provider-reported metering. Never estimate tokens from text. */
-  completeWithUsage?(prompt: string): Promise<TextCompletionWithUsage>;
+  completeWithUsage?(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage>;
 }
 
 export interface TextCompletionUsage {
@@ -47,13 +48,14 @@ function usageCounts(input: unknown, output: unknown, total: unknown): TextCompl
 }
 
 function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): TextCompletion {
-  async function completeWithUsage(prompt: string): Promise<TextCompletionWithUsage> {
+  async function completeWithUsage(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage> {
     const response = await fetchImpl(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
+          ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: { temperature: 0, responseMimeType: "application/json" },
         }),
@@ -76,18 +78,23 @@ function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): Te
     provider: "gemini",
     model,
     completeWithUsage,
-    async complete(prompt: string) { return (await completeWithUsage(prompt)).text; },
+    async complete(prompt: string, systemInstruction?: string) { return (await completeWithUsage(prompt, systemInstruction)).text; },
   };
 }
 
 function workersModel(accountId: string, token: string, model: string, fetchImpl: typeof fetch): TextCompletion {
-  async function completeWithUsage(prompt: string): Promise<TextCompletionWithUsage> {
+  const messages = (prompt: string, systemInstruction?: string) => [
+    ...(systemInstruction ? [{ role: "system", content: systemInstruction }] : []),
+    { role: "user", content: prompt },
+  ];
+
+  async function completeWithUsage(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage> {
     const response = await fetchImpl(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
       {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ messages: messages(prompt, systemInstruction) }),
         signal: AbortSignal.timeout(30_000),
       },
     );
@@ -106,7 +113,7 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     };
   }
 
-  async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>): Promise<TextCompletionWithUsage> {
+  async function completeWithJsonSchema(prompt: string, schema: Record<string, unknown>, systemInstruction?: string): Promise<TextCompletionWithUsage> {
     // Use Chat Completions because its documented contract exposes required tool choice.
     const response = await fetchImpl(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/v1/chat/completions`,
@@ -115,7 +122,7 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
         headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({
           model,
-          messages: [{ role: "user", content: prompt }],
+          messages: messages(prompt, systemInstruction),
           tools: [{ type: "function", function: {
             name: "return_structured_output",
             description: "Return the requested result using this exact JSON object schema. Do not call any external service.",
@@ -161,7 +168,7 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
     model,
     completeWithJsonSchema,
     completeWithUsage,
-    async complete(prompt: string) { return (await completeWithUsage(prompt)).text; },
+    async complete(prompt: string, systemInstruction?: string) { return (await completeWithUsage(prompt, systemInstruction)).text; },
   };
 }
 

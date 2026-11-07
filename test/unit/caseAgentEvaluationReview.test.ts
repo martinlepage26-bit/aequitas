@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { blankHumanReviewChecklist, evaluationReviewBlockers, sanitizeReviewText, sanitizedHumanHandoffRequest } from "../../scripts/caseAgentEvaluationReview";
 
-const approvalIdentity = "workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-06.3";
+const approvalIdentity = "workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-07.1";
 
 function completeReviewReport() {
   const names = [
@@ -17,7 +17,7 @@ function completeReviewReport() {
     mode: "live",
     provider: "workers-ai",
     model: "@cf/google/gemma-4-26b-a4b-it",
-    promptVersion: "case-agent-2026-11-06.3",
+    promptVersion: "case-agent-2026-11-07.1",
     evaluationApprovalIdentity: approvalIdentity,
     syntheticOnly: true,
     automatedChecksPassed: true,

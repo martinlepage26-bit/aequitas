@@ -502,9 +502,9 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   let raw: string;
   try {
     if (input.model.completeWithJsonSchema) {
-      raw = (await input.model.completeWithJsonSchema(prompt, AGENT_OUTPUT_JSON_SCHEMA)).text;
+      raw = (await input.model.completeWithJsonSchema(prompt.userContent, AGENT_OUTPUT_JSON_SCHEMA, prompt.systemInstruction)).text;
     } else {
-      raw = await input.model.complete(prompt);
+      raw = await input.model.complete(prompt.userContent, prompt.systemInstruction);
     }
   } catch {
     return escalate("model_failed");

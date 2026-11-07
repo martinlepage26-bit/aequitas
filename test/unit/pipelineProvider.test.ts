@@ -97,22 +97,29 @@ describe("free pipeline provider", () => {
   });
 
   it("returns only provider-reported token counts for Gemini and Workers AI", async () => {
-    const geminiFetch = (async () => new Response(JSON.stringify({
-      candidates: [{ content: { parts: [{ text: "{}" }] } }],
-      usageMetadata: { promptTokenCount: 21, candidatesTokenCount: 8, totalTokenCount: 29 },
-    }), { status: 200 })) as typeof fetch;
+    const requests: Array<{ body: Record<string, unknown>; url: string }> = [];
+    const geminiFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ body: JSON.parse(String(init?.body)) as Record<string, unknown>, url: String(input) });
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "{}" }] } }],
+        usageMetadata: { promptTokenCount: 21, candidatesTokenCount: 8, totalTokenCount: 29 },
+      }), { status: 200 });
+    }) as typeof fetch;
     const gemini = resolveFreeTextModel({ AEQUITAS_PIPELINE_ENABLED: "true", GEMINI_API_KEY: "test-only" }, geminiFetch);
     expect(gemini.ok).toBe(true);
     if (gemini.ok) {
-      await expect(gemini.model.completeWithUsage?.("synthetic prompt")).resolves.toEqual({
+      await expect(gemini.model.completeWithUsage?.("synthetic prompt", "Keep rules separate.")).resolves.toEqual({
         text: "{}",
         usage: { promptTokens: 21, completionTokens: 8, totalTokens: 29 },
       });
     }
 
-    const workersFetch = (async () => new Response(JSON.stringify({
-      result: { response: "{}", usage: { prompt_tokens: 34, completion_tokens: 13, total_tokens: 47 } },
-    }), { status: 200 })) as typeof fetch;
+    const workersFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ body: JSON.parse(String(init?.body)) as Record<string, unknown>, url: String(input) });
+      return new Response(JSON.stringify({
+        result: { response: "{}", usage: { prompt_tokens: 34, completion_tokens: 13, total_tokens: 47 } },
+      }), { status: 200 });
+    }) as typeof fetch;
     const workers = resolveFreeTextModel({
       AEQUITAS_PIPELINE_ENABLED: "true",
       AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
@@ -121,11 +128,21 @@ describe("free pipeline provider", () => {
     }, workersFetch);
     expect(workers.ok).toBe(true);
     if (workers.ok) {
-      await expect(workers.model.completeWithUsage?.("synthetic prompt")).resolves.toEqual({
+      await expect(workers.model.completeWithUsage?.("synthetic prompt", "Keep rules separate.")).resolves.toEqual({
         text: "{}",
         usage: { promptTokens: 34, completionTokens: 13, totalTokens: 47 },
       });
     }
+    expect(requests[0].body).toMatchObject({
+      systemInstruction: { parts: [{ text: "Keep rules separate." }] },
+      contents: [{ role: "user", parts: [{ text: "synthetic prompt" }] }],
+    });
+    expect(requests[1].body).toMatchObject({
+      messages: [
+        { role: "system", content: "Keep rules separate." },
+        { role: "user", content: "synthetic prompt" },
+      ],
+    });
   });
 
   it("requests one schema-bound tool call for Workers AI structured completions", async () => {
@@ -155,13 +172,17 @@ describe("free pipeline provider", () => {
       type: "object",
       properties: { value: { type: "string" } },
       required: ["value"],
-    })).resolves.toEqual({
+    }, "Keep rules separate.")).resolves.toEqual({
       text: '{"value":"synthetic result"}',
       usage: { promptTokens: 29, completionTokens: 11, totalTokens: 40 },
     });
     expect(requestUrl).toBe("https://api.cloudflare.com/client/v4/accounts/account/ai/v1/chat/completions");
     expect(requestBody).toMatchObject({
       model: WORKERS_AI_MODEL,
+      messages: [
+        { role: "system", content: "Keep rules separate." },
+        { role: "user", content: "synthetic prompt" },
+      ],
       tool_choice: "required",
       parallel_tool_calls: false,
       temperature: 0,
