@@ -10,6 +10,10 @@ Status: **internal draft; not sent.** This kit prepares customer discovery. It d
 - The proposed workflow aims to make evidence and consent traceable, give each party control over their own outcome, and hand exceptions to program staff. Do not promise a particular resolution, legal result, time saving, or reduction in staff.
 - Do not ask anyone to share case files, party names, personal information, or confidential operating material.
 
+## Market constraint to test
+
+The [paid-pilot readiness memo's buyer hypothesis](paid-pilot-readiness.md#buyer-hypothesis-not-validated-demand) records the existing free OPC Parle consommation service, its reported activity, and an active Québec Justice-sector online-dispute-resolution implementation project. Read that evidence before selecting a prospect. Discovery must identify a specific unmet or complementary workflow, eligible case volume, staff burden, budget owner and procurement path. Until interviews establish those facts, do not present Aequitas as filling an empty market or replacing an established service.
+
 ## Initial invitation
 
 Use only after Martin chooses the recipient and approves sending. Personalize the bracketed fields from public or already authorized information. Do not imply that the recipient is selected as a buyer.
