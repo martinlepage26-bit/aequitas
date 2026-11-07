@@ -234,6 +234,11 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Timeouts.** Respondent not joining, a missing submission or position, or an unanswered proposal past the configured period goes to a person.
 - **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Live mode needs operator approval (`AEQUITAS_CASE_AGENT_EVAL_APPROVED`) and a configured provider; neither was available, so live quality is untested.
 
+## Autonomous routine-case product direction (2026-11-07)
+
+- **Owner goal.** The product is intended to handle eligible routine cases end to end, with party control and human escalation for exceptions. A routine agent-managed case may close without independent approver sign-off only after both parties consent to their current outcome version. The persisted `agentConsentOnlyResolution` policy implements this only for non-escalated agent cases; escalation restores the approval requirement. Human-managed cases retain their own configured approval policy.
+- **Scope and launch gate.** This direction resolves the earlier product-policy question in favor of autonomous closure for the routine path. It does not authorize live processing by itself: the agent remains off until program settings, provider terms, a reviewed live synthetic evaluation, counsel/privacy review and operational controls are complete. A program that cannot use this decision rule must keep `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=false` and route cases through approver sign-off.
+
 ## Daily case-agent model-call ceiling (2026-11-06)
 
 - **Required deployment setting.** `AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY` has no default and must be a positive PostgreSQL integer before the agent is enabled.
