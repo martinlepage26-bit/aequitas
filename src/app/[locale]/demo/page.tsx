@@ -46,6 +46,7 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
               src="/images/shared-record.webp"
               alt=""
               fill
+              loading="eager"
               sizes="(max-width: 760px) calc(100vw - 40px), 440px"
             />
           </div>

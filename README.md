@@ -29,6 +29,11 @@ flowchart LR
 - The case agent is restricted to explicit program rules, evidence-backed proposals, and a closed remedy set; it hands exceptions to staff.
 - Both parties make the consent decision, bound to the outcome version they saw.
 - Security tests exercise account-takeover prevention and invite-based account claiming.
+- Playwright runs axe checks for WCAG 2.0/2.1 A and AA and 2.2 AA on the
+  public landing, walkthrough, sign-in and registration pages in both locales,
+  plus the routine agent journey's intake, provider-choice and party-outcome
+  states. Automated scans catch common issues; they do not establish full
+  WCAG 2.2 AA conformance.
 
 ## Review the implementation
 

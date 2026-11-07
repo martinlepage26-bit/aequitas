@@ -4,6 +4,7 @@ import { test, expect, type Browser, type BrowserContext } from "@playwright/tes
 import { prisma } from "../src/lib/prisma";
 import { signPayload } from "../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../src/lib/session";
+import { expectNoAutomatedWcagViolations } from "./accessibility";
 import { createCase, submitCase } from "../src/domain/mutate";
 import { runCaseAgent } from "../src/domain/caseAgent/agent";
 import { verifyCase } from "../src/domain/verifyEvents";
@@ -98,6 +99,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await page.goto(`/${locale}/cases/${caseId}`);
       await expect(page.locator("#case-agent-notice")).toHaveText(messages.workspace.caseAgent.partyNotice);
       await page.waitForLoadState("networkidle");
+      await expectNoAutomatedWcagViolations(page, `${locale} party case intake`);
       await page.fill("#evidence-title", `Evidence ${party.globalRole}`);
       await page.setInputFiles("#evidence-file", { name: "evidence.txt", mimeType: "text/plain", buffer: Buffer.from(texts[party.id]) });
       await page.getByRole("button", { name: messages.workspace.evidence.form.submit, exact: true }).click();
@@ -130,6 +132,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await expect(page.locator("#case-agent-processing-choice")).toContainText("gemini-3.8-flash");
       const notice = locale === "fr-CA" ? ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR : ENV.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN;
       await expect(page.locator("#case-agent-processing-choice blockquote")).toHaveText(notice);
+      await expectNoAutomatedWcagViolations(page, `${locale} provider-processing choice`);
       const accepted = page.waitForResponse((res) => new URL(res.url()).pathname === `/api/cases/${caseId}/processing-choice` && res.request().method() === "POST");
       await page.locator("#accept-agent-processing").click();
       expect((await accepted).ok()).toBe(true);
@@ -162,6 +165,7 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
       const outcome = await prisma.partyOutcome.findFirstOrThrow({ where: { caseId, partyId: party.id, status: "ISSUED" } });
       await page.reload();
       await expect(page.locator("#your-outcome")).toHaveText(outcome.body);
+      await expectNoAutomatedWcagViolations(page, `${locale} party outcome and consent`);
       expect(await page.content()).not.toContain("Staff-only summary");
       expect(await page.content()).not.toContain("The purchase record documents the amount paid.");
       await page.waitForLoadState("networkidle");

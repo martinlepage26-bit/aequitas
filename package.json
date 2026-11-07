@@ -48,6 +48,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
     "@types/archiver": "^8.0.0",
     "@types/node": "^26.2.0",
