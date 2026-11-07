@@ -3,10 +3,13 @@
 # Base images come from the AWS ECR Public mirror of Docker Official Images,
 # not anonymous Docker Hub (Docker Hub returned 429s on Oct 9 builds).
 # Node major follows .nvmrc (22).
-ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim
+# Pin the multi-architecture OCI index digest so CI and deployments use the
+# same tested Node base on linux/amd64 and linux/arm64.
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
 ARG NPM_VERSION=11.19.1
 
 FROM ${NODE_IMAGE} AS node-base
+ARG NODE_IMAGE
 ARG NPM_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -41,6 +44,7 @@ COPY prisma ./prisma
 RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node-base AS runtime
+LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
 # Same OS packages Railway installs via RAILPACK_DEPLOY_APT_PACKAGES
 # (PDF text extraction + OCR in eng/fra).
 RUN apt-get update \

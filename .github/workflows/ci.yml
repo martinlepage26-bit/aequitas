@@ -111,6 +111,7 @@ jobs:
             printf 'source_sha=%s\n' "$GITHUB_SHA"
             docker image inspect --format='image_id={{.Id}}' aequitas-ci-runtime
             docker image inspect --format='architecture={{.Architecture}}' aequitas-ci-runtime
+            docker image inspect --format='base_image={{ index .Config.Labels "org.opencontainers.image.base.name" }}' aequitas-ci-runtime
           } > "$RUNNER_TEMP/aequitas-runtime-image.txt"
 
       - uses: actions/upload-artifact@v4
