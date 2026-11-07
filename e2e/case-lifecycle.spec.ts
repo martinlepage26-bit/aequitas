@@ -74,6 +74,7 @@ for (const { code: locale, messages: m } of LOCALES) {
 
         await expect(consumerPage.locator("h1 + p strong")).toHaveText(m.workspace.state.DRAFT);
         await consumerPage.click(`button:has-text("${m.workspace.draft.submitButton}")`);
+        await consumerPage.click(`button:has-text("${m.workspace.draft.confirmSend}")`);
         await expect(consumerPage.locator("h1 + p strong")).toHaveText(m.workspace.state.OPEN);
 
         // --- Case manager opens evidence intake ---
@@ -96,7 +97,9 @@ for (const { code: locale, messages: m } of LOCALES) {
         await retailerPage.fill("#evidence-title", `Retailer evidence (${locale})`);
         await retailerPage.setInputFiles("#evidence-file", { name: "proof.png", mimeType: "image/png", buffer: TINY_PNG });
         await retailerPage.click(`button:has-text("${m.workspace.evidence.form.submit}")`);
-        await expect(retailerPage.locator("#evidence-heading ~ ul li")).toHaveCount(2);
+        await expect(retailerPage.locator("#evidence-heading ~ ul li")).toHaveCount(1);
+        await expect(retailerPage.locator("#evidence-heading ~ ul li strong")).toHaveText(`Retailer evidence (${locale})`);
+        await expect(retailerPage.getByText(`Consumer evidence (${locale})`)).toHaveCount(0);
 
         // --- Case manager closes evidence intake now both parties have submitted ---
         await managerPage.reload();
@@ -112,14 +115,16 @@ for (const { code: locale, messages: m } of LOCALES) {
         await retailerPage.goto(`/${locale}/cases/${caseId}`);
         await retailerPage.fill("#position-body", `Retailer position (${locale}).`);
         await retailerPage.click(`button:has-text("${m.workspace.positions.form.submit}")`);
-        await expect(retailerPage.locator("#positions-heading ~ ul li")).toHaveCount(2);
+        await expect(retailerPage.locator("#positions-heading ~ ul li")).toHaveCount(1);
+        await expect(retailerPage.locator("#positions-heading ~ ul li")).toContainText(`Retailer position (${locale}).`);
+        await expect(retailerPage.getByText(`Consumer position (${locale}).`)).toHaveCount(0);
 
         // --- Case manager now sees the requestDraft authority, having no more evidence/position forms to act on ---
         await managerPage.reload();
         await expect(managerPage.locator("h1 + p strong")).toHaveText(m.workspace.state.POSITIONS);
         // CASE_CREATED, CASE_SUBMITTED, EVIDENCE_INTAKE_OPENED, CASE_ASSIGNED,
         // EVIDENCE_SUBMITTED x2, EVIDENCE_INTAKE_CLOSED, POSITION_SUBMITTED x2.
-        await expect(managerPage.locator("#timeline-heading ~ ol li")).toHaveCount(9);
+        await expect(managerPage.locator("section:has(#timeline-heading) ol li")).toHaveCount(9);
       } finally {
         await consumerCtx.close();
         await retailerCtx.close();

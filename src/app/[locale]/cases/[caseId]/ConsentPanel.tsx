@@ -17,11 +17,19 @@ export default function ConsentPanel({
   statementVersionId,
   statementBody,
   ownConsentState,
+  outcomeIssued,
+  outcomeId,
+  outcomeVersion,
+  outcomeNeedsAnswer = false,
 }: {
   caseId: string;
   statementVersionId: string;
   statementBody: string;
   ownConsentState: "NOT_GIVEN" | "GIVEN" | "DECLINED" | "REVOKED";
+  outcomeIssued: boolean;
+  outcomeId: string | null;
+  outcomeVersion: number | null;
+  outcomeNeedsAnswer?: boolean;
 }) {
   const t = useTranslations("workspace.consent");
   const tResolution = useTranslations("workspace.resolution");
@@ -34,12 +42,22 @@ export default function ConsentPanel({
     const res = await fetch(`/api/cases/${caseId}/consent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, statementVersionId }),
+      body: JSON.stringify({
+        action,
+        statementVersionId,
+        ...(action === "revoke" ? {} : { outcomeId, outcomeVersion }),
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       // Phase 3 resolution guards come back as 409 with a code; show the localized text.
-      const text = data.code === "OPEN_CONTESTATION" || data.code === "APPROVAL_REQUIRED" ? tResolution(`code.${data.code}`) : data.message || t("error");
+      const text = data.code === "OUTCOME_NOT_ISSUED"
+        ? t("outcomeUnavailable")
+        : data.code === "OUTCOME_SUPERSEDED"
+          ? t("outcomeSuperseded")
+          : data.code === "OPEN_CONTESTATION" || data.code === "APPROVAL_REQUIRED" || data.code === "RESOLUTION_PAUSED"
+            ? tResolution(`code.${data.code}`)
+            : data.message || t("error");
       setStatus({ kind: "error", message: text });
       setAnnouncement(text);
       return;
@@ -69,11 +87,13 @@ export default function ConsentPanel({
             <h3 id="consent-statement-heading">{t("statementHeading")}</h3>
             <p>{statementBody}</p>
           </div>
+          {!outcomeIssued && <p id="outcome-unavailable" role="note">{t("outcomeUnavailable")}</p>}
+          {outcomeIssued && outcomeNeedsAnswer && <p id="outcome-needs-answer" role="note">{t("outcomeNeedsAnswer")}</p>}
           <div className="button-row">
-            <button type="button" id="give-consent" onClick={() => act("give")} disabled={status.kind === "busy"}>
+            <button type="button" id="give-consent" data-outcome-id={outcomeId ?? ""} data-outcome-version={outcomeVersion ?? ""} onClick={() => act("give")} disabled={!outcomeIssued || status.kind === "busy"}>
               {t("giveButton")}
             </button>
-            <button type="button" id="decline-consent" onClick={() => act("decline")} disabled={status.kind === "busy"}>
+            <button type="button" id="decline-consent" data-outcome-id={outcomeId ?? ""} data-outcome-version={outcomeVersion ?? ""} onClick={() => act("decline")} disabled={!outcomeIssued || status.kind === "busy"}>
               {t("declineButton")}
             </button>
           </div>

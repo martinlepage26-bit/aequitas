@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
 import { emailConfigured, sendInvitationEmail } from "../../../../../lib/mail";
 import { invitationTokenHash, revokeInvitation } from "../../../../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../../../../lib/invite";
+import { encryptEmailPayload, invitationEmailPayload } from "../../../../../lib/emailPayload";
 
 /** The complainant explicitly confirms the current respondent address before an activation email is sent. */
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -22,24 +24,49 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     if (row.state !== "OPEN" && row.state !== "EVIDENCE_INTAKE") return { kind: "error" as const, message: "Submit the dossier before inviting the respondent.", status: 409 as const };
     if (!confirmedEmail || confirmedEmail !== row.respondent.email.toLowerCase()) return { kind: "error" as const, message: "The respondent address changed. Reload and confirm the current address.", status: 409 as const };
     if (row.respondent._count.credentials > 0) return { kind: "error" as const, message: "The respondent already has an active passkey.", status: 409 as const };
-    const active = await tx.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null, expiresAt: { gt: new Date() }, emailedAt: { not: null } }, orderBy: { createdAt: "desc" } });
-    if (active) return { kind: "already_sent" as const, expiresAt: active.expiresAt };
+    const active = await tx.invitation.findFirst({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } });
+    if (active) return active.emailedAt
+      ? { kind: "already_sent" as const, expiresAt: active.expiresAt }
+      : { kind: "delivery_uncertain" as const, expiresAt: active.expiresAt };
     const { token, expiresAt } = issueInviteToken(row.respondentId);
-    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: { revokedAt: new Date() } });
-    const invitation = await tx.invitation.create({ data: { userId: row.respondentId, tokenHash: invitationTokenHash(token), issuedById: auth.session.userId, locale: row.respondent.locale, expiresAt } });
-    return { kind: "issued" as const, email: row.respondent.email, locale: row.respondent.locale, token, expiresAt, invitationId: invitation.id };
+    await tx.invitation.updateMany({ where: { userId: row.respondentId, revokedAt: null, claimedAt: null }, data: {
+      revokedAt: new Date(),
+      deliveryPayloadCiphertext: null,
+      deliveryPayloadNonce: null,
+      deliveryPayloadTag: null,
+      deliveryLeaseUntil: null,
+    } });
+    const invitationId = randomUUID();
+    const delivery = encryptEmailPayload("invitation", invitationId, invitationEmailPayload({
+      email: row.respondent.email,
+      locale: row.respondent.locale,
+      claimPath: invitePath(row.respondent.locale, token),
+    }));
+    const invitation = await tx.invitation.create({ data: {
+      id: invitationId,
+      userId: row.respondentId,
+      tokenHash: invitationTokenHash(token),
+      issuedById: auth.session.userId,
+      locale: row.respondent.locale,
+      expiresAt,
+      ...delivery,
+    } });
+    return { kind: "issued" as const, expiresAt, invitationId: invitation.id };
   });
   if (prepared.kind === "error") return Response.json({ message: prepared.message }, { status: prepared.status });
   if (prepared.kind === "already_sent") return Response.json({ status: "already_sent", expiresAt: prepared.expiresAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
+  if (prepared.kind === "delivery_uncertain") return Response.json({ status: "delivery_uncertain", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
   try {
-    const delivery = await sendInvitationEmail({ email: prepared.email, locale: prepared.locale, claimPath: invitePath(prepared.locale, prepared.token), invitationId: prepared.invitationId });
+    const delivery = await sendInvitationEmail({ invitationId: prepared.invitationId });
+    if (delivery === "pending" || delivery === "not_queued") {
+      return Response.json({ status: "delivery_pending", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
+    }
     if (delivery !== "accepted") {
       await revokeInvitation(prepared.invitationId);
       return Response.json({ message: "Invitation email is unavailable." }, { status: 503 });
     }
   } catch {
-    await revokeInvitation(prepared.invitationId).catch(() => {});
-    return Response.json({ message: "The invitation could not be emailed. Please retry." }, { status: 502 });
+    return Response.json({ status: "delivery_pending", expiresAt: prepared.expiresAt.toISOString() }, { status: 202, headers: { "Cache-Control": "private, no-store" } });
   }
   return Response.json({ status: "sent", expiresAt: prepared.expiresAt.toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -3,7 +3,9 @@
 The locale landing pages use Aequitas's existing slate-blue palette and
 serif/sans typography from `src/ui/tokens.ts`. The layout gives the existing
 sign-in, case-list, and language-switch actions a clear visual hierarchy.
-The original description of the process and consent is retained verbatim.
+The copy describes staff-led cases and the optional autonomous path for
+configured, eligible retail cases, with party consent and human escalation
+made visible.
 
 The landing page uses a scoped CSS module, server-rendered content, a local
 optimized image, and no new runtime dependencies. Its theme follows the
@@ -26,12 +28,15 @@ Verdict: pass.
 3. Harvest risk: an attractive page could imply that a generated proposal
    is a decision the parties should simply accept.
 4. Reverse hinge: the visible process connects easy entry with presenting
-   evidence, human review, and an explicit choice about consent.
+   evidence, a bounded proposal, explicit party consent, and access to a person
+   when requested or needed.
 5. Dual-use test: low effort brings a party into the record; the same entry
    path makes the record and each party's decision easier to attend to.
 6. Minimal awakening: open a case record or sign in, then identify the
    evidence and the next decision belonging to the party.
-7. Keep the human review and consent wording alongside the visual design.
+7. Explain that agent mode is optional and off by default; never imply that a
+   person reviews every routine proposal or that an automated proposal is a
+   binding result.
 
 ## Image provenance
 

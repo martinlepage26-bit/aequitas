@@ -102,6 +102,57 @@ async function sourceWithBody(caseId: string, body: string) {
 }
 
 describe("phase 2 pipeline contracts", () => {
+  it("fails closed unless provider terms and Gemini paid tier match the configured identity", async () => {
+    const caseId = await assignedCase();
+    const assumption = await recordAssumption({ ...actor(caseId), text: "The delivery date may differ.", origin: "CASE_FRAMING" });
+    if (!assumption.ok) throw new Error(assumption.reason);
+    if (!(await acknowledgeAssumption({ ...actor(caseId), assumptionId: assumption.data.id })).ok) throw new Error("ack failed");
+    await sourceWithBody(caseId, "Synthetic invoice date: 2026-11-01.");
+    const keys = [
+      "AEQUITAS_PIPELINE_ENABLED",
+      "AEQUITAS_PIPELINE_PROVIDER",
+      "AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR",
+      "AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR",
+      "GEMINI_PROJECT_ID",
+      "GEMINI_API_KEY",
+      "GOOGLE_AI_API_KEY",
+    ] as const;
+    const prior = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    let providerRequests = 0;
+    const priorFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = (async () => {
+        providerRequests += 1;
+        return new Response("unexpected provider call", { status: 500 });
+      }) as typeof fetch;
+      process.env.AEQUITAS_PIPELINE_ENABLED = "true";
+      process.env.AEQUITAS_PIPELINE_PROVIDER = "gemini";
+      process.env.GEMINI_PROJECT_ID = "synthetic-project";
+      process.env.GEMINI_API_KEY = "synthetic-test-only";
+      delete process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR;
+      delete process.env.AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR;
+
+      const termsBlocked = await runClaimDecomposition(actor(caseId), undefined);
+      expect(termsBlocked.ok).toBe(false);
+      if (!termsBlocked.ok) expect(termsBlocked.reason).toContain("AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR");
+
+      process.env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR = "gemini:synthetic-project:gemini-3.8-flash";
+      const tierBlocked = await runClaimDecomposition(actor(caseId), undefined);
+      expect(tierBlocked.ok).toBe(false);
+      if (!tierBlocked.ok) expect(tierBlocked.reason).toContain("AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR");
+      expect(providerRequests).toBe(0);
+      expect(await prisma.pipelineProposal.count({ where: { caseId } })).toBe(0);
+      expect(await prisma.claim.count({ where: { caseId } })).toBe(0);
+    } finally {
+      globalThis.fetch = priorFetch;
+      for (const key of keys) {
+        const value = prior[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
   it("writes nothing and does not call a model when the flag is off", async () => {
     const caseId = await assignedCase();
     process.env.AEQUITAS_PIPELINE_ENABLED = "false";

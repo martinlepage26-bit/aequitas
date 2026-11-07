@@ -13,7 +13,9 @@ import {
   respondToContestation,
   withdrawContestation,
 } from "../../src/domain/resolution";
+import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import { verifyCase } from "../../src/domain/verifyEvents";
+import { issuePartyOutcome } from "../../src/domain/partyOutcome";
 
 /**
  * Phase 3a/3b acceptance (handoff §10 phase 3): an open contestation blocks
@@ -77,12 +79,38 @@ async function seedIssuedCase(opts: { consentOnlyResolution?: boolean } = {}) {
   });
   await prisma.case.update({ where: { id: caseRow.id }, data: { currentRecommendationId: recommendation.id } });
   await prisma.$transaction((tx) => appendEvent(tx, { caseId: caseRow.id, type: "RECOMMENDATION_ISSUED", actorId: managerId, payload: { recommendationId: recommendation.id } }));
+  for (const partyId of [complainantId, respondentId]) {
+    const outcome = await issuePartyOutcome({
+      actorId: managerId,
+      actorRole: "CASE_MANAGER",
+      caseId: caseRow.id,
+      partyId,
+      body: `Issued outcome for ${partyId}.`,
+      locale: "fr-CA",
+    });
+    if (!outcome.ok) throw new Error(`setup: party outcome failed: ${outcome.reason}`);
+  }
   const claim = await prisma.claim.create({ data: { caseId: caseRow.id, claimType: "FACTUAL", text: "The item arrived broken.", confidence: "PROBABLE", createdById: managerId } });
   return { caseId: caseRow.id, recommendationId: recommendation.id, claimId: claim.id };
 }
 
-function consent(caseId: string, recommendationId: string, actorId: string, actorRole: "COMPLAINANT" | "RESPONDENT") {
-  return giveConsent({ actorId, actorRole, caseId, recommendationId, statementVersionId, currentStatementVersionId: statementVersionId, authContext: {} });
+async function consent(caseId: string, recommendationId: string, actorId: string, actorRole: "COMPLAINANT" | "RESPONDENT") {
+  const outcome = await prisma.partyOutcome.findFirstOrThrow({
+    where: { caseId, partyId: actorId, status: "ISSUED" },
+    orderBy: { version: "desc" },
+    select: { id: true, version: true },
+  });
+  return giveConsent({
+    actorId,
+    actorRole,
+    caseId,
+    recommendationId,
+    statementVersionId,
+    currentStatementVersionId: statementVersionId,
+    outcomeId: outcome.id,
+    outcomeVersion: outcome.version,
+    authContext: {},
+  });
 }
 
 async function statusAndBody(response: Response | null) {
@@ -122,7 +150,8 @@ describe("resolve (give_consent) returns 409 with a named reason", () => {
     const blocked = await consent(caseId, recommendationId, complainantId, "COMPLAINANT");
     const { status, body } = await statusAndBody(mutationFailureResponse(blocked as never));
     expect(status).toBe(409);
-    expect(body.code).toBe("OPEN_CONTESTATION");
+    expect(body.code).toBe("RESOLUTION_PAUSED");
+    expect(body.message).toBe("Resolution paused pending review");
 
     const responded = await respondToContestation({ caseId, contestationId: opened.data.id, actorId: managerId, actorRole: "CASE_MANAGER", response: "The delivery photo shows damage." });
     expect(responded.ok).toBe(true);
@@ -135,7 +164,19 @@ describe("resolve (give_consent) returns 409 with a named reason", () => {
     const row = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
     expect(await verifyCase(prisma, row)).toEqual([]);
     const types = (await prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } })).map((e) => e.type);
-    expect(types).toEqual(["RECOMMENDATION_ISSUED", "RESOLUTION_APPROVED", "CONTESTATION_OPENED", "CONTESTATION_RESPONDED", "CONSENT_GIVEN", "CONSENT_GIVEN", "CASE_RESOLVED"]);
+    expect(types).toEqual([
+      "RECOMMENDATION_ISSUED",
+      "PARTY_OUTCOME_EDITED",
+      "PARTY_OUTCOME_ISSUED",
+      "PARTY_OUTCOME_EDITED",
+      "PARTY_OUTCOME_ISSUED",
+      "RESOLUTION_APPROVED",
+      "CONTESTATION_OPENED",
+      "CONTESTATION_RESPONDED",
+      "CONSENT_GIVEN",
+      "CONSENT_GIVEN",
+      "CASE_RESOLVED",
+    ]);
   });
 
   it("a consent-only (pre-migration) case still resolves through consent alone", async () => {
@@ -151,7 +192,8 @@ describe("resolve (give_consent) returns 409 with a named reason", () => {
     const opened = await openContestation({ caseId, actorId: complainantId, actorRole: "COMPLAINANT", targetType: "RECOMMENDATION", targetId: recommendationId, grounds: "The amount is wrong." });
     expect(opened.ok).toBe(true);
     const blocked = await consent(caseId, recommendationId, respondentId, "RESPONDENT");
-    expect(!blocked.ok && blocked.code).toBe("OPEN_CONTESTATION");
+    expect(!blocked.ok && blocked.code).toBe("RESOLUTION_PAUSED");
+    expect(!blocked.ok && blocked.reason).toBe("Resolution paused pending review");
     if (!opened.ok) return;
     expect((await withdrawContestation({ caseId, contestationId: opened.data.id, actorId: complainantId, actorRole: "COMPLAINANT" })).ok).toBe(true);
     expect((await consent(caseId, recommendationId, respondentId, "RESPONDENT")).ok).toBe(true);
@@ -248,6 +290,40 @@ describe("contestation lifecycle", () => {
     expect(withdrawByOther.ok).toBe(false);
     const partyRespond = await respondToContestation({ caseId, contestationId: byManager.data.id, actorId: respondentId, actorRole: "RESPONDENT", response: "x" });
     expect(!partyRespond.ok && partyRespond.step).toBe("authorize-role");
+  });
+
+  it("counts an open contestation on a party's blockers only when that party opened it", async () => {
+    const { caseId, recommendationId } = await seedIssuedCase();
+    const opened = await openContestation({
+      caseId, actorId: complainantId, actorRole: "COMPLAINANT", targetType: "RECOMMENDATION", targetId: recommendationId, grounds: "Only the complainant filed this.",
+    });
+    expect(opened.ok).toBe(true);
+    expect(await loadResolutionBlockers(prisma, caseId)).toContain("OPEN_CONTESTATION");
+    expect(await loadResolutionBlockers(prisma, caseId, { openedById: respondentId })).not.toContain("OPEN_CONTESTATION");
+    expect(await loadResolutionBlockers(prisma, caseId, { openedById: complainantId })).toContain("OPEN_CONTESTATION");
+
+    const respondent = await readResolutionView(caseId, { userId: respondentId, globalRole: "RESPONDENT", isApprover: false });
+    const complainant = await readResolutionView(caseId, { userId: complainantId, globalRole: "COMPLAINANT", isApprover: false });
+    const manager = await readResolutionView(caseId, { userId: managerId, globalRole: "CASE_MANAGER", isApprover: false });
+    const approver = await readResolutionView(caseId, { userId: approverId, globalRole: "CASE_MANAGER", isApprover: true });
+    expect(respondent?.blockers).toEqual(["RESOLUTION_PAUSED", "APPROVAL_REQUIRED"]);
+    expect(complainant?.blockers).toContain("OPEN_CONTESTATION");
+    expect(complainant?.blockers).not.toContain("RESOLUTION_PAUSED");
+    expect(manager?.blockers).toContain("OPEN_CONTESTATION");
+    expect(approver?.blockers).toContain("OPEN_CONTESTATION");
+
+    const blocked = await consent(caseId, recommendationId, respondentId, "RESPONDENT");
+    expect(!blocked.ok && blocked.code).toBe("RESOLUTION_PAUSED");
+    expect(!blocked.ok && blocked.reason).toBe("Resolution paused pending review");
+    const opener = await consent(caseId, recommendationId, complainantId, "COMPLAINANT");
+    expect(!opener.ok && opener.code).toBe("OPEN_CONTESTATION");
+
+    const events = await prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } });
+    const respondentFeed = visibleCaseEvents(events, { globalRole: "RESPONDENT", userId: respondentId, access: "party" });
+    expect(respondentFeed.some((event) => event.type.startsWith("CONTESTATION_"))).toBe(false);
+    expect(JSON.stringify(respondentFeed)).not.toContain(complainantId);
+    const complainantFeed = visibleCaseEvents(events, { globalRole: "COMPLAINANT", userId: complainantId, access: "party" });
+    expect(complainantFeed.map((event) => event.type)).toContain("CONTESTATION_OPENED");
   });
 
   it("the resolution view reports blockers and what the viewer may do", async () => {

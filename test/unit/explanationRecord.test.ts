@@ -89,3 +89,59 @@ describe("validateExplanationRecord — human-readable message for the guard", (
     expect(message).toContain("limits");
   });
 });
+
+describe("case-agent claim-to-evidence links", () => {
+  function linkedRecord() {
+    const evidenceId = randomUUID();
+    return {
+      ...validFullRecord(),
+      summary: "The receipt records the paid price.",
+      reasoning: "The repair note describes the offered remedy.",
+      proposal_reasoning: "The repair note records the offered repair voucher.",
+      evidence_citations: [{
+        citation_id: "C1",
+        evidence_item_id: evidenceId,
+        relevance: "Purchase record.",
+        extracted_span: {
+          start_char: 0,
+          end_char: 10,
+          source_sha256: "a".repeat(64),
+          extracted_text_sha256: "b".repeat(64),
+          extraction_method: "utf8" as const,
+        },
+      }],
+      claim_evidence: [
+        { section: "summary" as const, text: "The receipt records the paid price.", citation_ids: ["C1"] },
+        { section: "reasoning" as const, text: "The repair note describes the offered remedy.", citation_ids: ["C1"] },
+        { section: "proposal" as const, text: "The repair note records the offered repair voucher.", citation_ids: ["C1"] },
+      ],
+    };
+  }
+
+  it("accepts a stored claim map whose keys point to citations and whose text appears in its section", () => {
+    expect(validateExplanationRecord(linkedRecord())).toBeNull();
+  });
+
+  it("requires a proposal-basis claim to appear in the stored proposal reasoning", () => {
+    const record = linkedRecord();
+    expect(validateExplanationRecord({ ...record, proposal_reasoning: "A different statement." })).toContain("claim text must appear in its proposal section");
+  });
+
+  it("rejects a missing or dangling claim-to-citation link", () => {
+    const record = linkedRecord();
+    expect(validateExplanationRecord({ ...record, claim_evidence: [] })).toContain("claim-to-evidence links");
+    expect(validateExplanationRecord({
+      ...record,
+      claim_evidence: [{ section: "summary", text: record.summary, citation_ids: ["C2"] }],
+    })).toContain("unknown citation_id");
+  });
+
+  it("requires agent citation IDs to retain verified source offsets", () => {
+    const record = linkedRecord();
+    const citation = record.evidence_citations[0];
+    expect(validateExplanationRecord({
+      ...record,
+      evidence_citations: [{ citation_id: citation.citation_id, evidence_item_id: citation.evidence_item_id, relevance: citation.relevance }],
+    })).toContain("verified extracted span");
+  });
+});

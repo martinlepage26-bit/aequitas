@@ -10,10 +10,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
   if ("response" in auth) return auth.response;
   const { caseId } = await params;
   const row = await prisma.case.findUnique({ where: { id: caseId } });
-  if (!row || !caseReadAccess(row, auth.session)) return Response.json({ message: "Not found." }, { status: 404 });
+  const access = row ? caseReadAccess(row, auth.session) : null;
+  if (!row || !access) return Response.json({ message: "Not found." }, { status: 404 });
   await recordStaffAccess(caseId, auth.session, "chronology");
   const entries = await prisma.chronologyEntry.findMany({
-    where: { caseId }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    where: access === "party" ? { caseId, submittedById: auth.session.userId } : { caseId },
+    orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     include: { submittedBy: { select: { displayName: true } } },
   });
   return Response.json({ entries }, { headers: { "Cache-Control": "private, no-store" } });

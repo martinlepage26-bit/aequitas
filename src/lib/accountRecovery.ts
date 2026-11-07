@@ -1,7 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { prisma } from "./prisma";
+import { encryptEmailPayload, recoveryEmailPayload } from "./emailPayload";
+import { RECOVERY_TTL_MINUTES } from "./accountRecoveryConstants";
 
-export const RECOVERY_TTL_MINUTES = 30;
 const REQUEST_COOLDOWN_MINUTES = 15;
 
 export const recoveryTokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -18,17 +19,27 @@ export async function issueAccountRecovery(email: string) {
     });
     if (recent) return null;
     const token = randomBytes(32).toString("base64url");
+    const recoveryId = randomUUID();
+    const delivery = encryptEmailPayload("recovery", recoveryId, recoveryEmailPayload({ email: user.email, locale: user.locale, token }));
     const recovery = await tx.accountRecovery.create({ data: {
+      id: recoveryId,
       userId: user.id,
       tokenHash: recoveryTokenHash(token),
       expiresAt: new Date(Date.now() + RECOVERY_TTL_MINUTES * 60_000),
+      ...delivery,
     } });
-    return { token, recovery, email: user.email, locale: user.locale };
+    return { recovery };
   });
 }
 
 export async function revokeAccountRecovery(id: string) {
-  await prisma.accountRecovery.updateMany({ where: { id, usedAt: null }, data: { revokedAt: new Date() } });
+  await prisma.accountRecovery.updateMany({ where: { id, usedAt: null }, data: {
+    revokedAt: new Date(),
+    deliveryPayloadCiphertext: null,
+    deliveryPayloadNonce: null,
+    deliveryPayloadTag: null,
+    deliveryLeaseUntil: null,
+  } });
 }
 
 export async function resolveAccountRecovery(token: unknown) {
@@ -52,8 +63,20 @@ export async function completeAccountRecovery(input: { token: string; recoveryId
       transports: input.credential.transports ?? [],
     } });
     const now = new Date();
-    await tx.accountRecovery.update({ where: { id: recovery.id }, data: { usedAt: now } });
-    await tx.accountRecovery.updateMany({ where: { userId: input.userId, id: { not: recovery.id }, usedAt: null, revokedAt: null }, data: { revokedAt: now } });
+    await tx.accountRecovery.update({ where: { id: recovery.id }, data: {
+      usedAt: now,
+      deliveryPayloadCiphertext: null,
+      deliveryPayloadNonce: null,
+      deliveryPayloadTag: null,
+      deliveryLeaseUntil: null,
+    } });
+    await tx.accountRecovery.updateMany({ where: { userId: input.userId, id: { not: recovery.id }, usedAt: null, revokedAt: null }, data: {
+      revokedAt: now,
+      deliveryPayloadCiphertext: null,
+      deliveryPayloadNonce: null,
+      deliveryPayloadTag: null,
+      deliveryLeaseUntil: null,
+    } });
     return tx.user.update({ where: { id: input.userId }, data: { sessionVersion: { increment: 1 } } });
   });
 }

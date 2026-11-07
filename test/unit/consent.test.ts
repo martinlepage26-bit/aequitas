@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveGiveConsentState, nextConsentState } from "../../src/domain/consent";
+import { consentAnswerCounts, deriveGiveConsentState, nextConsentState, stateAfterOutcomeReissue } from "../../src/domain/consent";
 
 describe("consent lifecycle (Section 7)", () => {
   it("NOT_GIVEN --give--> GIVEN", () => {
@@ -39,5 +39,21 @@ describe("consent lifecycle (Section 7)", () => {
 
   it("give_consent resolves to RESOLVED_CONSENT once both parties are GIVEN", () => {
     expect(deriveGiveConsentState("GIVEN", "GIVEN")).toBe("RESOLVED_CONSENT");
+  });
+
+  it("counts an answer only when it is bound to the current issued outcome", () => {
+    const current = { id: "outcome-2", version: 2 };
+    const stale = { state: "GIVEN" as const, partyOutcomeId: "outcome-1", partyOutcomeVersion: 1 };
+    expect(consentAnswerCounts(stale, current)).toBe("NOT_GIVEN");
+    expect(consentAnswerCounts({ state: "GIVEN", partyOutcomeId: "outcome-2", partyOutcomeVersion: 2 }, current)).toBe("GIVEN");
+    expect(consentAnswerCounts({ state: "REVOKED", partyOutcomeId: "outcome-2", partyOutcomeVersion: 2 }, current)).toBe("NOT_GIVEN");
+    expect(consentAnswerCounts(null, current)).toBe("NOT_GIVEN");
+  });
+
+  it("drops a consent-resolved case when one current answer is gone", () => {
+    expect(stateAfterOutcomeReissue("RESOLVED_CONSENT", "NOT_GIVEN", "GIVEN")).toBe("ISSUED");
+    expect(stateAfterOutcomeReissue("RESOLVED_DECLINED", "NOT_GIVEN", "NOT_GIVEN")).toBe("ISSUED");
+    expect(stateAfterOutcomeReissue("RESOLVED_DECLINED", "NOT_GIVEN", "DECLINED")).toBe("RESOLVED_DECLINED");
+    expect(stateAfterOutcomeReissue("ISSUED", "NOT_GIVEN", "GIVEN")).toBe("ISSUED");
   });
 });

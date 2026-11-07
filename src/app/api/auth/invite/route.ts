@@ -2,7 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { requireSession } from "../../../../lib/session";
 import { invitePath } from "../../../../lib/invite";
 import { issueStoredInvite, revokeInvitation } from "../../../../lib/invitations";
-import { emailConfigured, sendInvitationEmail, deliverPendingNotifications } from "../../../../lib/mail";
+import { emailConfigured, sendInvitationEmail, deliverPendingNotifications, deliverPendingTokenEmails } from "../../../../lib/mail";
 import { routing } from "../../../../i18n/routing";
 
 // ADMIN is never provisioned through an invite (no staff-access model yet).
@@ -52,13 +52,20 @@ export async function POST(request: Request) {
     (await prisma.user.create({ data: { email, displayName: displayName.trim(), globalRole, locale } }));
 
   let issued;
-  try { issued = await issueStoredInvite(user.id, locale, auth.session.userId); }
+  const shouldEmail = body.sendEmail === true && emailConfigured();
+  try { issued = await issueStoredInvite(user.id, locale, auth.session.userId, shouldEmail); }
   catch { return Response.json({ message: "This account cannot be invited." }, { status: 409 }); }
   const { token, expiresAt, invitation } = issued;
   const claimPath = invitePath(locale, token);
-  let delivery: "manual" | "not_configured" | "accepted" | "failed" = "manual";
+  let delivery: "manual" | "not_configured" | "accepted" | "pending" | "failed" = "manual";
   if (body.sendEmail === true) {
-    try { delivery = await sendInvitationEmail({ email, locale, claimPath, invitationId: invitation.id }); }
+    try {
+      const result = shouldEmail ? await sendInvitationEmail({ invitationId: invitation.id }) : "not_configured";
+      delivery = result === "accepted" ? "accepted"
+        : result === "pending" || result === "not_queued" ? "pending"
+        : result === "rejected" ? "failed"
+        : "not_configured";
+    }
     catch { delivery = "failed"; }
   }
   return Response.json({ invitationId: invitation.id, userId: user.id, claimPath, expiresAt: expiresAt.toISOString(), delivery });
@@ -86,5 +93,6 @@ export async function PATCH() {
   const auth = await requireSession();
   if ("response" in auth) return auth.response;
   if (auth.session.globalRole !== "ADMIN") return Response.json({ message: "Forbidden." }, { status: 403 });
-  return Response.json(await deliverPendingNotifications());
+  const [notifications, tokenEmails] = await Promise.all([deliverPendingNotifications(), deliverPendingTokenEmails()]);
+  return Response.json({ notifications, tokenEmails });
 }

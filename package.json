@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "rm -rf .next/dev && next build",
     "postinstall": "prisma generate",
     "dev": "next dev",
     "start": "next start",
@@ -18,11 +18,21 @@
     "test:e2e:pipeline": "playwright test -c playwright.phase2.config.ts",
     "ci": "npm run lint && npm run typecheck && npm run check:i18n-parity && npm run check:forbidden-terms && npm run ensure:storage-bucket && npm run verify:events && npm run test && npm run build && npm run test:e2e && npm run test:e2e:pipeline",
     "smoke:core-ai": "tsx scripts/smoke-core-ai.ts",
-    "seed:demo": "tsx prisma/seed-demo.ts"
+    "seed:demo": "tsx prisma/seed-demo.ts",
+    "notify:deliver": "tsx scripts/deliver-notifications.ts",
+    "ops:verify-scheduler": "tsx scripts/verify-scheduled-ops.ts",
+    "agent:provision": "tsx scripts/provision-case-agent.ts",
+    "agent:run": "tsx scripts/run-case-agent.ts",
+    "agent:status": "tsx scripts/status-case-agent.ts",
+    "agent:metrics": "tsx scripts/report-case-agent-metrics.ts",
+    "ops:scheduler": "tsx scripts/scheduled-ops.ts",
+    "agent:evaluate": "tsx scripts/evaluate-case-agent.ts",
+    "agent:approve-evaluation": "tsx scripts/approve-case-agent-evaluation.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
     "@aws-sdk/client-s3": "^3.1111.0",
+    "@google/genai": "2.32.0",
     "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
@@ -31,35 +41,41 @@
     "archiver": "^8.0.0",
     "dotenv": "^17.4.2",
     "file-type": "^22.0.1",
-    "next": "16.3.8",
+    "next": "16.4.5",
     "next-intl": "^4.13.6",
     "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
     "@types/archiver": "^8.0.0",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.21.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.5",
     "prisma": "^7.9.1",
-    "puppeteer-core": "^25.7.0",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2",
     "mysql2": "^3.24.4",
-    "fast-uri": "^3.1.8",
+    "fast-uri": "^3.1.9",
     "js-yaml": "^4.3.2",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.1"
+    },
+    "readdir-glob@3.0.0": {
+      "minimatch": "11.0.1"
+    },
     "source-map-js": "^1.2.2"
   },
   "engines": {

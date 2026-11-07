@@ -26,7 +26,7 @@ Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-a
 
 ## Config and secrets
 `src/deploy/ct920/.env` (chmod 600, owner martin, gitignored by `.env*`):
-- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
+- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`, and a distinct stable `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` of at least 32 bytes. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
 - **Copied from Railway as-is:** `GEMINI_*`, `ANTHROPIC_*`, `AEQUITAS_PIPELINE_ENABLED=true`, `AEQUITAS_PIPELINE_PROVIDER=gemini` (the same flag state as Railway), `AEQUITAS_OCR_LANGUAGES`, locales, `EMAIL_FROM`/`REPLY_TO`, `HASH_CHAIN_GENESIS`, `IP_HASH_SALT`. The last two have to match Railway, otherwise the hash chain and IP hashes won't verify.
 - **`RESEND_API_KEY`** was copied privately at cutover and is present in the running CT920 app. Do not print or commit it.
 - **WebAuthn and APP_URL** use `https://aequitas.app.pharos-ai.ca`. **Decision AQ-D4:** passkeys registered on `aequitas-production-5a0c.up.railway.app` cannot authenticate at the new RP ID. Verify each existing user's identity before using `scripts/reissue-passkey-for-move.ts` to issue a new invitation.
@@ -34,15 +34,19 @@ Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-a
 ## Start, stop, deploy, rollback
 ```bash
 cd ~/aequitas-prod/src/deploy/ct920
-./deploy.sh                          # build from checked-out HEAD, RELEASE_SHA=$(git rev-parse HEAD), up -d, wait for /api/health to report that SHA
-docker compose -p aeq-prod ps
+./deploy.sh                          # build checked-out HEAD, migrate, verify app health, then start scheduled operations
+docker compose -p aeq-prod --profile scheduled ps
 docker compose -p aeq-prod logs -f app
-docker compose -p aeq-prod stop      # stop (clean SIGTERM exit via scripts/start.mjs)
-docker compose -p aeq-prod down      # ROLLBACK: removes only aeq-prod containers; Railway is unaffected (it is parallel)
-docker compose -p aeq-prod down -v   # also deletes aeq-prod volumes (data!) — only with intent
+docker compose -p aeq-prod --profile scheduled stop  # stop app and scheduled work (clean SIGTERM for app)
+docker compose -p aeq-prod --profile scheduled down  # ROLLBACK: removes only aeq-prod containers; Railway is unaffected (it is parallel)
+docker compose -p aeq-prod --profile scheduled down -v  # also deletes aeq-prod volumes (data!) — only with intent
+RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler  # resume scheduled work after an incident
+docker compose -p aeq-prod --profile scheduled logs scheduler
 curl -s 127.0.0.1:18310/api/health   # {"status":"ok","release":"<sha>"}
 ```
 From the Mac: `ssh -L 18310:127.0.0.1:18310 mtl-00`, then open http://127.0.0.1:18310/fr-CA/auth/sign-in. Passkeys won't work on that origin, so this is for smoke tests only.
+
+The scheduled container receives only its database, event-chain, storage, mail and model settings. It receives the dedicated `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` needed to decrypt queued token-email payloads; it does not receive `SESSION_SECRET` or WebAuthn secrets. Keep the outbox key identical in the web app and worker, and do not rotate it while messages are queued. `deploy.sh` stops an existing scheduler before migrations and starts the scheduled profile only after `/api/health` reports the new release SHA. It then requires both scheduled operations to complete a successful run on that release before reporting deployment success. This runs notification retries, while case-agent work remains disabled unless the explicit program settings, provider review and evaluation identity are present. Direct `docker compose up` without `--profile scheduled` does not start the worker. Mail accepts `EMAIL_REPLY_TO`; `REPLY_TO` remains a compatibility alias for the older deployment configuration.
 
 ## Health release
 `/api/health` reports `RAILWAY_GIT_COMMIT_SHA ?? RELEASE_SHA ?? RELEASE_COMMIT`. Railway behaviour is unchanged.

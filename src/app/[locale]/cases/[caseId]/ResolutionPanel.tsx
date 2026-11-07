@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { ResolutionView } from "../../../../domain/resolution";
+import PartyVisibleNotice from "./PartyVisibleNotice";
 import styles from "./workspace.module.css";
 
 export interface ContestTargetOption {
@@ -14,6 +15,7 @@ export interface ContestTargetOption {
 
 const KNOWN_CODES = new Set([
   "OPEN_CONTESTATION",
+  "RESOLUTION_PAUSED",
   "APPROVAL_REQUIRED",
   "ADMIN_CANNOT_APPROVE",
   "NOT_APPROVER",
@@ -145,6 +147,7 @@ export default function ResolutionPanel({
               {c.overruleReason && <p className={styles.originRecord} data-origin="CASE_MANAGER"><span className={styles.originLabel}>{tRole("caseManager")}</span> {t("overruledBy", { name: c.overruledByName ?? "", text: c.overruleReason })}</p>}
               {c.status === "OPEN" && (view.viewer.canRespond || view.viewer.canOverrule) && (
                 <>
+                  {view.viewer.canRespond && <PartyVisibleNotice />}
                   <label htmlFor={`contestation-note-${c.id}`}>{view.viewer.canRespond ? t("responseLabel") : t("overruleLabel")}</label>
                   <textarea
                     id={`contestation-note-${c.id}`}

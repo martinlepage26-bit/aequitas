@@ -7,7 +7,8 @@ import type { MutationOutcome } from "../mutate";
 import { absoluteClaimHit } from "./absoluteClaims";
 import { parseAssumptionResponse, parseClaimResponse, parseContextResponse, type ProposedClaim, type ProposedContextFactor } from "./contracts";
 import { PIPELINE_OFF_REASON, pipelineEnabled } from "./flag";
-import { resolveFreeTextModel, type TextCompletion } from "./provider";
+import { resolveCaseDataModel, type TextCompletion } from "./provider";
+import { filterSynthesisForParty } from "../submissionVisibility";
 import { assembleSynthesis, validateSynthesis, type SynthesisDraft } from "./synthesis";
 import { excerptIsVerbatim } from "./verbatim";
 
@@ -243,7 +244,7 @@ export async function reviseAssumption(input: ActorInput & { assumptionId: strin
 async function completionFor(injected?: TextCompletion): Promise<{ ok: true; model: TextCompletion } | { ok: false; reason: string }> {
   if (!pipelineEnabled()) return { ok: false, reason: PIPELINE_OFF_REASON };
   if (injected) return { ok: true, model: injected };
-  return resolveFreeTextModel();
+  return resolveCaseDataModel();
 }
 
 export async function runAssumptionExtraction(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
@@ -720,19 +721,40 @@ export async function readPipeline(caseId: string, session: { userId: string; gl
   if (!caseRow) return null;
   const access: CaseReadAccess | null = caseReadAccess(caseRow, session);
   if (!access) return null;
-  const [pipeline, assumptions, proposals, synthesis] = await Promise.all([
+  const [pipeline, assumptions, proposals, synthesis, ownEvidence, caseSources] = await Promise.all([
     prisma.casePipeline.findUnique({ where: { caseId } }),
     prisma.assumption.findMany({ where: { caseId, deletedAt: null }, orderBy: { createdAt: "asc" } }),
     prisma.pipelineProposal.findMany({ where: { caseId }, orderBy: { createdAt: "asc" } }),
     prisma.synthesisVersion.findFirst({ where: { caseId }, orderBy: { version: "desc" } }),
+    access === "party"
+      ? prisma.evidenceItem.findMany({ where: { caseId, submittedById: session.userId }, select: { id: true } })
+      : Promise.resolve([]),
+    access === "party"
+      ? prisma.source.findMany({ where: { caseId, deletedAt: null }, select: { id: true, evidenceItemId: true } })
+      : Promise.resolve([]),
   ]);
+  const ownEvidenceIds = new Set(ownEvidence.map((item) => item.id));
+  const ownSourceIds = new Set(caseSources.filter((source) => source.evidenceItemId && ownEvidenceIds.has(source.evidenceItemId)).map((source) => source.id));
   const permission = claimWritePermission({ access, globalRole: session.globalRole });
-  return {
+  const party = access === "party";
+  const view: PipelineView = {
     stage: pipeline?.stage ?? "EPOCHE",
-    assumptions: assumptions.map((row) => ({ id: row.id, text: row.text, origin: row.origin, status: row.status })),
+    assumptions: assumptions.map((row) => ({
+      id: row.id,
+      text: party ? "" : row.text,
+      origin: row.origin,
+      status: row.status,
+    })),
     proposals: proposals.map((row) => {
       const text = proposalText(row.kind, row.payload);
-      return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: text.excerpt };
+      if (!party) return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: text.excerpt };
+      const payload = row.payload && typeof row.payload === "object" ? row.payload as Record<string, unknown> : {};
+      const sourceId = typeof payload.sourceId === "string" ? payload.sourceId : "";
+      const evidenceId = typeof payload.evidenceId === "string" ? payload.evidenceId : "";
+      const ownClaim = row.kind === "CLAIM" && ownSourceIds.has(sourceId);
+      const ownContext = row.kind === "CONTEXT_FACTOR" && ownEvidenceIds.has(evidenceId);
+      if (!ownClaim && !ownContext) return { id: row.id, kind: row.kind, status: row.status, text: "", excerpt: null };
+      return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: ownClaim ? text.excerpt : null };
     }),
     synthesis: synthesis
       ? {
@@ -740,9 +762,16 @@ export async function readPipeline(caseId: string, session: { userId: string; gl
           diagE: synthesis.diagE,
           diagP: synthesis.diagP,
           diagC: synthesis.diagC,
-          sections: synthesis.sections as unknown as SynthesisDraft["sections"],
+          sections: party
+            ? filterSynthesisForParty(
+                synthesis.sections as unknown as SynthesisDraft["sections"],
+                synthesis.sentenceMap as unknown as { sentenceId: string; sourceIds: string[] }[],
+                ownSourceIds,
+              ) as SynthesisDraft["sections"]
+            : synthesis.sections as unknown as SynthesisDraft["sections"],
         }
       : null,
     canAuthor: permission.ok,
   };
+  return view;
 }

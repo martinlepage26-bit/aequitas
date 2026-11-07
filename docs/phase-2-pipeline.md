@@ -12,23 +12,32 @@ AEQUITAS_PIPELINE_ENABLED=true
 
 Any other value, including an unset variable, leaves the case page as it was and makes every pipeline write return without inserting a row or calling a model.
 
-## Free model
+Setting the flag alone does not authorize a provider call: live case data also requires the provider-terms review gate below, and Gemini additionally requires the paid-project confirmation.
+
+## Model provider and case-data gate
 
 This path does not use `ANTHROPIC_API_KEY` and it refuses `anthropic` and `openai` as the provider name.
 
 | Variable | Purpose |
 | --- | --- |
 | `AEQUITAS_PIPELINE_ENABLED` | Must be `true` |
-| `AEQUITAS_PIPELINE_PROVIDER` | `gemini` (default) or `workers-ai` |
-| `GEMINI_API_KEY` | Google AI Studio key, free tier |
+| `AEQUITAS_PIPELINE_PROVIDER` | `gemini` (default), `vertex-ai`, or `workers-ai` |
+| `GEMINI_PROJECT_ID` | Required for Gemini case data; the operator confirms that this project owns the configured API key. The app cannot verify that mapping. |
+| `GEMINI_API_KEY` | API key for the chosen Gemini project |
 | `GEMINI_MODEL` | Optional. Default `gemini-3.8-flash` |
+| `AEQUITAS_VERTEX_PROJECT_ID` | Google Cloud project for the Vertex AI route; runtime uses Application Default Credentials. |
+| `AEQUITAS_VERTEX_LOCATION` | Optional. The route accepts only `northamerica-northeast1` (Montréal). |
+| `AEQUITAS_VERTEX_MODEL` | Optional. The route accepts only `gemini-3.5-flash`, whose model page lists ML processing in Montréal. |
+| `AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR` | Must match the exact selected identity, including `gemini:<project-id>:<model>`, `vertex-ai:<project-id>:northamerica-northeast1:gemini-3.5-flash`, or `workers-ai:<account-id>:<model>`. Changing provider, account/project, location, or model invalidates the review. This is an operator attestation, not legal or privacy approval. |
+| `AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR` | Required for Vertex case data and must equal the full Vertex identity above after review of the exact project's Canada processing, prompt logging, caching, request/response logging and current terms. The application cannot inspect or verify these settings. |
+| `AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR` | Must equal `GEMINI_PROJECT_ID` after confirming that exact API-key project has active billing and Paid Tier terms. A key by itself does not identify its billing tier. |
 | `CLOUDFLARE_ACCOUNT_ID` | Only for `workers-ai` |
 | `CLOUDFLARE_API_TOKEN` | Only for `workers-ai` |
-| `AEQUITAS_WORKERS_AI_MODEL` | Optional. Default `@cf/meta/llama-3.1-8b-instruct-fp8` |
+| `AEQUITAS_WORKERS_AI_MODEL` | Optional. Default `@cf/google/gemma-4-26b-a4b-it` |
 
-`gemini-3.8-flash` is the current Flash model. On 2026-10-09 the Gemini pricing page listed its free tier input and output as free of charge. The paid tier above those limits is real. Do not turn billing on.
+The app does not send live case data to a provider until the selected provider's exact terms-review identity matches. The Vertex route also requires its separate data-handling review identity. Changing provider, account/project, location, or model fails closed until the operator re-attests. Gemini Developer API's unpaid tier uses submitted content to improve Google products and may involve human review; Google's terms say not to submit sensitive, confidential, or personal information to unpaid services. The paid Gemini API terms apply only when the exact project has active billing. See [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms) and [billing tiers](https://ai.google.dev/gemini-api/docs/billing). The project ID and Paid Tier assertion remain operator-provided; the app cannot verify that the API key belongs to that project. A privacy assessment and other legal decisions remain separate.
 
-Workers AI includes 10,000 neurons per day at no charge. Usage above that is billed, so it is not the default.
+Cloudflare documents zero retention and no training for standard Workers AI inference, with exceptions for stateful features and operational metadata. Third-party model licenses still apply. Review [Workers AI data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/) and the selected model's license before setting the terms-review flag. This does not establish that data transfers or privacy obligations are satisfied.
 
 ## Stages
 

@@ -32,7 +32,8 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "rec2", version: 2 });
   mocks.lock.mockResolvedValue({ count: 1 });
   mocks.transaction.mockImplementation(async fn => fn({
-    $queryRaw: vi.fn().mockResolvedValue([]),
+    // runMutation locks the case row and expects exactly that row back.
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "case1" }]),
     case: { update: vi.fn(), updateMany: mocks.lock },
     recommendation: { count: vi.fn().mockResolvedValue(1), findFirst: vi.fn().mockResolvedValue({ version: 1 }), create: mocks.create, update: mocks.update, updateMany: vi.fn() },
     event: { findFirst: vi.fn().mockResolvedValue(null), create: mocks.eventCreate },

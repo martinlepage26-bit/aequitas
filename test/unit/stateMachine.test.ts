@@ -11,15 +11,15 @@ import {
   type Trigger,
 } from "../../src/domain/stateMachine";
 
-const ROLES: GlobalRole[] = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN"];
+const ROLES: GlobalRole[] = ["COMPLAINANT", "RESPONDENT", "CASE_MANAGER", "ADMIN", "CASE_AGENT"];
 const STATES_WITH_NONE: Array<CaseState | typeof NONE> = [NONE, ...ALL_STATES];
 const ACTORS: Array<GlobalRole | typeof SYSTEM> = [...ROLES, SYSTEM];
 
 /**
- * Ground truth transcribed directly from Section 6 of
- * aequitas-implementation-handoff.md, independently of stateMachine.ts, so
- * this test catches transcription errors rather than checking the
- * implementation against itself.
+ * Ground truth transcribed from Section 6 of
+ * aequitas-implementation-handoff.md plus the app-specific party processing
+ * choice, independently of stateMachine.ts, so this catches transcription
+ * errors rather than checking the implementation against itself.
  */
 const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: Array<GlobalRole | typeof SYSTEM> }> = {
   create_case: { from: [NONE], roles: ["COMPLAINANT"] },
@@ -28,10 +28,12 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   submit_evidence: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
   submit_chronology: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
   supersede_evidence: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
+  mark_intake_ready: { from: ["EVIDENCE_INTAKE"], roles: ["COMPLAINANT", "RESPONDENT"] },
   close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_MANAGER"] },
   submit_position: { from: ["POSITIONS"], roles: ["COMPLAINANT", "RESPONDENT"] },
   request_draft: { from: ["POSITIONS", "DRAFTING"], roles: ["CASE_MANAGER"] },
   draft_completed: { from: ["DRAFTING"], roles: [SYSTEM] },
+  author_draft: { from: ["POSITIONS", "DRAFTING"], roles: ["CASE_MANAGER"] },
   review_draft: { from: ["DRAFTING"], roles: ["CASE_MANAGER"] },
   issue_recommendation: { from: ["DRAFTING"], roles: ["CASE_MANAGER"] },
   give_consent: { from: ["ISSUED"], roles: ["COMPLAINANT", "RESPONDENT"] },
@@ -40,11 +42,22 @@ const EXPECTED: Record<Trigger, { from: Array<CaseState | typeof NONE>; roles: A
   request_new_version: { from: ["RESOLVED_DECLINED", "ISSUED"], roles: ["CASE_MANAGER"] },
   withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["COMPLAINANT"] },
   close_case: { from: ["RESOLVED_CONSENT", "RESOLVED_DECLINED", "WITHDRAWN"], roles: ["CASE_MANAGER"] },
+  agent_issue: { from: ["POSITIONS"], roles: ["CASE_AGENT"] },
+  agent_close: { from: ["RESOLVED_CONSENT", "WITHDRAWN"], roles: ["CASE_AGENT"] },
+  agent_open_intake: { from: ["OPEN"], roles: ["CASE_AGENT"] },
+  agent_close_intake: { from: ["EVIDENCE_INTAKE"], roles: ["CASE_AGENT"] },
+  accept_agent_processing: { from: ["POSITIONS"], roles: ["COMPLAINANT", "RESPONDENT"] },
+  respondent_withdraw: { from: ALL_STATES.filter((s) => s !== "CLOSED"), roles: ["RESPONDENT"] },
 };
 
 describe("state machine: exhaustive (state, trigger, role) coverage", () => {
-  it("covers every trigger defined in Section 6", () => {
+  it("covers every trigger in the current state-machine contract", () => {
     expect(new Set(TRIGGERS)).toEqual(new Set(Object.keys(EXPECTED)));
+    expect(new Set(TRIGGERS).size).toBe(TRIGGERS.length);
+  });
+
+  it("requires both parties' current intake-completion marks before the agent closes intake", () => {
+    expect(transitionsFor("agent_close_intake").guards).toContain("bothPartiesMarkedIntakeReady");
   });
 
   for (const trigger of TRIGGERS) {
@@ -68,7 +81,7 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
     });
   }
 
-  it("asserts the full state x trigger x role cross product (880 combinations)", () => {
+  it("asserts the full state x trigger x role cross product (every combination)", () => {
     let checked = 0;
     for (const trigger of TRIGGERS) {
       const def = transitionsFor(trigger);
@@ -83,6 +96,11 @@ describe("state machine: exhaustive (state, trigger, role) coverage", () => {
       }
     }
     expect(checked).toBe(TRIGGERS.length * STATES_WITH_NONE.length * ACTORS.length);
+  });
+
+  it("the case agent holds only its four agent transitions", () => {
+    const allowed = TRIGGERS.filter((trigger) => isActorRoleAllowed(transitionsFor(trigger), "CASE_AGENT"));
+    expect(allowed).toEqual(["agent_issue", "agent_close", "agent_open_intake", "agent_close_intake"]);
   });
 
   it("ADMIN is never a valid actor for any state-machine trigger (guardrail 10)", () => {

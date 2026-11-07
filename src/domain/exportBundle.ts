@@ -9,6 +9,8 @@ import { prisma } from "../lib/prisma";
 import { rollbackBuffer, uploadBuffer } from "../lib/storage";
 import { canonicalJson } from "./events";
 import type { ExplanationRecord } from "./explanationRecord";
+import { partySeesOutcomeEvent, projectPartyTimelineEvent } from "./eventTimeline";
+import { filterExplanationForParty, type HiddenSubmissionIds } from "./submissionVisibility";
 import { resolveRoleTerm } from "../i18n/categoryGlossary";
 
 /**
@@ -72,6 +74,27 @@ export async function generateExportBundle(input: GenerateExportBundleInput): Pr
   return { exportId, storageKey, sha256 };
 }
 
+/**
+ * A closed-case download for one party. It keeps that party's evidence,
+ * position, chronology, and issued outcome, and the latest issued
+ * recommendation with the other party's citations removed. Draft
+ * recommendations, draft outcomes, the other party's outcome, and
+ * mediator-only timeline events are omitted. This zip is not the sealed
+ * ExportBundle.
+ */
+export async function buildPartyExportArchive(caseId: string, viewerId: string): Promise<Buffer> {
+  const { record, caseRow } = await buildExportRecord(caseId);
+  const filtered = filterPartyExportRecord(record, viewerId);
+  const jsonBuffer = Buffer.from(canonicalJson(filtered), "utf8");
+  const verificationBuffer = Buffer.from(buildPartyVerificationText(caseRow.referenceNumber), "utf8");
+  const pdfBuffer = await buildExportPdf(filtered, { partyView: true });
+  return zipFiles([
+    { name: "case-record.json", buffer: jsonBuffer },
+    { name: "case-record.pdf", buffer: pdfBuffer },
+    { name: "verification.txt", buffer: verificationBuffer },
+  ]);
+}
+
 export async function buildExportRecord(caseId: string) {
   const caseRow = await prisma.case.findUniqueOrThrow({
     where: { id: caseId },
@@ -82,13 +105,22 @@ export async function buildExportRecord(caseId: string) {
     },
   });
 
-  const [events, evidenceItems, positionStatements, recommendations, consentRecords, chronologyEntries] = await Promise.all([
+  const [events, evidenceItems, positionStatements, recommendations, consentRecords, chronologyEntries, partyOutcomes] = await Promise.all([
     prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } }),
     prisma.evidenceItem.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } }),
     prisma.positionStatement.findMany({ where: { caseId }, include: { party: { select: { displayName: true } } }, orderBy: [{ partyId: "asc" }, { version: "asc" }] }),
     prisma.recommendation.findMany({ where: { caseId }, include: { issuedBy: { select: { displayName: true } } }, orderBy: { version: "asc" } }),
     prisma.consentRecord.findMany({ where: { caseId }, include: { party: { select: { displayName: true } }, statementVersion: true }, orderBy: { createdAt: "asc" } }),
     prisma.chronologyEntry.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }] }),
+    prisma.partyOutcome.findMany({
+      where: { caseId },
+      include: {
+        party: { select: { displayName: true } },
+        authoredBy: { select: { displayName: true } },
+        citations: { include: { evidenceItem: { select: { title: true } } }, orderBy: { evidenceItemId: "asc" } },
+      },
+      orderBy: [{ partyId: "asc" }, { version: "asc" }],
+    }),
   ]);
 
   const actorIds = [...new Set(events.map((e) => e.actorId))];
@@ -168,6 +200,30 @@ export async function buildExportRecord(caseId: string) {
       issuedAt: r.issuedAt?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
     })),
+    partyOutcomes: partyOutcomes.map((outcome) => ({
+      id: outcome.id,
+      partyId: outcome.partyId,
+      partyName: outcome.party.displayName,
+      version: outcome.version,
+      status: outcome.status,
+      body: outcome.body,
+      locale: outcome.locale,
+      authoredById: outcome.authoredById,
+      authoredByName: outcome.authoredBy.displayName,
+      issuedAt: outcome.issuedAt?.toISOString() ?? null,
+      createdAt: outcome.createdAt.toISOString(),
+      citations: outcome.citations.map((citation) => ({
+        id: citation.id,
+        evidenceItemId: citation.evidenceItemId,
+        evidenceTitle: citation.evidenceItem.title,
+        relevance: citation.relevance,
+        startChar: citation.startChar,
+        endChar: citation.endChar,
+        sourceSha256: citation.sourceSha256,
+        extractedTextSha256: citation.extractedTextSha256,
+        extractionMethod: citation.extractionMethod,
+      })),
+    })),
     consent: consentRecords.map((c) => ({
       id: c.id,
       recommendationId: c.recommendationId,
@@ -185,11 +241,143 @@ export async function buildExportRecord(caseId: string) {
       givenAt: c.givenAt?.toISOString() ?? null,
       declinedAt: c.declinedAt?.toISOString() ?? null,
       revokedAt: c.revokedAt?.toISOString() ?? null,
+      partyOutcomeId: c.partyOutcomeId,
+      partyOutcomeVersion: c.partyOutcomeVersion,
       createdAt: c.createdAt.toISOString(),
     })),
   };
 
   return { record, caseRow };
+}
+
+function payloadObject(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+}
+
+function eventReferencesHidden(type: string, payload: unknown, hidden: HiddenSubmissionIds): boolean {
+  if (type === "RECOMMENDATION_DRAFTED" || type === "NOTE_ADDED") return true;
+  const record = payloadObject(payload);
+  const evidenceId = typeof record.evidenceItemId === "string" ? record.evidenceItemId : null;
+  const priorId = typeof record.priorEvidenceItemId === "string" ? record.priorEvidenceItemId : null;
+  const newId = typeof record.newEvidenceItemId === "string" ? record.newEvidenceItemId : null;
+  const positionId = typeof record.positionId === "string" ? record.positionId : null;
+  const chronologyId = typeof record.chronologyEntryId === "string" ? record.chronologyEntryId : null;
+  if (evidenceId && hidden.evidenceIds.has(evidenceId)) return true;
+  if (priorId && hidden.evidenceIds.has(priorId)) return true;
+  if (newId && hidden.evidenceIds.has(newId)) return true;
+  if (positionId && hidden.positionIds.has(positionId)) return true;
+  if (chronologyId && hidden.chronologyIds.has(chronologyId)) return true;
+  return false;
+}
+
+const CONTESTATION_EVENT_TYPES = new Set([
+  "CONTESTATION_OPENED",
+  "CONTESTATION_RESPONDED",
+  "CONTESTATION_OVERRULED",
+  "CONTESTATION_WITHDRAWN",
+]);
+
+function partyCanSeeTimelineEvent(
+  event: { type: string; payload: unknown },
+  hidden: HiddenSubmissionIds,
+  ownContestationIds: ReadonlySet<string>,
+  viewerId: string,
+): boolean {
+  if (eventReferencesHidden(event.type, event.payload, hidden)) return false;
+  if (!partySeesOutcomeEvent(event.type, event.payload, viewerId)) return false;
+  if (!CONTESTATION_EVENT_TYPES.has(event.type)) return true;
+  const contestationId = payloadObject(event.payload).contestationId;
+  return typeof contestationId === "string" && ownContestationIds.has(contestationId);
+}
+
+export function visiblePartyOutcomesForExport<T extends { partyId: string; status: string }>(rows: T[], viewerId: string): T[] {
+  return rows.filter((row) => row.partyId === viewerId && row.status === "ISSUED");
+}
+
+function filterPartyExportRecord<T extends {
+  evidence: { id: string; submittedById: string }[];
+  positions: { id: string; partyId: string }[];
+  chronology?: { id: string; submittedById: string }[];
+  timeline: { type: string; payload: unknown; actorId?: string }[];
+  recommendations: { status: string; version: number; explanation: Parameters<typeof filterExplanationForParty>[0] }[];
+  partyOutcomes?: {
+    partyId: string;
+    status: string;
+    citations?: { evidenceItemId: string; relevance?: string }[];
+  }[];
+  consent?: { partyId: string; state: string; revokedAt: string | null; partyOutcomeId: string | null; partyOutcomeVersion: number | null }[];
+}>(record: T, viewerId: string): T {
+  const hidden: HiddenSubmissionIds = {
+    evidenceIds: new Set(record.evidence.filter((item) => item.submittedById !== viewerId).map((item) => item.id)),
+    positionIds: new Set(record.positions.filter((item) => item.partyId !== viewerId).map((item) => item.id)),
+    chronologyIds: new Set((record.chronology ?? []).filter((entry) => entry.submittedById !== viewerId).map((entry) => entry.id)),
+  };
+  const ownContestationIds = new Set(
+    record.timeline.flatMap((event) => {
+      if (event.type !== "CONTESTATION_OPENED" || event.actorId !== viewerId) return [];
+      const contestationId = payloadObject(event.payload).contestationId;
+      return typeof contestationId === "string" ? [contestationId] : [];
+    }),
+  );
+  const issued = record.recommendations.filter((item) => item.status === "ISSUED");
+  const finalIssued = issued.length === 0 ? [] : [issued.reduce((latest, item) => item.version > latest.version ? item : latest)];
+  const ownEvidenceIds = new Set(record.evidence.filter((item) => item.submittedById === viewerId).map((item) => item.id));
+  const ownOutcomes = visiblePartyOutcomesForExport(record.partyOutcomes ?? [], viewerId).map((outcome) => ({
+    ...outcome,
+    citations: (outcome.citations ?? [])
+      .filter((citation) => ownEvidenceIds.has(citation.evidenceItemId))
+      .map((citation) => ({ ...citation, relevance: "" })),
+  }));
+  return {
+    ...record,
+    evidence: record.evidence.filter((item) => item.submittedById === viewerId),
+    positions: record.positions.filter((item) => item.partyId === viewerId),
+    chronology: (record.chronology ?? []).filter((entry) => entry.submittedById === viewerId),
+    timeline: record.timeline.flatMap((event) => {
+      if (!partyCanSeeTimelineEvent(event, hidden, ownContestationIds, viewerId)) return [];
+      const projected = projectPartyTimelineEvent(event, viewerId);
+      return projected ? [projected] : [];
+    }),
+    partyOutcomes: ownOutcomes,
+    ...(record.consent
+      ? {
+          consent: record.consent.map((entry) => entry.partyId === viewerId
+            ? entry
+            : {
+                ...entry,
+                partyOutcomeId: null,
+                partyOutcomeVersion: null,
+                revokedAt: null,
+                state: entry.state === "REVOKED" ? "NOT_GIVEN" : entry.state,
+              }),
+        }
+      : {}),
+    recommendations: finalIssued.map((item) => ({
+      ...item,
+      explanation: filterExplanationForParty(item.explanation, hidden),
+    })),
+  };
+}
+
+function buildPartyVerificationText(referenceNumber: string): string {
+  return `Aequitas party view / Vue d'une partie
+========================================
+
+Case / Dossier: ${referenceNumber}
+Generated / Généré : ${new Date().toISOString()}
+
+This archive is a view for one party. It omits the other party's evidence,
+position, chronology, and outcome, their timeline records, draft
+recommendations, draft outcomes, and citations of the other party's
+evidence. It is not the sealed export.
+The ExportBundle SHA-256 does not cover this file.
+
+Cette archive est la vue d'une seule partie. Elle omet les pièces, la
+position, la chronologie et le résultat de l'autre partie, leurs
+événements, les recommandations en brouillon, les résultats en brouillon,
+et les citations des pièces de l'autre partie. Ce n'est pas l'export scellé.
+Le SHA-256 du dossier ExportBundle ne couvre pas ce fichier.
+`;
 }
 
 function buildVerificationText(referenceNumber: string): string {
@@ -346,9 +534,12 @@ function paragraph(cursor: PdfCursor, text: string): PdfCursor {
 }
 
 type FullExportRecord = Awaited<ReturnType<typeof buildExportRecord>>["record"];
-type ExportRecord = Omit<FullExportRecord, "chronology"> & { chronology?: FullExportRecord["chronology"] };
+type ExportRecord = Omit<FullExportRecord, "chronology" | "partyOutcomes"> & {
+  chronology?: FullExportRecord["chronology"];
+  partyOutcomes?: FullExportRecord["partyOutcomes"];
+};
 
-export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
+export async function buildExportPdf(record: ExportRecord, options?: { partyView?: boolean }): Promise<Buffer> {
   const category = record.case.category;
   const doc = await PDFDocument.create();
   doc.setTitle(`Aequitas — ${record.case.referenceNumber}`);
@@ -367,7 +558,12 @@ export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
   const respondentTerm = { en: resolveRoleTerm(category, "respondent", "en-CA"), fr: resolveRoleTerm(category, "respondent", "fr-CA") };
 
   cursor = heading(cursor, `Aequitas — ${record.case.referenceNumber}`);
-  cursor = paragraph(cursor, `Dossier scellé / Sealed case record — exported ${record.exportedAt}`);
+  cursor = paragraph(
+    cursor,
+    options?.partyView
+      ? `Vue d'une partie / Party view — exported ${record.exportedAt}. The other party's evidence and position are omitted. This file is not the sealed export.`
+      : `Dossier scellé / Sealed case record — exported ${record.exportedAt}`,
+  );
   if (record.case.simulated) cursor = paragraph(cursor, "SIMULATED CASE — TRAINING DATA / DOSSIER SIMULÉ — DONNÉES D'APPRENTISSAGE");
 
   cursor = subheading(cursor, "Parties / Parties");
@@ -423,11 +619,31 @@ export async function buildExportPdf(record: ExportRecord): Promise<Buffer> {
     cursor = paragraph(cursor, `Summary / Résumé: ${r.explanation.summary}`);
     cursor = paragraph(cursor, `Proposed outcome / Résultat proposé: ${r.explanation.proposed_outcome}`);
     cursor = paragraph(cursor, `Reasoning / Raisonnement: ${r.explanation.reasoning}`);
-    for (const citation of r.explanation.evidence_citations) cursor = paragraph(cursor, `${citation.evidence_item_id}: ${citation.relevance}`);
+    for (const claim of r.explanation.claim_evidence ?? []) {
+      const section = claim.section === "proposal" ? "Proposal basis / Fondement de la proposition"
+        : claim.section === "summary" ? "Summary claim / Affirmation du résumé"
+          : "Reasoning claim / Affirmation du raisonnement";
+      cursor = paragraph(cursor, `${section} [${claim.citation_ids.join(", ")}]: ${claim.text}`);
+    }
+    for (const citation of r.explanation.evidence_citations) {
+      cursor = paragraph(cursor, `${citation.citation_id ?? "Citation"} — ${citation.evidence_item_id}: ${citation.relevance}`);
+    }
     for (const limit of r.explanation.limits) cursor = paragraph(cursor, `Limit / Limite: ${limit}`);
     for (const omitted of r.explanation.not_considered) cursor = paragraph(cursor, `Not considered / Non considéré: ${omitted}`);
     if (r.explanation.conflict_knowledge) {
       for (const line of knowledgeReportLines(r.explanation.conflict_knowledge, r.explanation.knowledge_sources ?? [])) cursor = paragraph(cursor, line);
+    }
+  }
+
+  cursor = subheading(cursor, "Party-facing outcomes / Résultats destinés aux parties");
+  const outcomes = record.partyOutcomes ?? [];
+  if (outcomes.length === 0) cursor = paragraph(cursor, "(none / aucun)");
+  for (const outcome of outcomes) {
+    cursor = paragraph(cursor, `${outcome.partyName} — v${outcome.version} — ${outcome.status} — ${outcome.locale} — issued:${outcome.issuedAt ?? "—"}`);
+    cursor = paragraph(cursor, outcome.body);
+    for (const citation of outcome.citations ?? []) {
+      const relevance = citation.relevance ? ` — ${citation.relevance}` : "";
+      cursor = paragraph(cursor, `Evidence citation / Citation de preuve: ${citation.evidenceTitle}${relevance} — extracted characters ${citation.startChar}-${citation.endChar} — source sha256:${citation.sourceSha256}`);
     }
   }
 

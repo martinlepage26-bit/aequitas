@@ -1,44 +1,67 @@
-# Aequitas
+# Aequitas — Evidence-Grounded Dispute Resolution
 
-A human-reviewable conflict knowledge and dispute-resolution workspace prototype. Its core method comes from `Aequitas Core.txt`: claims, evidence, competing interpretations, context, lived experience and repair. It distinguishes draft recommendations from decisions, records party consent separately, and treats legal research as sourced review material rather than an entitlement engine.
+Aequitas is a bilingual dispute-resolution workspace with staff-led cases and an optional autonomous workflow for configured, eligible retail cases. In agent-managed cases, it can handle intake, evidence and positions through a non-binding, evidence-cited proposal without case-manager action. Each party controls their submissions and consent; exceptions and requests for a person go to program staff.
 
-See [the core backend contract](docs/aequitas-core-backend.md) for the data model, validation, API, human correction workflow and operational limits.
+The case agent is off by default. Its current end-to-end proof uses synthetic cases and a stub model; live-provider quality and production operations remain unverified. It is not an adjudication engine and does not give legal advice.
 
-## Legal research connection
+**Stack:** Next.js, TypeScript, React, Prisma/PostgreSQL, WebAuthn, Vitest, and Playwright.
 
-Copy `.env.example` to `.env.local` and supply a LegiPro endpoint and a server-side token with `search:read` scope. The app uses a Next.js route handler so the token never reaches the browser. Without this configuration, the legal-context panel explicitly reports that no research source is available.
+## Workflow
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```mermaid
+flowchart LR
+  A["Submitted case"] --> B["Party-controlled evidence and positions"]
+  B --> C{"Configured and eligible?"}
+  C -->|staff-led| D["Case manager reviews"]
+  C -->|opted-in routine case| E["Case agent processes"]
+  E --> F["Evidence-cited, non-binding proposal"]
+  D --> F
+  E -->|exception or request| G["Program staff review"]
+  F --> H["Each party chooses whether to consent"]
+  H -->|both consent| I["Resolve and export"]
+  H -->|decline or ask for a person| G
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Engineering highlights
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+- Case-level access and claim-write permissions are expressed in domain code.
+- Evidence and interpretations retain provenance rather than becoming an unexplained generated answer.
+- The case agent is restricted to explicit program rules, evidence-backed proposals, and a closed remedy set; it hands exceptions to staff.
+- Both parties make the consent decision, bound to the outcome version they saw.
+- Security tests exercise account-takeover prevention and invite-based account claiming.
+- Playwright runs axe checks for WCAG 2.0/2.1 A and AA and 2.2 AA on the
+  public landing, walkthrough, sign-in and registration pages in both locales,
+  plus the routine agent journey's intake, provider-choice and party-outcome
+  states. Automated scans catch common issues; they do not establish full
+  WCAG 2.2 AA conformance.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Review the implementation
 
-## Learn More
+| Question | Start here |
+| --- | --- |
+| Who can read a case or write a claim? | [Case access](src/domain/caseAccess.ts), [claim permissions](src/domain/claimWrites.ts) |
+| How does the autonomous routine path work? | [Case-agent prototype and launch gates](docs/case-agent-prototype.md) |
+| How are AI proposals authorized and recorded? | [Pipeline writes](src/domain/pipeline/writes.ts) |
+| How is account takeover tested? | [HTTP/WebAuthn regression tests](test/integration/auth-takeover.test.ts) |
+| How does the method map to the backend? | [Core backend contract](docs/aequitas-core-backend.md) |
+| What does the routine path look like to a prospective user? | [Static synthetic walkthrough](src/app/[locale]/demo/page.tsx) |
+| Which checks run in CI? | [CI workflow](.github/workflows/ci.yml) |
 
-To learn more about Next.js, take a look at the following resources:
+A useful review follows an eligible case through intake, evidence extraction, positions, a structured proposal, party consent, and a staff handoff when a rule or safety check requires one. Human-led cases remain supported. The agent must not turn a proposal into a binding decision or bypass either party's choice.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development and verification
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Use Node 22 and npm 11 as specified in `package.json`. Configure the database, storage, and authentication environment before starting the application; the backend contract describes the model and operational boundaries.
 
-## Deploy on Vercel
+```sh
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Available checks include `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e`. Database/storage-backed checks require an isolated configured environment. The repository also provides `npm run seed:demo`; inspect its configuration before using it against a database.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scope
+
+This remains a release candidate, not a production-ready automated service. The case agent is optional and disabled until program rules, provider terms, oversight, and legal review are resolved. Legal-context retrieval requires a separately configured source; missing configuration must remain visible. Synthetic tests demonstrate code paths, not live-model quality or readiness for real case data. See [paid-pilot readiness](docs/paid-pilot-readiness.md).
+
+[Paid-pilot readiness and operating gates](docs/paid-pilot-readiness.md)

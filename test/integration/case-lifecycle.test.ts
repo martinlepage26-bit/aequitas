@@ -9,6 +9,8 @@ import {
   supersedeEvidence,
   closeIntake,
   submitPosition,
+  withdrawCase,
+  runMutation,
 } from "../../src/domain/mutate";
 
 const EICAR = Buffer.from("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*");
@@ -41,7 +43,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function freshOpenCase() {
+async function freshDraftCase() {
   const created = await createCase({
     actorId: complainantId,
     actorRole: "COMPLAINANT",
@@ -54,9 +56,14 @@ async function freshOpenCase() {
     currentStatementVersionId: statementVersionId,
   });
   if (!created.ok) throw new Error("setup: createCase failed");
-  const submitted = await submitCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId: created.data.caseId });
-  if (!submitted.ok) throw new Error("setup: submitCase failed");
   return created.data.caseId;
+}
+
+async function freshOpenCase() {
+  const caseId = await freshDraftCase();
+  const submitted = await submitCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId });
+  if (!submitted.ok) throw new Error("setup: submitCase failed");
+  return caseId;
 }
 
 async function freshEvidenceIntakeCase() {
@@ -127,6 +134,37 @@ describe("submitCase — role and ownership enforcement", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.step).toBe("not-found");
+  });
+
+  it("does not commit a stale DRAFT mutation after withdrawal", async () => {
+    const caseId = await freshDraftCase();
+    const row = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    const withdrawn = await withdrawCase({ actorId: complainantId, actorRole: "COMPLAINANT", caseId });
+    expect(withdrawn.ok).toBe(true);
+
+    let writeCalled = false;
+    const stale = await runMutation({
+      trigger: "submit_case",
+      actorId: complainantId,
+      actorRole: "COMPLAINANT",
+      caseId,
+      fromState: row.state,
+      guardContexts: {
+        isCaseOwner: { actorId: complainantId, complainantId },
+        requiredIntakeFieldsComplete: { missingFields: [] },
+      },
+      write: async (tx) => {
+        writeCalled = true;
+        await tx.case.update({ where: { id: caseId }, data: { state: "OPEN" } });
+        return { caseId, toState: "OPEN", eventPayloads: [], notifications: [] };
+      },
+    });
+
+    expect(stale.ok).toBe(false);
+    if (stale.ok) return;
+    expect(stale.step).toBe("authorize-state");
+    expect(writeCalled).toBe(false);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).state).toBe("WITHDRAWN");
   });
 });
 
@@ -352,6 +390,42 @@ describe("supersedeEvidence — ownership and versioning enforcement", () => {
     const newItem = await prisma.evidenceItem.findFirstOrThrow({ where: { caseId, supersedesId: original.id } });
     expect(newItem.version).toBe(2);
     expect(newItem.title).toBe("Clearer version");
+  });
+
+  it("allows only one successor when two replacements race from the same evidence version", async () => {
+    const caseId = await freshEvidenceIntakeCase();
+    const submitted = await submitEvidence({
+      actorId: complainantId,
+      actorRole: "COMPLAINANT",
+      caseId,
+      kind: "DOCUMENT",
+      title: "Original",
+      buffer: BENIGN,
+      mimeType: "text/plain",
+    });
+    if (!submitted.ok) throw new Error("setup failed");
+    const original = await prisma.evidenceItem.findFirstOrThrow({ where: { caseId } });
+
+    const results = await Promise.all([
+      supersedeEvidence({
+        actorId: complainantId, actorRole: "COMPLAINANT", caseId,
+        priorEvidenceItemId: original.id, kind: "DOCUMENT", title: "Replacement A",
+        buffer: BENIGN, mimeType: "text/plain",
+      }),
+      supersedeEvidence({
+        actorId: complainantId, actorRole: "COMPLAINANT", caseId,
+        priorEvidenceItemId: original.id, kind: "DOCUMENT", title: "Replacement B",
+        buffer: BENIGN, mimeType: "text/plain",
+      }),
+    ]);
+
+    expect(results.filter(result => result.ok)).toHaveLength(1);
+    const rejected = results.find(result => !result.ok);
+    expect(rejected?.ok).toBe(false);
+    if (rejected && !rejected.ok) expect(rejected.reason).toMatch(/no longer current/);
+    const successors = await prisma.evidenceItem.findMany({ where: { caseId, supersedesId: original.id } });
+    expect(successors).toHaveLength(1);
+    expect(successors[0].version).toBe(2);
   });
 });
 
@@ -584,6 +658,21 @@ describe("submitPosition — role, party, and versioning enforcement", () => {
     expect(positions).toHaveLength(2);
     expect(positions.map((p) => p.version)).toEqual([1, 2]);
     expect(positions[1].body).toBe("Revised position.");
+  });
+
+  it("assigns consecutive versions to concurrent submissions by the same party", async () => {
+    const caseId = await freshPositionsCase();
+    const results = await Promise.all([
+      submitPosition({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, body: "Concurrent position A.", locale: "fr-CA" }),
+      submitPosition({ actorId: complainantId, actorRole: "COMPLAINANT", caseId, body: "Concurrent position B.", locale: "fr-CA" }),
+    ]);
+
+    expect(results.every(result => result.ok)).toBe(true);
+    const positions = await prisma.positionStatement.findMany({
+      where: { caseId, partyId: complainantId },
+      orderBy: { version: "asc" },
+    });
+    expect(positions.map(position => position.version)).toEqual([1, 2]);
   });
 
   it("tracks versions independently per party", async () => {
