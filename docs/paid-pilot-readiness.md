@@ -2,10 +2,10 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
-## Candidate verification (2026-11-07 19:51 UTC)
+## Candidate verification (2026-11-07 21:23 UTC)
 
-- PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, and mergeable into `ct920-standup`. Candidate head: `c3261684cae4d759e9882b031b1c7a6c2a69d75d` (`claude/fervent-turing-tb2bym`).
-- Full GitHub CI run [42407308953](https://github.com/martinlepage26-bit/aequitas/actions/runs/42407308953) passed on that exact head: dependency audit, migrations, operator status, lint, typecheck, locale and prohibited-term checks, storage and event-chain checks, full Vitest with isolated services, production build and runtime-image verification, both Playwright suites, and the six-fixture synthetic case-agent evaluation.
+- PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, and mergeable into `ct920-standup`. Candidate head: `dc395098b60fdca5a85e1a4a16ae8f3f9d43e592` (`claude/fervent-turing-tb2bym`).
+- Full GitHub CI run [42414301878](https://github.com/martinlepage26-bit/aequitas/actions/runs/42414301878) passed on that exact head: dependency audit, migrations, operator status, lint, typecheck, locale and prohibited-term checks, storage and event-chain checks, full Vitest with isolated services, production build and runtime-image verification, both Playwright suites, and the six-fixture synthetic case-agent evaluation.
 - Commit `447597c` closes the provider-handoff race: the bilingual processing notice explains that a request already starting or in progress may still be processed, and a party's recorded handoff prevents an unissued result from being saved. Commit `0d60385` updates the browser test to assert the complete notice in both locales. GitHub's full browser suite passed after that correction.
 - The focused local Playwright journey passed 2/2 in fr-CA and en-CA with synthetic data, a disposable Postgres test database, and the test-only scanner responder; local lint, typecheck, and diff checks passed. CI separately ran the complete suite with its isolated Postgres, MinIO, and ClamAV services.
 - This verification uses synthetic fixtures and a stub model. No live provider call, real case data, production email, merge, or deployment occurred. The candidate is not approved for real pilot data.
