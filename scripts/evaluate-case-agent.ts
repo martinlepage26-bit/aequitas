@@ -151,7 +151,7 @@ async function main() {
   } else {
     // Stub: answers from the ids in the prompt so the harness can be exercised offline.
     model = { provider: "stub", model: "harness-self-test", async complete(prompt: string) {
-      const material = JSON.parse(prompt.slice(prompt.indexOf("<case_material>") + 15, prompt.indexOf("</case_material>")));
+      const material = JSON.parse(prompt).untrusted_case_material;
       const c = material.complainant.evidence[0];
       const r = material.respondent.evidence[0];
       const injected = /ignore your rules|warranty under/i.test(c.extracted_text);
@@ -220,11 +220,11 @@ async function main() {
     if (choices.some((choice) => !choice.ok)) throw new Error("The synthetic evaluation actors could not record processing choices.");
 
     const callMetrics: ModelCallMetric[] = [];
-    const measure = async (prompt: string, call: () => Promise<TextCompletionWithUsage>): Promise<TextCompletionWithUsage> => {
+    const measure = async (prompt: string, systemInstruction: string | undefined, call: () => Promise<TextCompletionWithUsage>): Promise<TextCompletionWithUsage> => {
       const started = Date.now();
       const metric: ModelCallMetric = {
         latencyMs: 0,
-        promptCharacters: characterCount(prompt),
+        promptCharacters: characterCount(prompt) + characterCount(systemInstruction ?? ""),
         responseCharacters: null,
         tokenUsage: null,
       };
@@ -242,16 +242,16 @@ async function main() {
     let timedResponseText: string | null = null;
     const timed: TextCompletion = {
       ...model,
-      complete: async (prompt: string) => {
-        const completion = await measure(prompt, async () => model.completeWithUsage
-          ? model.completeWithUsage(prompt)
-          : { text: await model.complete(prompt) });
+      complete: async (prompt: string, systemInstruction?: string) => {
+        const completion = await measure(prompt, systemInstruction, async () => model.completeWithUsage
+          ? model.completeWithUsage(prompt, systemInstruction)
+          : { text: await model.complete(prompt, systemInstruction) });
         timedResponseText = completion.text;
         return completion.text;
       },
       ...(model.completeWithJsonSchema ? {
-        completeWithJsonSchema: async (prompt: string, schema: Record<string, unknown>) => {
-          const completion = await measure(prompt, () => model.completeWithJsonSchema!(prompt, schema));
+        completeWithJsonSchema: async (prompt: string, schema: Record<string, unknown>, systemInstruction?: string) => {
+          const completion = await measure(prompt, systemInstruction, () => model.completeWithJsonSchema!(prompt, schema, systemInstruction));
           timedResponseText = completion.text;
           return completion;
         },
