@@ -21,6 +21,8 @@ Status: **release candidate for review. Not approved for real pilot data.** This
 
 - **Latest CT920 runtime-only check, 2026-11-07 13:39:11 UTC by read-only SSH from this Mac:** `aeq-prod-app` was running and Docker-health-healthy on `aeq-prod-app:d74ed342693a96a6dc75d8907d288131c0148385`. No `aeq-prod-scheduler` container, matching system or user systemd timer, or matching user-crontab `agent:run`, `notify:deliver` or `scheduled-ops` invocation was observed. This remains the pre-agent image; the CT920 stack still does not run PR 14's case agent or scheduled worker. Schedulers outside CT920 remain unverified. The check changed no host configuration, container or case data.
 
+- **Latest CT920 deployment-source and runtime check, 2026-11-07 13:59:41 UTC by read-only SSH from this Mac:** the actual deployment checkout `/home/martin/aequitas-prod/src` is clean on `ship/aequitas-pr5-d74ed34` at `d74ed342693a96a6dc75d8907d288131c0148385`. `aeq-prod-app` is healthy on the same old image, and `aeq-prod-scheduler` is absent. The 41-change checkout at `/home/martin/Applications/aequitas` is a separate worktree, not the deployment source. This clarifies the source distinction but does not resolve deployment provenance or install the PR 14 agent. Read-only; no host state changed.
+
 ## Buyer (hypothesis, not validated demand)
 
 A Québec organization that runs voluntary consumer dispute resolution between a buyer and a seller. The proposed agent handles eligible routine `RETAIL` cases; program staff take exceptions and cases outside scope. No customer conversation, letter of intent or pricing evidence is in this repository.
