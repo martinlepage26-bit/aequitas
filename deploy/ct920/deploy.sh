@@ -32,10 +32,14 @@ fi
 # Start the worker after the app is confirmed on the migrated release. It
 # handles notification retries; case-agent work remains disabled unless the
 # full, explicit program and evaluation settings are present.
+scheduler_ready_since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 docker compose -p aeq-prod --profile scheduled up -d scheduler
 scheduler_state="$(docker inspect --format '{{.State.Status}}' aeq-prod-scheduler 2>/dev/null || true)"
 if [ "$scheduler_state" != "running" ]; then
   echo "scheduled operations did not start with release $RELEASE_SHA" >&2
   exit 1
 fi
-echo "scheduled operations started"
+docker compose -p aeq-prod --profile scheduled exec -T \
+  -e "SCHEDULER_READY_SINCE=$scheduler_ready_since" \
+  scheduler node node_modules/tsx/dist/cli.mjs scripts/verify-scheduled-ops.ts
+echo "scheduled operations are healthy on release $RELEASE_SHA"

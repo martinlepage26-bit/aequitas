@@ -20,6 +20,7 @@
     "smoke:core-ai": "tsx scripts/smoke-core-ai.ts",
     "seed:demo": "tsx prisma/seed-demo.ts",
     "notify:deliver": "tsx scripts/deliver-notifications.ts",
+    "ops:verify-scheduler": "tsx scripts/verify-scheduled-ops.ts",
     "agent:provision": "tsx scripts/provision-case-agent.ts",
     "agent:run": "tsx scripts/run-case-agent.ts",
     "agent:status": "tsx scripts/status-case-agent.ts",

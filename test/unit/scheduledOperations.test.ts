@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { scheduledOperationHealth, scheduledOperationsPlan } from "../../src/domain/scheduledOperations";
+import {
+  scheduledOperationHealth,
+  scheduledOperationsMissingReleaseSuccess,
+  scheduledOperationsPlan,
+  SCHEDULED_OPERATIONS,
+} from "../../src/domain/scheduledOperations";
 
 describe("scheduled operations", () => {
   it("retries notifications every 15 minutes and runs the case agent every 10", () => {
@@ -23,5 +28,27 @@ describe("scheduled operations", () => {
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "FAILED" }, now)).toBe("failed");
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "INTERRUPTED" }, now)).toBe("interrupted");
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "UNKNOWN" }, now)).toBe("unknown");
+  });
+
+  it("requires a fresh successful run of every worker for the deployed release", () => {
+    const releaseStartedAt = new Date("2026-11-06T12:00:00.000Z");
+    const completedAt = new Date("2026-11-06T12:00:10.000Z");
+    const heartbeat = {
+      lastStartedAt: releaseStartedAt,
+      lastHeartbeatAt: completedAt,
+      lastFinishedAt: completedAt,
+      lastSuccessfulAt: completedAt,
+      lastOutcome: "SUCCEEDED",
+    };
+    const complete = new Map(SCHEDULED_OPERATIONS.map(({ name }) => [name, heartbeat]));
+    expect(scheduledOperationsMissingReleaseSuccess(SCHEDULED_OPERATIONS, complete, releaseStartedAt, completedAt)).toEqual([]);
+
+    const old = new Map(complete);
+    old.set("case_agent", { ...heartbeat, lastStartedAt: new Date(releaseStartedAt.getTime() - 1) });
+    expect(scheduledOperationsMissingReleaseSuccess(SCHEDULED_OPERATIONS, old, releaseStartedAt, completedAt)).toEqual(["case_agent"]);
+
+    const failed = new Map(complete);
+    failed.set("notification_retry", { ...heartbeat, lastOutcome: "FAILED" });
+    expect(scheduledOperationsMissingReleaseSuccess(SCHEDULED_OPERATIONS, failed, releaseStartedAt, completedAt)).toEqual(["notification_retry"]);
   });
 });

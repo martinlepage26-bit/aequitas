@@ -16,6 +16,10 @@ export type ScheduledOperationHeartbeatSnapshot = {
   lastOutcome: string | null;
 };
 
+export type ScheduledOperationReleaseHeartbeatSnapshot = ScheduledOperationHeartbeatSnapshot & {
+  lastSuccessfulAt: Date | null;
+};
+
 /**
  * Classify only aggregate worker state. Active jobs are monitored by periodic
  * pulses; completed jobs are checked against their configured schedule.
@@ -37,6 +41,27 @@ export function scheduledOperationHealth(
     case "INTERRUPTED": return "interrupted";
     default: return "unknown";
   }
+}
+
+/** Require one successful run of every worker after the new release started. */
+export function scheduledOperationsMissingReleaseSuccess(
+  operations: readonly { name: string; intervalMs: number }[],
+  heartbeats: ReadonlyMap<string, ScheduledOperationReleaseHeartbeatSnapshot>,
+  releaseStartedAt: Date,
+  now = new Date(),
+): string[] {
+  return operations.flatMap((operation) => {
+    const heartbeat = heartbeats.get(operation.name);
+    const successfulSinceRelease = Boolean(
+      heartbeat?.lastStartedAt
+      && heartbeat.lastStartedAt.getTime() >= releaseStartedAt.getTime()
+      && heartbeat.lastSuccessfulAt
+      && heartbeat.lastSuccessfulAt.getTime() >= releaseStartedAt.getTime()
+      && heartbeat.lastOutcome === "SUCCEEDED"
+      && scheduledOperationHealth(operation.intervalMs, heartbeat, now) === "healthy",
+    );
+    return successfulSinceRelease ? [] : [operation.name];
+  });
 }
 
 export function scheduledOperationsPlan() {

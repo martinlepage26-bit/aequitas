@@ -10,6 +10,7 @@ type DeployOptions = {
   appHealthy?: boolean;
   schedulerExists?: boolean;
   schedulerState?: "running" | "exited";
+  schedulerReady?: boolean;
 };
 
 function writeExecutable(path: string, contents: string) {
@@ -51,6 +52,9 @@ function runDeployment(options: DeployOptions = {}) {
     "  'inspect --format {{.State.Status}} aeq-prod-scheduler')",
     "    printf '%s\\n' \"$DEPLOY_TEST_SCHEDULER_STATE\"",
     "    ;;",
+    "  'compose -p aeq-prod --profile scheduled exec -T -e SCHEDULER_READY_SINCE='*' scheduler node node_modules/tsx/dist/cli.mjs scripts/verify-scheduled-ops.ts')",
+    "    if [ \"$DEPLOY_TEST_SCHEDULER_READY\" != 'true' ]; then exit 1; fi",
+    "    ;;",
     "esac",
   ].join("\n"));
 
@@ -64,6 +68,7 @@ function runDeployment(options: DeployOptions = {}) {
       DEPLOY_TEST_APP_HEALTHY: String(options.appHealthy ?? true),
       DEPLOY_TEST_SCHEDULER_EXISTS: String(options.schedulerExists ?? false),
       DEPLOY_TEST_SCHEDULER_STATE: options.schedulerState ?? "running",
+      DEPLOY_TEST_SCHEDULER_READY: String(options.schedulerReady ?? true),
     },
   });
   const calls = readFileSync(log, "utf8").trim().split("\n").filter(Boolean);
@@ -77,9 +82,10 @@ describe("CT920 deployment scheduled operations", () => {
     const schedulerStart = result.calls.indexOf("compose -p aeq-prod --profile scheduled up -d scheduler");
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("scheduled operations started");
+    expect(result.stdout).toContain("scheduled operations are healthy on release synthetic-release");
     expect(schedulerStart).toBeGreaterThan(-1);
     expect(result.calls.lastIndexOf("curl")).toBeLessThan(schedulerStart);
+    expect(result.calls.some((call) => call.includes("scripts/verify-scheduled-ops.ts"))).toBe(true);
   });
 
   it("stops an existing worker before migrations and restarts it on the verified release", () => {
@@ -108,5 +114,13 @@ describe("CT920 deployment scheduled operations", () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("scheduled operations did not start");
+  });
+
+  it("fails deployment when either scheduled operation does not pass its release heartbeat", () => {
+    const result = runDeployment({ schedulerReady: false });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain("scheduled operations are healthy");
+    expect(result.calls.some((call) => call.includes("scripts/verify-scheduled-ops.ts"))).toBe(true);
   });
 });
