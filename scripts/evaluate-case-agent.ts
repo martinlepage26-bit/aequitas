@@ -150,7 +150,9 @@ async function main() {
     model = resolved.model;
   } else {
     // Stub: answers from the ids in the prompt so the harness can be exercised offline.
-    model = { provider: "stub", model: "harness-self-test", async complete(prompt: string) {
+    model = { provider: "stub", model: "harness-self-test", async complete(prompt: string, systemInstruction?: string) {
+      // Fail if the shipped rules stop reaching the provider separately from the untrusted case data.
+      if (!systemInstruction?.includes("untrusted data")) throw new Error("The case-agent system instruction was not supplied.");
       const material = JSON.parse(prompt).untrusted_case_material;
       const c = material.complainant.evidence[0];
       const r = material.respondent.evidence[0];
