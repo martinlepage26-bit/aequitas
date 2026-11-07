@@ -4,8 +4,17 @@
 # not anonymous Docker Hub (Docker Hub returned 429s on Oct 9 builds).
 # Node major follows .nvmrc (22).
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim
+ARG NPM_VERSION=11.19.1
 
-FROM ${NODE_IMAGE} AS deps
+FROM ${NODE_IMAGE} AS node-base
+ARG NPM_VERSION
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates openssl \
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install --global "npm@${NPM_VERSION}" --no-audit --no-fund
+
+FROM node-base AS deps
 WORKDIR /app
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY package.json package-lock.json prisma.config.ts ./
@@ -21,7 +30,7 @@ RUN npx prisma generate && npm run build
 # stage installs its own locked, dev-omitted node_modules below.
 RUN rm -rf node_modules
 
-FROM ${NODE_IMAGE} AS production-deps
+FROM node-base AS production-deps
 WORKDIR /app
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY package.json package-lock.json prisma.config.ts ./
@@ -31,11 +40,11 @@ COPY prisma ./prisma
 # out of the customer-facing app and scheduler image.
 RUN npm ci --omit=dev --no-audit --no-fund
 
-FROM ${NODE_IMAGE} AS runtime
+FROM node-base AS runtime
 # Same OS packages Railway installs via RAILPACK_DEPLOY_APT_PACKAGES
 # (PDF text extraction + OCR in eng/fra).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra ca-certificates \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0

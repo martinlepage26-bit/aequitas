@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install --global npm@11
+      - run: npm install --global npm@11.19.1
       - run: npm ci
       - name: Audit dependencies for high-severity vulnerabilities
         run: npm run audit
@@ -92,6 +92,7 @@ jobs:
         run: |
           docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
           docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
+            test "$(npm --version)" = "11.19.1"
             for binary in pdftotext pdfimages pdftoppm tesseract; do
               command -v "$binary"
             done
@@ -99,7 +100,28 @@ jobs:
             tesseract --list-langs 2>/dev/null | grep -Fx fra
             test -f /app/scripts/scheduled-ops.ts
             test -f /app/node_modules/tsx/dist/cli.mjs
+            DATABASE_URL=postgresql://build:build@localhost:5432/build ./node_modules/.bin/prisma -v | grep -F "openssl-3.0.x"
           '
+
+      - name: Generate production image dependency inventory
+        run: |
+          docker run --rm --entrypoint npm aequitas-ci-runtime sbom --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-runtime-node.spdx.json"
+          docker run --rm --entrypoint dpkg-query aequitas-ci-runtime -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-runtime-os-packages.txt"
+          {
+            printf 'source_sha=%s\n' "$GITHUB_SHA"
+            docker image inspect --format='image_id={{.Id}}' aequitas-ci-runtime
+            docker image inspect --format='architecture={{.Architecture}}' aequitas-ci-runtime
+          } > "$RUNNER_TEMP/aequitas-runtime-image.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aequitas-runtime-inventory-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/aequitas-runtime-node.spdx.json
+            ${{ runner.temp }}/aequitas-runtime-os-packages.txt
+            ${{ runner.temp }}/aequitas-runtime-image.txt
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
