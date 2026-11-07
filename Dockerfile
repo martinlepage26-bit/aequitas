@@ -17,6 +17,19 @@ FROM deps AS build
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate && npm run build
+# Do not copy the build-stage dependency tree into runtime. The production
+# stage installs its own locked, dev-omitted node_modules below.
+RUN rm -rf node_modules
+
+FROM ${NODE_IMAGE} AS production-deps
+WORKDIR /app
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma ./prisma
+# The deployment image needs Prisma CLI for migrations and tsx for scheduled
+# operations; those are declared as runtime dependencies. Keep dev/test tools
+# out of the customer-facing app and scheduler image.
+RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM ${NODE_IMAGE} AS runtime
 # Same OS packages Railway installs via RAILPACK_DEPLOY_APT_PACKAGES
@@ -27,6 +40,7 @@ RUN apt-get update \
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app ./
+COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 RUN mkdir -p /data/evidence && chown -R node:node /data
 # Deploy-set release: the deploy script passes `git rev-parse HEAD`.
 ARG RELEASE_SHA=""

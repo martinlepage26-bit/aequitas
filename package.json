@@ -46,8 +46,10 @@
     "next-intl": "^4.13.6",
     "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
+    "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
     "zod": "^4.6.6"
   },
   "devDependencies": {
@@ -61,8 +63,6 @@
     "@vitest/coverage-v8": "4.1.12",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
-    "prisma": "^7.9.1",
-    "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "vitest": "4.1.12"
   },
