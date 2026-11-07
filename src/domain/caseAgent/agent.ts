@@ -536,6 +536,10 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   if (!preflight.caseRow.agentManaged || preflight.caseRow.state !== "POSITIONS") return { status: "stale" };
   if (preflight.openContestations > 0) return escalate("contestation_open");
   if (materialDigest(preflight, evidenceSources) !== digest) return { status: "stale" };
+  const handoffWasRecorded = async () => {
+    const latest = await prisma.case.findUnique({ where: { id: row.id }, select: { agentEscalatedAt: true } });
+    return Boolean(latest?.agentEscalatedAt);
+  };
 
   let modelCallReserved = false;
   try {
@@ -545,6 +549,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     return escalate("model_budget_unavailable");
   }
   if (!modelCallReserved) return escalate("daily_model_call_limit_reached");
+  if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
   let raw: string;
   try {
     if (input.model.completeWithJsonSchema) {
@@ -553,8 +558,12 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
       raw = await input.model.complete(prompt.userContent, prompt.systemInstruction);
     }
   } catch {
+    if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
     return escalate("model_failed");
   }
+  // The party can request a person while the provider is processing. It may
+  // finish work on already-sent data, but this run must not create an outcome.
+  if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
   const context = buildCaseAgentOutputContext(first, evidenceSources);
   const checked = checkAgentOutput(raw, context);
   if (!checked.ok) return escalate(checked.escalation);
@@ -677,7 +686,13 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
         };
       },
     });
-    if (!result.ok) return escalate("model_output_rejected");
+    if (!result.ok) {
+      // A party may have requested a person while the provider call was in
+      // flight. The write guard refuses the result; preserve that handoff
+      // instead of reporting a model-output failure.
+      if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
+      return escalate("model_output_rejected");
+    }
     const after = await prisma.case.findUniqueOrThrow({ where: { id: row.id }, select: { currentRecommendationId: true } });
     return { status: "issued", recommendationId: after.currentRecommendationId! };
   } catch (error) {

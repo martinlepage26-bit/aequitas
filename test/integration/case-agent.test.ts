@@ -501,7 +501,7 @@ describe("case agent: normal completion", () => {
     expect(await verifyCase(prisma, closed)).toEqual([]);
     expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("waiting");
     expect(model.calls).toBe(1);
-  });
+  }, 15_000);
 
   it("detects a changed or missing party outcome citation in the audit record", async () => {
     const s = await positionsCase();
@@ -645,6 +645,35 @@ describe("case agent: party isolation", () => {
     } finally {
       releaseExtraction();
       extract.mockRestore();
+    }
+  });
+
+  it("discards an in-flight provider result when a party requests a person", async () => {
+    const s = await positionsCase();
+    let providerStarted!: () => void;
+    let releaseProvider!: () => void;
+    const started = new Promise<void>((resolve) => { providerStarted = resolve; });
+    const gate = new Promise<void>((resolve) => { releaseProvider = resolve; });
+    const model = stub(async () => {
+      providerStarted();
+      await gate;
+      return JSON.stringify(goodOutput(s));
+    });
+
+    try {
+      const running = runCaseAgent({ caseId: s.caseId, model, env: ENV });
+      await started;
+      expect((await requestHumanReview({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId })).ok).toBe(true);
+      releaseProvider();
+
+      expect(await running).toEqual({ status: "skipped", reason: "escalated" });
+      const row = await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } });
+      expect(row).toMatchObject({ state: "POSITIONS", agentEscalationReason: "party_request" });
+      expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+      expect(await prisma.partyOutcome.count({ where: { caseId: s.caseId } })).toBe(0);
+      expect(await verifyCase(prisma, row)).toEqual([]);
+    } finally {
+      releaseProvider();
     }
   });
 

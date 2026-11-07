@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { caseAgentProcessingDisclosure, processingConsentMatches } from "../../src/domain/caseAgent/processingConsent";
+import {
+  CASE_AGENT_PROCESSING_HANDOFF_NOTICE_EN,
+  CASE_AGENT_PROCESSING_HANDOFF_NOTICE_FR,
+  caseAgentProcessingDisclosure,
+  processingConsentMatches,
+} from "../../src/domain/caseAgent/processingConsent";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 
 const env: Record<string, string | undefined> = {
@@ -20,16 +25,16 @@ describe("case-agent processing choice", () => {
       modelName: "gemini-3.8-flash",
       processingRegion: null,
       promptVersion: AGENT_PROMPT_VERSION,
-      noticeEn: env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN,
-      noticeFr: env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR,
+      noticeEn: `${env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN}\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_EN}`,
+      noticeFr: `${env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR}\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_FR}`,
     });
     if (!disclosure) throw new Error("Synthetic disclosure should be configured.");
     expect(disclosure.noticeHash).toBe(createHash("sha256").update(JSON.stringify({
       providerIdentity: "gemini:synthetic-project:gemini-3.8-flash",
       accountOrProjectId: "synthetic-project",
       promptVersion: AGENT_PROMPT_VERSION,
-      noticeEn: "Synthetic English notice.",
-      noticeFr: "Avis synthétique en français.",
+      noticeEn: `Synthetic English notice.\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_EN}`,
+      noticeFr: `Avis synthétique en français.\n\n${CASE_AGENT_PROCESSING_HANDOFF_NOTICE_FR}`,
     })).digest("hex"));
 
     const accepted = {
@@ -40,6 +45,7 @@ describe("case-agent processing choice", () => {
       locale: "fr-CA",
     };
     expect(processingConsentMatches(accepted, disclosure)).toBe(true);
+    expect(processingConsentMatches({ ...accepted, noticeText: env.AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR }, disclosure)).toBe(false);
     expect(processingConsentMatches({ ...accepted, noticeText: disclosure.noticeEn }, disclosure)).toBe(false);
     expect(processingConsentMatches({ ...accepted, locale: "es-ES" }, disclosure)).toBe(false);
 
