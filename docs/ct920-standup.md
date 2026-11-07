@@ -7,15 +7,20 @@ its GitHub source disconnected. Railway Postgres and ClamAV remain available
 for the agreed rollback window; do not shut them down without Martin's
 separate approval.
 
-**Latest read-only check, 2026-11-07 16:56 UTC:** CT920's clean deployment
-checkout is still at `d74ed342693a96a6dc75d8907d288131c0148385`; the app
-container is healthy on that image. No case-agent scheduler container, matching
-user cron entry, or matching user timer was found. The current state of
-Railway's app, database, write traffic, and rollback readiness was not verified.
-Treat the October 16 Railway statements below as historical, not current
-operational evidence. Do not use Railway as a migration source or failback until
-its live service and data lineage are independently verified. This runbook does
-not authorize a deployment or cutover.
+**Latest read-only check, 2026-11-07 19:20 UTC:** CT920's clean deployment
+checkout remains at `d74ed342693a96a6dc75d8907d288131c0148385`; `aeq-prod-app`
+is healthy on that image and the loopback health endpoint reports the same SHA.
+Postgres and ClamAV are healthy. No `aeq-prod` scheduler container or matching
+user systemd timer was found; the only matching user crontab entry is the 03:15
+off-box backup job. No case-agent or notification schedule was found in that
+user crontab. This deployed image predates PR 14's case-agent code and cannot
+run it. An external scheduler is not ruled out. Public routing, production
+migration state, database contents, Railway's current app/database/write state,
+and rollback readiness were not verified. Treat the October 16 Railway
+statements below as historical, not current operational evidence. Do not use
+Railway as a migration source or failback until its live service and data
+lineage are independently verified. This runbook does not authorize a
+deployment or cutover.
 
 ## What runs
 
