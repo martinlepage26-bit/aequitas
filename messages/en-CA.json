@@ -957,7 +957,7 @@
       },
       "consent": {
         "title": "Choose whether to consent",
-        "description": "Each party decides explicitly. A proposed outcome becomes an agreement only with both parties' consent."
+        "description": "Each party decides explicitly. A proposal becomes an agreement only with both parties' consent. Under the standard rules, a separate approver must also sign off before the case closes; a program can waive that step only by explicitly enabling consent-only resolution."
       }
     },
     "submissions": {
@@ -1017,7 +1017,7 @@
       "intake": { "title": "Intake and invitation", "description": "Program rules check the case, then the respondent is invited." },
       "evidence": { "title": "Evidence and positions", "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff." },
       "proposal": { "title": "A cited proposal", "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list." },
-      "choice": { "title": "Each person chooses", "description": "Both parties may consent. A decline, request for a person or uncertainty returns the case to program staff." }
+      "choice": { "title": "Each person chooses", "description": "Both parties may consent. Under the standard rules, the case closes only after their consent and separate approver sign-off. A program can skip sign-off only by explicitly enabling consent-only resolution. Declines, requests for a person and uncertainty return the case to program staff." }
     },
     "handoffTitle": "When a person needs to review",
     "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",

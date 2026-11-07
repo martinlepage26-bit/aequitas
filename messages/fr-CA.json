@@ -957,7 +957,7 @@
       },
       "consent": {
         "title": "Choisir de consentir",
-        "description": "Chaque partie décide explicitement. Un résultat proposé devient un accord seulement avec le consentement des deux parties."
+        "description": "Chaque partie décide explicitement. Une proposition ne devient un accord qu'avec le consentement des deux parties. Selon les règles standard, un approbateur distinct doit aussi approuver la recommandation avant la fermeture du dossier; le programme ne peut omettre cette étape qu'en activant explicitement le règlement par consentement seulement."
       }
     },
     "submissions": {
@@ -1017,7 +1017,7 @@
       "intake": { "title": "Ouverture et invitation", "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation." },
       "evidence": { "title": "Preuves et positions", "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel." },
       "proposal": { "title": "Une proposition avec citations", "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions." },
-      "choice": { "title": "Chaque personne choisit", "description": "Les deux parties peuvent consentir. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel." }
+      "choice": { "title": "Chaque personne choisit", "description": "Les deux parties peuvent consentir. Selon les règles standard, le dossier se ferme seulement après leur consentement et l'approbation distincte. Le programme ne peut omettre l'approbation qu'en activant explicitement le règlement par consentement seulement. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel." }
     },
     "handoffTitle": "Quand une personne doit examiner le dossier",
     "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
