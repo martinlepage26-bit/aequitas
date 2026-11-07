@@ -21,6 +21,7 @@ export type CaseAgentPanelProps = {
     providerName: string;
     accountOrProjectId: string;
     modelName: string;
+    processingRegion: string | null;
     notice: string;
     noticeHash: string;
     locale: "en-CA" | "fr-CA";
@@ -72,6 +73,7 @@ export default function CaseAgentPanel(props: CaseAgentPanelProps) {
             <div id="case-agent-processing-choice" aria-labelledby="case-agent-processing-title">
               <h3 id="case-agent-processing-title">{t("processingTitle")}</h3>
               <p>{t("processingProvider", { provider: props.processingChoice.providerName, account: props.processingChoice.accountOrProjectId, model: props.processingChoice.modelName })}</p>
+              {props.processingChoice.processingRegion && <p>{t("processingRegion", { region: props.processingChoice.processingRegion })}</p>}
               <p>{t("processingIntro")}</p>
               <blockquote>{props.processingChoice.notice}</blockquote>
               {props.processingChoice.accepted

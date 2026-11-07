@@ -10,8 +10,9 @@ export type CaseAgentProcessingDisclosure = {
   providerIdentity: string;
   accountOrProjectId: string;
   promptVersion: string;
-  providerName: "Google Gemini" | "Cloudflare Workers AI";
+  providerName: "Google Gemini" | "Google Cloud Vertex AI" | "Cloudflare Workers AI";
   modelName: string;
+  processingRegion: string | null;
   noticeHash: string;
   noticeEn: string;
   noticeFr: string;
@@ -32,8 +33,11 @@ export function caseAgentProcessingDisclosure(
     || noticeEn.length > MAX_PROCESSING_NOTICE_CHARACTERS
     || noticeFr.length > MAX_PROCESSING_NOTICE_CHARACTERS) return null;
 
-  const [provider, accountOrProjectId, ...modelParts] = providerIdentity.split(":");
-  if (provider !== "gemini" && provider !== "workers-ai") return null;
+  const [provider, accountOrProjectId, ...details] = providerIdentity.split(":");
+  if (provider !== "gemini" && provider !== "workers-ai" && provider !== "vertex-ai") return null;
+  const processingRegion = provider === "vertex-ai" ? details.shift() ?? null : null;
+  if (provider === "vertex-ai" && !processingRegion) return null;
+  const modelParts = details;
   const modelName = modelParts.join(":");
   if (!accountOrProjectId || !modelName) return null;
 
@@ -50,8 +54,9 @@ export function caseAgentProcessingDisclosure(
     providerIdentity,
     accountOrProjectId,
     promptVersion,
-    providerName: provider === "gemini" ? "Google Gemini" : "Cloudflare Workers AI",
+    providerName: provider === "gemini" ? "Google Gemini" : provider === "vertex-ai" ? "Google Cloud Vertex AI" : "Cloudflare Workers AI",
     modelName,
+    processingRegion,
     noticeHash,
     noticeEn,
     noticeFr,

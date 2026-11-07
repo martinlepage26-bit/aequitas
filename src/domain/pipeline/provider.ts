@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 import { PIPELINE_OFF_REASON, pipelineEnabled } from "./flag";
 
 /** Current Flash model with a free tier on Google AI Studio, confirmed 2026-10-09. */
@@ -5,8 +6,12 @@ export const GEMINI_FLASH_MODEL = "gemini-3.8-flash";
 
 /** Current Workers AI evaluation candidate; review the model catalog before use. */
 export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+/** Current Google Cloud model with documented ML processing at its Montréal regional endpoint. */
+export const VERTEX_CANADA_MODEL = "gemini-3.5-flash";
+export const VERTEX_CANADA_LOCATION = "northamerica-northeast1";
 const WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 const GEMINI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
+const VERTEX_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 
 /** JSON Schema subset accepted by Gemini's structured text response format. */
 const GEMINI_JSON_SCHEMA_KEYS = new Set([
@@ -38,6 +43,32 @@ export interface TextCompletionWithUsage {
   text: string;
   usage?: TextCompletionUsage;
 }
+
+type VertexGenerateConfig = {
+  temperature?: number;
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+  responseJsonSchema?: unknown;
+  systemInstruction?: string;
+  automaticContinuation?: boolean;
+};
+
+type VertexGenerateInput = { model: string; contents: string; config?: VertexGenerateConfig };
+
+type VertexGenerateResponse = {
+  text?: string;
+  usageMetadata?: { promptTokenCount?: unknown; candidatesTokenCount?: unknown; totalTokenCount?: unknown };
+};
+
+export type VertexAiClient = {
+  models: { generateContent(input: VertexGenerateInput): Promise<VertexGenerateResponse> };
+};
+
+export type VertexAiClientFactory = (input: {
+  project: string;
+  location: string;
+  fetchImpl: typeof fetch;
+}) => VertexAiClient;
 
 function tokenCount(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
@@ -230,9 +261,85 @@ function workersModel(accountId: string, token: string, model: string, fetchImpl
   };
 }
 
+function defaultVertexAiClientFactory(input: Parameters<VertexAiClientFactory>[0]): VertexAiClient {
+  return new GoogleGenAI({
+    vertexai: true,
+    project: input.project,
+    location: input.location,
+    apiVersion: "v1",
+    httpOptions: {
+      timeout: 30_000,
+      retryOptions: { attempts: 1 },
+      fetch: input.fetchImpl,
+    },
+  }) as unknown as VertexAiClient;
+}
+
+function vertexAiModel(
+  projectId: string,
+  location: string,
+  model: string,
+  fetchImpl: typeof fetch,
+  clientFactory: VertexAiClientFactory,
+): TextCompletion {
+  const client = clientFactory({ project: projectId, location, fetchImpl });
+
+  async function requestCompletion(
+    prompt: string,
+    systemInstruction: string | undefined,
+    schema?: Record<string, unknown>,
+  ): Promise<TextCompletionWithUsage> {
+    const response = await client.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        temperature: 0,
+        maxOutputTokens: VERTEX_STRUCTURED_OUTPUT_MAX_TOKENS,
+        responseMimeType: "application/json",
+        automaticContinuation: false,
+        ...(systemInstruction ? { systemInstruction } : {}),
+        ...(schema ? { responseJsonSchema: geminiStructuredSchema(schema) } : {}),
+      },
+    });
+    const text = response.text ?? "";
+    if (!text.trim()) throw new Error("Google Cloud Vertex AI returned an empty response.");
+    return {
+      text,
+      usage: usageCounts(
+        response.usageMetadata?.promptTokenCount,
+        response.usageMetadata?.candidatesTokenCount,
+        response.usageMetadata?.totalTokenCount,
+      ),
+    };
+  }
+
+  async function completeWithJsonSchema(
+    prompt: string,
+    schema: Record<string, unknown>,
+    systemInstruction?: string,
+  ): Promise<TextCompletionWithUsage> {
+    return requestCompletion(prompt, systemInstruction, schema);
+  }
+
+  async function completeWithUsage(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage> {
+    return requestCompletion(prompt, systemInstruction);
+  }
+
+  return {
+    provider: "vertex-ai",
+    model,
+    completeWithJsonSchema,
+    completeWithUsage,
+    async complete(prompt: string, systemInstruction?: string) {
+      return (await completeWithUsage(prompt, systemInstruction)).text;
+    },
+  };
+}
+
 export function resolveFreeTextModel(
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
   fetchImpl: typeof fetch = fetch,
+  vertexClientFactory: VertexAiClientFactory = defaultVertexAiClientFactory,
 ): { ok: true; model: TextCompletion } | { ok: false; reason: string } {
   if (!pipelineEnabled(env)) return { ok: false, reason: PIPELINE_OFF_REASON };
   const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
@@ -254,8 +361,21 @@ export function resolveFreeTextModel(
     }
     return { ok: true, model: workersModel(accountId, token, model, fetchImpl) };
   }
+  if (provider === "vertex-ai") {
+    const projectId = env.AEQUITAS_VERTEX_PROJECT_ID?.trim();
+    if (!projectId) return { ok: false, reason: "Set AEQUITAS_VERTEX_PROJECT_ID for the Google Cloud project that owns the Vertex AI configuration." };
+    const location = env.AEQUITAS_VERTEX_LOCATION?.trim() || VERTEX_CANADA_LOCATION;
+    if (location !== VERTEX_CANADA_LOCATION) {
+      return { ok: false, reason: `The reviewed Canada route requires AEQUITAS_VERTEX_LOCATION=${VERTEX_CANADA_LOCATION}.` };
+    }
+    const model = env.AEQUITAS_VERTEX_MODEL?.trim() || VERTEX_CANADA_MODEL;
+    if (model !== VERTEX_CANADA_MODEL) {
+      return { ok: false, reason: `The reviewed Montréal route currently supports only AEQUITAS_VERTEX_MODEL=${VERTEX_CANADA_MODEL}.` };
+    }
+    return { ok: true, model: vertexAiModel(projectId, location, model, fetchImpl, vertexClientFactory) };
+  }
   if (provider !== "gemini") {
-    return { ok: false, reason: "AEQUITAS_PIPELINE_PROVIDER must be gemini or workers-ai." };
+    return { ok: false, reason: "AEQUITAS_PIPELINE_PROVIDER must be gemini, vertex-ai or workers-ai." };
   }
   const apiKey = env.GEMINI_API_KEY?.trim() || env.GOOGLE_AI_API_KEY?.trim();
   if (!apiKey) {
@@ -280,6 +400,13 @@ export function caseDataProviderApprovalIdentity(env: Record<string, string | un
     const model = env.AEQUITAS_WORKERS_AI_MODEL?.trim() || WORKERS_AI_MODEL;
     return accountId && model ? `workers-ai:${accountId}:${model}` : null;
   }
+  if (provider === "vertex-ai") {
+    const projectId = env.AEQUITAS_VERTEX_PROJECT_ID?.trim();
+    const location = env.AEQUITAS_VERTEX_LOCATION?.trim() || VERTEX_CANADA_LOCATION;
+    const model = env.AEQUITAS_VERTEX_MODEL?.trim() || VERTEX_CANADA_MODEL;
+    if (!projectId || location !== VERTEX_CANADA_LOCATION || model !== VERTEX_CANADA_MODEL) return null;
+    return `vertex-ai:${projectId}:${location}:${model}`;
+  }
   return null;
 }
 
@@ -293,6 +420,7 @@ export function caseDataProviderApprovalIdentity(env: Record<string, string | un
 export function resolveCaseDataModel(
   env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
   fetchImpl: typeof fetch = fetch,
+  vertexClientFactory: VertexAiClientFactory = defaultVertexAiClientFactory,
 ): { ok: true; model: TextCompletion } | { ok: false; reason: string } {
   const identity = caseDataProviderApprovalIdentity(env);
   if (!identity) {
@@ -303,7 +431,10 @@ export function resolveCaseDataModel(
     if (provider === "workers-ai" || provider === "cloudflare") {
       return { ok: false, reason: "Set CLOUDFLARE_ACCOUNT_ID and the selected Workers AI model before approving case-data processing." };
     }
-    return { ok: false, reason: "Select Gemini or Workers AI before approving case-data processing." };
+    if (provider === "vertex-ai") {
+      return { ok: false, reason: `Set AEQUITAS_VERTEX_PROJECT_ID and use ${VERTEX_CANADA_LOCATION}/${VERTEX_CANADA_MODEL} before approving Vertex AI case-data processing.` };
+    }
+    return { ok: false, reason: "Select Gemini, Vertex AI or Workers AI before approving case-data processing." };
   }
   const provider = (env.AEQUITAS_PIPELINE_PROVIDER ?? "gemini").trim().toLowerCase();
   if (env.AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR?.trim() !== identity) {
@@ -315,7 +446,10 @@ export function resolveCaseDataModel(
       return { ok: false, reason: "Confirm the exact Gemini API-key project has active billing and Paid Tier terms; set AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR to that project ID after checking it." };
     }
   }
-  return resolveFreeTextModel(env, fetchImpl);
+  if (provider === "vertex-ai" && env.AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR?.trim() !== identity) {
+    return { ok: false, reason: "Review the exact Vertex AI project's Canada processing, retention, caching and request-log settings; set AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR to the provider identity after review." };
+  }
+  return resolveFreeTextModel(env, fetchImpl, vertexClientFactory);
 }
 
 export function freeModelConfigured(env?: Record<string, string | undefined>): boolean {

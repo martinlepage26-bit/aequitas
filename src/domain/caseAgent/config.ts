@@ -57,7 +57,7 @@ export function caseAgentProgram(env: Env = process.env): { ok: true; program: C
     noticeEn && noticeEn.length > MAX_PROCESSING_NOTICE_CHARACTERS && `${PROCESSING_NOTICE_EN_ENV} (max ${MAX_PROCESSING_NOTICE_CHARACTERS} characters)`,
     !noticeFr && PROCESSING_NOTICE_FR_ENV,
     noticeFr && noticeFr.length > MAX_PROCESSING_NOTICE_CHARACTERS && `${PROCESSING_NOTICE_FR_ENV} (max ${MAX_PROCESSING_NOTICE_CHARACTERS} characters)`,
-    !processingDisclosure && "configured Gemini project or Workers AI account and model",
+    !processingDisclosure && "configured Gemini project, Vertex AI project/region/model, or Workers AI account and model",
   ].filter((v): v is string => Boolean(v));
   if (missing.length > 0) return { ok: false, missing };
   return { ok: true, program: { maxAmountCents: maxAmountCents!, maxModelCallsPerUtcDay: maxModelCallsPerUtcDay!, intakeDays: intakeDays!, responseDays: responseDays!, respondentMayWithdraw: withdraw === "true", consentOnlyResolution: consentOnly === "true", processingDisclosure: processingDisclosure! } };

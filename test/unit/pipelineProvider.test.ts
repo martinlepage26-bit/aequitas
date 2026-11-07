@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_OUTPUT_JSON_SCHEMA } from "../../src/domain/caseAgent/output";
-import { GEMINI_FLASH_MODEL, WORKERS_AI_MODEL, resolveCaseDataModel, resolveFreeTextModel } from "../../src/domain/pipeline/provider";
+import {
+  GEMINI_FLASH_MODEL,
+  VERTEX_CANADA_LOCATION,
+  VERTEX_CANADA_MODEL,
+  WORKERS_AI_MODEL,
+  caseDataProviderApprovalIdentity,
+  resolveCaseDataModel,
+  resolveFreeTextModel,
+  type VertexAiClient,
+  type VertexAiClientFactory,
+} from "../../src/domain/pipeline/provider";
 import { pipelineEnabled } from "../../src/domain/pipeline/flag";
 
 describe("free pipeline provider", () => {
@@ -35,6 +45,95 @@ describe("free pipeline provider", () => {
     expect(workers.ok).toBe(true);
     if (workers.ok) expect(workers.model.model).toBe(WORKERS_AI_MODEL);
     expect(calls).toBe(0);
+  });
+
+  it("uses the Montréal Vertex AI route with bounded, single-request structured output", async () => {
+    let clientIdentity: { project: string; location: string } | undefined;
+    let latestRequest: Parameters<VertexAiClient["models"]["generateContent"]>[0] | undefined;
+    const factory: VertexAiClientFactory = (input) => {
+      clientIdentity = { project: input.project, location: input.location };
+      return {
+        models: {
+          async generateContent(request) {
+            latestRequest = request;
+            return {
+              text: "{\"ok\":true}",
+              usageMetadata: { promptTokenCount: 23, candidatesTokenCount: 9, totalTokenCount: 32 },
+            };
+          },
+        },
+      };
+    };
+    const configured = resolveFreeTextModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "vertex-ai",
+      AEQUITAS_VERTEX_PROJECT_ID: "synthetic-project",
+    }, fetch, factory);
+
+    expect(configured.ok).toBe(true);
+    if (!configured.ok) return;
+    expect(configured.model.provider).toBe("vertex-ai");
+    expect(configured.model.model).toBe(VERTEX_CANADA_MODEL);
+    await expect(configured.model.completeWithJsonSchema?.("synthetic prompt", {
+      $schema: "not-sent",
+      type: "object",
+      properties: { reason: { type: "string", pattern: "^supported", minLength: 2 } },
+      required: ["reason"],
+      additionalProperties: false,
+    }, "Keep the system instruction separate.")).resolves.toEqual({
+      text: "{\"ok\":true}",
+      usage: { promptTokens: 23, completionTokens: 9, totalTokens: 32 },
+    });
+    expect(clientIdentity).toEqual({ project: "synthetic-project", location: VERTEX_CANADA_LOCATION });
+    expect(latestRequest).toMatchObject({
+      model: VERTEX_CANADA_MODEL,
+      contents: "synthetic prompt",
+      config: {
+        temperature: 0,
+        maxOutputTokens: 16_000,
+        responseMimeType: "application/json",
+        automaticContinuation: false,
+        systemInstruction: "Keep the system instruction separate.",
+        responseJsonSchema: {
+          type: "object",
+          properties: { reason: { type: "string" } },
+          required: ["reason"],
+          additionalProperties: false,
+        },
+      },
+    });
+  });
+
+  it("requires separate provider-terms and exact Vertex data-handling review before case data", () => {
+    const env = {
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      AEQUITAS_PIPELINE_PROVIDER: "vertex-ai",
+      AEQUITAS_VERTEX_PROJECT_ID: "synthetic-project",
+    };
+    const identity = `vertex-ai:synthetic-project:${VERTEX_CANADA_LOCATION}:${VERTEX_CANADA_MODEL}`;
+    expect(caseDataProviderApprovalIdentity(env)).toBe(identity);
+    expect(resolveCaseDataModel(env).ok).toBe(false);
+    expect(resolveCaseDataModel({
+      ...env,
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: identity,
+    }).ok).toBe(false);
+    expect(resolveCaseDataModel({
+      ...env,
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: identity,
+      AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR: identity,
+    }).ok).toBe(true);
+    expect(resolveCaseDataModel({
+      ...env,
+      AEQUITAS_VERTEX_LOCATION: "us-central1",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: identity,
+      AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR: identity,
+    }).ok).toBe(false);
+    expect(resolveCaseDataModel({
+      ...env,
+      AEQUITAS_VERTEX_MODEL: "gemini-3.8-flash",
+      AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: identity,
+      AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR: identity,
+    }).ok).toBe(false);
   });
 
   it("fails closed for case data until provider terms and Gemini's paid tier are confirmed", () => {

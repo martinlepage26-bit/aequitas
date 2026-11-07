@@ -113,6 +113,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         providerName: agentProgram.program.processingDisclosure.providerName,
         accountOrProjectId: agentProgram.program.processingDisclosure.accountOrProjectId,
         modelName: agentProgram.program.processingDisclosure.modelName,
+        processingRegion: agentProgram.program.processingDisclosure.processingRegion,
         notice: locale === "fr-CA" ? agentProgram.program.processingDisclosure.noticeFr : agentProgram.program.processingDisclosure.noticeEn,
         noticeHash: agentProgram.program.processingDisclosure.noticeHash,
         locale: locale === "fr-CA" ? "fr-CA" as const : "en-CA" as const,

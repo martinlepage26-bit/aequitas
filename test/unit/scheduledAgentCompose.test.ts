@@ -43,6 +43,10 @@ describe("CT920 scheduled case-agent configuration", () => {
       "GEMINI_API_KEY",
       "GOOGLE_AI_API_KEY",
       "GEMINI_MODEL",
+      "AEQUITAS_VERTEX_PROJECT_ID",
+      "AEQUITAS_VERTEX_LOCATION",
+      "AEQUITAS_VERTEX_MODEL",
+      "AEQUITAS_VERTEX_DATA_HANDLING_REVIEWED_FOR",
       "CLOUDFLARE_ACCOUNT_ID",
       "CLOUDFLARE_API_TOKEN",
       "AEQUITAS_WORKERS_AI_MODEL",
@@ -59,5 +63,10 @@ describe("CT920 scheduled case-agent configuration", () => {
     }
     expect(environment.has("SESSION_SECRET")).toBe(false);
     expect(environment.has("WEBAUTHN_RP_ID")).toBe(false);
+    expect(environment.get("GOOGLE_APPLICATION_CREDENTIALS")).toBe("/run/secrets/vertex_adc");
+
+    const compose = readFileSync(composePath, "utf8");
+    expect(compose).toContain("AEQUITAS_VERTEX_CREDENTIALS_HOST_FILE");
+    expect(compose).toContain("secrets: [vertex_adc]");
   });
 });
