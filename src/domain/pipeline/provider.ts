@@ -6,6 +6,14 @@ export const GEMINI_FLASH_MODEL = "gemini-3.8-flash";
 /** Current Workers AI evaluation candidate; review the model catalog before use. */
 export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 const WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
+const GEMINI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
+
+/** JSON Schema subset accepted by Gemini's structured text response format. */
+const GEMINI_JSON_SCHEMA_KEYS = new Set([
+  "$id", "$defs", "$ref", "$anchor", "type", "format", "title", "description",
+  "enum", "items", "prefixItems", "minItems", "maxItems", "minimum", "maximum",
+  "anyOf", "oneOf", "properties", "additionalProperties", "required", "propertyOrdering",
+]);
 
 const PAID_PROVIDERS = new Set(["anthropic", "openai", "claude"]);
 
@@ -47,8 +55,35 @@ function usageCounts(input: unknown, output: unknown, total: unknown): TextCompl
   return Object.keys(usage).length ? usage : undefined;
 }
 
+/**
+ * Gemini accepts only a JSON Schema subset. Unsupported constraints are still
+ * enforced by the caller's local validator after generation; they are omitted
+ * here so the provider does not reject or silently misinterpret the schema.
+ */
+function geminiStructuredSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(geminiStructuredSchema);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, nested]) => {
+      if (!GEMINI_JSON_SCHEMA_KEYS.has(key)) return [];
+      // These keys map arbitrary property/definition names to child schemas;
+      // their names are data, not JSON Schema keywords.
+      if ((key === "properties" || key === "$defs") && nested && typeof nested === "object" && !Array.isArray(nested)) {
+        return [[key, Object.fromEntries(
+          Object.entries(nested).map(([name, child]) => [name, geminiStructuredSchema(child)]),
+        )]];
+      }
+      return [[key, geminiStructuredSchema(nested)]];
+    }),
+  );
+}
+
 function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): TextCompletion {
-  async function completeWithUsage(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage> {
+  async function requestCompletion(
+    prompt: string,
+    systemInstruction: string | undefined,
+    generationConfig: Record<string, unknown>,
+  ): Promise<TextCompletionWithUsage> {
     const response = await fetchImpl(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -57,7 +92,7 @@ function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): Te
         body: JSON.stringify({
           ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, responseMimeType: "application/json" },
+          generationConfig,
         }),
         signal: AbortSignal.timeout(30_000),
       },
@@ -74,9 +109,32 @@ function geminiModel(apiKey: string, model: string, fetchImpl: typeof fetch): Te
       usage: usageCounts(body.usageMetadata?.promptTokenCount, body.usageMetadata?.candidatesTokenCount, body.usageMetadata?.totalTokenCount),
     };
   }
+
+  async function completeWithUsage(prompt: string, systemInstruction?: string): Promise<TextCompletionWithUsage> {
+    return requestCompletion(prompt, systemInstruction, { temperature: 0, responseMimeType: "application/json" });
+  }
+
+  async function completeWithJsonSchema(
+    prompt: string,
+    schema: Record<string, unknown>,
+    systemInstruction?: string,
+  ): Promise<TextCompletionWithUsage> {
+    return requestCompletion(prompt, systemInstruction, {
+      temperature: 0,
+      maxOutputTokens: GEMINI_STRUCTURED_OUTPUT_MAX_TOKENS,
+      responseFormat: {
+        text: {
+          mimeType: "APPLICATION_JSON",
+          schema: geminiStructuredSchema(schema),
+        },
+      },
+    });
+  }
+
   return {
     provider: "gemini",
     model,
+    completeWithJsonSchema,
     completeWithUsage,
     async complete(prompt: string, systemInstruction?: string) { return (await completeWithUsage(prompt, systemInstruction)).text; },
   };

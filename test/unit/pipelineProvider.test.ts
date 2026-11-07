@@ -197,6 +197,63 @@ describe("free pipeline provider", () => {
     });
   });
 
+  it("uses Gemini structured output and removes schema keywords outside its supported subset", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    const geminiFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: '{"value":"synthetic result"}' }] } }],
+        usageMetadata: { promptTokenCount: 29, candidatesTokenCount: 11, totalTokenCount: 40 },
+      }), { status: 200 });
+    }) as typeof fetch;
+    const gemini = resolveFreeTextModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      GEMINI_API_KEY: "test-only",
+    }, geminiFetch);
+    expect(gemini.ok).toBe(true);
+    if (!gemini.ok) return;
+
+    await expect(gemini.model.completeWithJsonSchema?.("synthetic prompt", {
+      type: "object",
+      properties: {
+        value: { type: "string", minLength: 1, maxLength: 30, pattern: "^synthetic", description: "A value." },
+        count: { type: "integer", minimum: 0, maximum: 50, exclusiveMinimum: 0 },
+        labels: { type: "array", minItems: 1, maxItems: 4, items: { type: "string", pattern: "^[A-Z]+$" } },
+      },
+      required: ["value", "count", "labels"],
+      additionalProperties: false,
+      unsupportedRootKeyword: true,
+    }, "Keep rules separate.")).resolves.toEqual({
+      text: '{"value":"synthetic result"}',
+      usage: { promptTokens: 29, completionTokens: 11, totalTokens: 40 },
+    });
+
+    expect(requestBody).toEqual({
+      systemInstruction: { parts: [{ text: "Keep rules separate." }] },
+      contents: [{ role: "user", parts: [{ text: "synthetic prompt" }] }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 16_000,
+        responseFormat: {
+          text: {
+            mimeType: "APPLICATION_JSON",
+            schema: {
+              type: "object",
+              properties: {
+                value: { type: "string", description: "A value." },
+                count: { type: "integer", minimum: 0, maximum: 50 },
+                labels: { type: "array", minItems: 1, maxItems: 4, items: { type: "string" } },
+              },
+              required: ["value", "count", "labels"],
+              additionalProperties: false,
+            },
+          },
+        },
+      },
+    });
+  });
+
   it("refuses missing or unexpected Workers AI structured tool calls", async () => {
     for (const tool_calls of [[], [{ type: "function", function: { name: "other_tool", arguments: "{}" } }]]) {
       const fetchImpl = (async () => new Response(JSON.stringify({ choices: [{ message: { tool_calls } }] }), { status: 200 })) as typeof fetch;
