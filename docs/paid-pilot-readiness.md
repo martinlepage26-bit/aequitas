@@ -2,10 +2,11 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
-## Candidate verification (2026-11-07 22:07 UTC)
+## Candidate verification (2026-11-07 22:32 UTC)
 
-- PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, and mergeable into `ct920-standup`. Candidate head: `05b53333dac4007c92ed2c32dc533d98e9b3fabf` (`claude/fervent-turing-tb2bym`).
-- Full GitHub CI run [42418170723](https://github.com/martinlepage26-bit/aequitas/actions/runs/42418170723) passed on that exact head: dependency audit, migrations, operator status, lint, typecheck, locale and prohibited-term checks, storage and event-chain checks, full Vitest with isolated services, production build and runtime-image verification, both Playwright suites, and the six-fixture synthetic case-agent evaluation.
+- PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, and mergeable into `ct920-standup`. Candidate head: `0af1e27f087e862834c5a1409025c9dd2f1ba595` (`claude/fervent-turing-tb2bym`).
+- Full GitHub CI run [42420055828](https://github.com/martinlepage26-bit/aequitas/actions/runs/42420055828) passed on that exact head: dependency audit, migrations, operator status, lint, typecheck, locale and prohibited-term checks, storage and event-chain checks, full Vitest with isolated services, production build, production-image build/runtime verification, both Playwright suites, and the six-fixture synthetic case-agent evaluation.
+- Commit `0af1e27` separates build and production dependencies in the Docker image. Prisma CLI and `tsx` remain production dependencies for database migrations and scheduled operations; the image verifier confirms its OCR tools and scheduler entrypoint are present. This CI run does not verify a deployment to CT920.
 - Commit `05b5333` corrects a stale case-creation comment to match the separate respondent-invitation and configured email-delivery flow; it changes no runtime behavior.
 - A read-only source review of the current candidate confirmed the extraction and handoff path: stored size and SHA-256 are checked, unsupported/partial/unreadable evidence is handed to staff, both parties must accept the current provider notice before extraction or model transfer, and the case is re-read after extraction before any model call. This is source inspection, not live-provider or operational verification.
 - The CI verification uses synthetic fixtures and a stub model. No live provider call, real case data, production email, merge, or deployment occurred. The candidate is not approved for real pilot data.
