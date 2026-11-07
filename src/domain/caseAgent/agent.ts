@@ -515,6 +515,17 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
 
   const digest = materialDigest(first, evidenceSources);
   const prompt = buildCaseAgentPrompt(first, evidenceSources);
+
+  // Evidence extraction can take long enough for a party to hand the case to
+  // a person or for either party to update the file. Re-read both the handoff
+  // marker and the model input immediately before any external call; stale
+  // extracted material must never be sent on a later pass.
+  const preflight = await loadMaterial(input.caseId);
+  if (preflight.caseRow.agentEscalatedAt) return { status: "skipped", reason: "escalated" };
+  if (!preflight.caseRow.agentManaged || preflight.caseRow.state !== "POSITIONS") return { status: "stale" };
+  if (preflight.openContestations > 0) return escalate("contestation_open");
+  if (materialDigest(preflight, evidenceSources) !== digest) return { status: "stale" };
+
   let modelCallReserved = false;
   try {
     modelCallReserved = await reserveCaseAgentModelCall(program.maxModelCallsPerUtcDay, now);

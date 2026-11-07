@@ -592,6 +592,36 @@ describe("case agent: party isolation", () => {
     expect(types(s.respondentId)).not.toContain("AGENT_ESCALATED");
   });
 
+  it("does not send case material after a party requests a person during evidence extraction", async () => {
+    const s = await positionsCase();
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    const originalExtract = evidenceText.extractStoredEvidence;
+    const extract = vi.spyOn(evidenceText, "extractStoredEvidence");
+    let extractionStarted!: () => void;
+    let releaseExtraction!: () => void;
+    const started = new Promise<void>((resolve) => { extractionStarted = resolve; });
+    const gate = new Promise<void>((resolve) => { releaseExtraction = resolve; });
+    extract.mockImplementation(async (item) => {
+      extractionStarted();
+      await gate;
+      return originalExtract(item);
+    });
+
+    try {
+      const running = runCaseAgent({ caseId: s.caseId, model, env: ENV });
+      await started;
+      expect((await requestHumanReview({ actorId: s.complainantId, actorRole: "COMPLAINANT", caseId: s.caseId })).ok).toBe(true);
+      releaseExtraction();
+
+      expect(await running).toEqual({ status: "skipped", reason: "escalated" });
+      expect(model.calls).toBe(0);
+      expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+    } finally {
+      releaseExtraction();
+      extract.mockRestore();
+    }
+  });
+
   it("reports that the case closed when closure wins a race with a request for a person", async () => {
     const s = await positionsCase();
     expect((await runCaseAgent({ caseId: s.caseId, model: stub(() => JSON.stringify(goodOutput(s))), env: ENV })).status).toBe("issued");

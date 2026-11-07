@@ -675,7 +675,7 @@
       "processingAccepted": "Your choice is recorded. The assistant will proceed only after the other party makes the same choice.",
       "requestButton": "Ask for a person to review this case",
       "requesting": "Sending…",
-      "partyEscalated": "A person will review this case. The automated assistant has stopped.",
+      "partyEscalated": "A person will review this case. No automated proposal will be issued.",
       "managerActive": "The automated assistant handles routine steps of this case. It hands the case back to you if a party asks or if it cannot proceed safely.",
       "managerEscalated": "Handed back to you. Reason: {reason}",
       "enrollHelp": "Retail cases only. You remain the accountable case manager. Either party can ask for you at any time.",

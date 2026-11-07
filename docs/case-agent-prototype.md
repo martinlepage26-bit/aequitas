@@ -30,7 +30,7 @@ All workflow decisions are deterministic code under the program's configured rul
 
 ## Handoffs to a person
 
-The agent stops, records `AGENT_ESCALATED` with a reason, and notifies the assigned case manager. If no manager is assigned, it notifies every case-manager account with a passkey (the program's queue). An unassigned escalated case appears in every case manager's list; one manager takes it by declaring no conflict of interest (`POST /api/cases/[id]/claim`). From then on, normal human rules apply, including approver sign-off.
+The agent records `AGENT_ESCALATED` with a reason and notifies the assigned case manager. If no manager is assigned, it notifies every case-manager account with a passkey (the program's queue). An unassigned escalated case appears in every case manager's list; one manager takes it by declaring no conflict of interest (`POST /api/cases/[id]/claim`). From then on, normal human rules apply, including approver sign-off. Before a provider call, each scheduled pass re-reads the handoff marker and case material; a request for a person or a material change observed during extraction prevents that call. If a request races with or follows the final pre-call check, the provider request may still start or finish, but its result is discarded and cannot be issued.
 
 Reasons:
 

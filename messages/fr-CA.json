@@ -675,7 +675,7 @@
       "processingAccepted": "Votre choix est enregistré. L’assistant continuera seulement après que l’autre partie aura fait le même choix.",
       "requestButton": "Demander qu’une personne examine ce dossier",
       "requesting": "Envoi…",
-      "partyEscalated": "Une personne examinera ce dossier. L’assistant automatisé s’est arrêté.",
+      "partyEscalated": "Une personne examinera ce dossier. Aucune proposition automatisée ne sera rendue.",
       "managerActive": "L’assistant automatisé s’occupe des étapes courantes de ce dossier. Il vous rend le dossier si une partie le demande ou s’il ne peut pas continuer de façon sûre.",
       "managerEscalated": "Dossier qui vous est rendu. Motif : {reason}",
       "enrollHelp": "Dossiers de consommation au détail seulement. Vous demeurez la personne gestionnaire responsable. Chaque partie peut vous demander en tout temps.",
