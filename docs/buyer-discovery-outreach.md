@@ -79,6 +79,28 @@ Questions en français, si l'échange se déroule en français :
 
 Ne consignez que des volumes agrégés, les rôles et les efforts liés au processus. Ne demandez aucun dossier de plainte, identifiant de partie, allégation visant un membre ou renseignement confidentiel de l'administrateur du Code. Classez chaque réponse comme observée, estimée ou inconnue; un entretien peut établir des indices de problème, mais pas une preuve d'acheteur ou de projet pilote sans responsable budgétaire et prochaine étape concrète.
 
+### Optional Manitoba Consumer Protection Office qualification addendum
+
+Use only if Martin selects the Manitoba Consumer Protection Office for discovery. This is an internal interview aid, not a prospect selection or sent invitation. Manitoba's public process describes voluntary consumer-business complaint handling, while its vendor guidance says most service contracts are handled by departments and vendors may approach program end users. The current public guidance gives conflicting $75,000 and $100,000 service-tender summaries; confirm the applicable buyer, delegated authority and procurement path directly ([complaint process](https://gov.mb.ca/cp/cpo/complaint.html), [How Government Buys](https://www.gov.mb.ca/central/psc/buysell/index.html), [Procurement FAQ](https://gov.mb.ca/central/psc/faq.html)).
+
+1. **Eligible volume and effort:** In the last 12 months, how many consumer-business matters were routine retail disputes that reached an officer? Separate inquiries, screened-out matters, investigations and voluntary resolutions. What records support each count, and what staff time does a typical eligible matter require?
+2. **Current workflow and gap:** Which steps use existing case-management tools, and where do eligible matters wait or require repeated staff work? Which cases are already served by PARLe, another process or ordinary officer handling?
+3. **Decision fit:** Could software support any clearly bounded routine step while an authorized officer retains the required decision and oversight? Would a non-binding proposal followed by party consent fit the Office's mandate and practice, or would it be unsuitable?
+4. **Buyer and procurement:** Which program role owns the workflow, who controls an applicable budget, and which department or purchasing authority would contract? Would a pilot be a departmental purchase or a tender? Which current threshold, vendor terms, security review and procurement timeline apply?
+5. **Privacy and operations:** Which privacy, security, records-access, retention/deletion, hosting-location and human-review requirements would need approval before a pilot? What share of cases would staff need to take back?
+6. **Fit test:** What evidence would justify a small paid pilot, and what evidence would rule the Office out as a buyer? Identify the budget-owning role and a concrete next step only if the participant agrees.
+
+Questions en français, si l'échange se déroule en français :
+
+1. **Volume admissible et effort :** Au cours des 12 derniers mois, combien de dossiers de litige de consommation au détail entre un consommateur et une entreprise ont été transmis à un agent? Distinguez les demandes de renseignements, les dossiers écartés, les enquêtes et les règlements volontaires. Quels registres appuient chaque chiffre et quel temps de travail exige un dossier admissible typique?
+2. **Processus actuel et lacune :** Quelles étapes utilisent déjà un outil de gestion de dossiers, et où les dossiers admissibles attendent-ils ou demandent-ils des tâches répétées? Quels dossiers sont déjà pris en charge par PARLe, un autre processus ou le traitement habituel par un agent?
+3. **Adéquation décisionnelle :** Un logiciel pourrait-il soutenir une étape courante clairement délimitée tout en laissant à un agent autorisé la décision et la supervision requises? Une proposition non contraignante suivie du consentement des parties conviendrait-elle au mandat et aux pratiques du Bureau, ou serait-elle inadaptée?
+4. **Acheteur et approvisionnement :** Quel rôle de programme est responsable du processus, qui contrôle le budget applicable et quel ministère ou pouvoir d'achat conclurait le contrat? Le projet pilote relèverait-il d'un achat ministériel ou d'un appel d'offres? Quels seuils en vigueur, conditions fournisseur, examen de sécurité et délais s'appliquent?
+5. **Protection des renseignements et opérations :** Quelles exigences de protection des renseignements, sécurité, accès aux dossiers, conservation et destruction, emplacement d'hébergement et examen humain devraient être approuvées avant un projet pilote? Quelle proportion des dossiers devrait être reprise par le personnel?
+6. **Test d'adéquation :** Quels éléments justifieraient un petit projet pilote payant, et lesquels excluraient le Bureau comme acheteur? Ne notez le rôle qui détient le budget et une prochaine étape concrète que si la personne accepte.
+
+Record only aggregate counts, role-level responsibility, process-level effort and non-confidential procurement facts. Do not request complaint files or party identifiers. Keep estimates separate from observed facts; a discovery conversation is not buyer or pilot evidence without a named budget owner, eligible funded workflow and agreed next step.
+
 ## Interview record
 
 Keep this record at the organization and role level; do not add personal contact details unless needed for an approved follow-up.
