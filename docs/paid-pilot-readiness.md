@@ -80,6 +80,10 @@ Staff assemble each file from email, attachments and phone notes. Parties cannot
 - The agent remains off until the program rules, provider account and data terms, configured bilingual processing notices, oversight, privacy/legal review, and live synthetic evaluation are resolved. No AI call is enabled by default.
 - Price, term and payment: **not set.** No billing is built.
 
+## Dependency posture
+
+The full `npm audit` on the current lockfile returned zero reported vulnerabilities on 2026-11-07. GitHub's Dependabot alerts are disabled for this repository, and its code-scanning endpoint returned no analysis. The CI workflow and `npm run ci` now run `npm run audit`, which fails on high- or critical-severity advisories. This is a point-in-time package-registry check; it does not assess the operating-system image, deployment host, provider configuration, or application security as a whole.
+
 ## Commercial packaging and price logic (internal hypothesis; no price approved)
 
 **Buyer and payer hypothesis:** an independent dispute-resolution program or member organization with a documented routine retail case queue that its current service does not handle. The program pays; neither party to the dispute pays a fee to use Aequitas. This is a positioning hypothesis, not validated demand. Québec already offers PARLe as a free consumer–merchant negotiation service, and a government small-claims ODR platform is active, so the first prospect should be outside those covered workflows rather than pitched as their replacement ([OPC PARLe](https://www.opc.gouv.qc.ca/en/parle-commercant/), [Québec ODR project dashboard](https://www.tableaudebordprojetsri.gouv.qc.ca/tableau-de-bord/projet/29637912)). A Canadian analogue, OBSI, provides consumer dispute resolution free to consumers while participating firms fund the service under regulatory requirements and independence safeguards; that supports the payer model as an analogy, not as a direct price comparison ([OBSI funding model](https://www.obsi.ca/en/for-consumers/how-were-funded/)).
