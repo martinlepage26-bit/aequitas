@@ -185,8 +185,8 @@ async function extractPdfText(input: string, dir: string, onOcr: () => void): Pr
     timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8",
   });
   // A page can contain selectable text and an embedded scan at the same time.
-  // OCR every page with image objects so the model does not silently miss the
-  // scanned portion; use that page's rendered OCR as its complete visible text.
+  // OCR every page with image objects, then retain both text layers so OCR
+  // omissions cannot silently discard text that Poppler already extracted.
   const pdfimages = process.env.AEQUITAS_PDFIMAGES_PATH || "pdfimages";
   const { stdout: imageList } = await execute(pdfimages, ["-list", input], {
     timeout: 15000, maxBuffer: 128 * 1024, encoding: "utf8",
@@ -223,7 +223,8 @@ async function extractPdfText(input: string, dir: string, onOcr: () => void): Pr
         env: { ...process.env, OMP_THREAD_LIMIT: "1" },
       });
       const normalizedOcr = ocrText.trimEnd();
-      if (normalizedOcr || !pageTexts[pageNumber - 1].trim()) pageTexts[pageNumber - 1] = normalizedOcr;
+      const selectableText = pageTexts[pageNumber - 1].trimEnd();
+      pageTexts[pageNumber - 1] = [selectableText, normalizedOcr].filter((text) => text.trim()).join("\n");
       if (!ocrText.trim()) ocrIncomplete = true;
     } finally {
       await rm(imagePath, { force: true });

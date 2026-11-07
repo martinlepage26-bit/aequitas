@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 const download = vi.hoisted(() => vi.fn());
 vi.mock("../../src/lib/storage", () => ({ downloadBuffer: download }));
@@ -113,6 +116,34 @@ describe("source text extraction", () => {
       ["image/tiff", tiffHeader(100, 100, true)],
     ] as const) {
       expect(await extractEvidenceText(body, mime)).toMatchObject({ status: "unavailable", method: "none", text: "" });
+    }
+  });
+  it("retains selectable PDF text when OCR also reads an embedded image", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "aequitas-pdf-extraction-test-"));
+    const executable = async (name: string, body: string) => {
+      const path = join(dir, name);
+      await writeFile(path, `#!/bin/sh\nset -eu\n${body}\n`, { mode: 0o700 });
+      return path;
+    };
+    try {
+      const pdfinfo = await executable("pdfinfo", "printf 'Pages: 1\\n'");
+      const pdftotext = await executable("pdftotext", "printf 'SELECTABLE_TEXT\\n'");
+      const pdfimages = await executable("pdfimages", "printf '1 0 image 100 100 8 300 300 3 rgb\\n'");
+      const pdftoppm = await executable("pdftoppm", "for arg do last=\"$arg\"; done\nprintf 'png' > \"$last.png\"");
+      const tesseract = await executable("tesseract", "printf 'OCR_VISIBLE_TEXT\\n'");
+      vi.stubEnv("AEQUITAS_PDFINFO_PATH", pdfinfo);
+      vi.stubEnv("AEQUITAS_PDFTOTEXT_PATH", pdftotext);
+      vi.stubEnv("AEQUITAS_PDFIMAGES_PATH", pdfimages);
+      vi.stubEnv("AEQUITAS_PDFTOPPM_PATH", pdftoppm);
+      vi.stubEnv("AEQUITAS_TESSERACT_PATH", tesseract);
+
+      const result = await extractEvidenceText(Buffer.from("%PDF-synthetic"), "application/pdf");
+      expect(result.status).toBe("extracted");
+      expect(result.text).toContain("SELECTABLE_TEXT");
+      expect(result.text).toContain("OCR_VISIBLE_TEXT");
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
     }
   });
   it("verifies byte size and intake hash before parsing", async () => {
