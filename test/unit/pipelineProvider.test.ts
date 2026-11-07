@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { AGENT_OUTPUT_JSON_SCHEMA } from "../../src/domain/caseAgent/output";
 import { GEMINI_FLASH_MODEL, WORKERS_AI_MODEL, resolveCaseDataModel, resolveFreeTextModel } from "../../src/domain/pipeline/provider";
 import { pipelineEnabled } from "../../src/domain/pipeline/flag";
 
@@ -252,6 +253,52 @@ describe("free pipeline provider", () => {
         },
       },
     });
+  });
+
+  it("converts the production case-agent schema to Gemini's supported subset", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    const geminiFetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "{}" }] } }],
+      }), { status: 200 });
+    }) as typeof fetch;
+    const gemini = resolveFreeTextModel({
+      AEQUITAS_PIPELINE_ENABLED: "true",
+      GEMINI_API_KEY: "test-only",
+    }, geminiFetch);
+    expect(gemini.ok).toBe(true);
+    if (!gemini.ok) return;
+
+    await gemini.model.completeWithJsonSchema?.("synthetic prompt", AGENT_OUTPUT_JSON_SCHEMA);
+
+    const generationConfig = requestBody?.generationConfig as {
+      responseFormat?: { text?: { schema?: unknown } };
+    } | undefined;
+    const schema = generationConfig?.responseFormat?.text?.schema;
+    expect(schema).toMatchObject({
+      type: "object",
+      properties: {
+        needs_human: { anyOf: [{ type: "string" }, { type: "null" }] },
+        summary_claims: {
+          type: "array",
+          minItems: 1,
+          maxItems: 8,
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              citation_ids: { type: "array", items: { type: "string" } },
+            },
+          },
+        },
+        citations: {
+          type: "array",
+          items: { type: "object", properties: { evidence_item_id: { type: "string", format: "uuid" } } },
+        },
+      },
+    });
+    expect(JSON.stringify(schema)).not.toMatch(/"(?:pattern|minLength|maxLength|exclusiveMinimum|exclusiveMaximum)"\s*:/);
   });
 
   it("refuses missing or unexpected Workers AI structured tool calls", async () => {
