@@ -712,6 +712,7 @@
         "no_answer": "Une partie n’a pas répondu à la proposition dans le délai prévu par le programme.",
         "evidence_extraction_failed": "Un fichier n’a pas pu être lu au complet.",
         "evidence_limit_exceeded": "Les preuves dépassent ce que l’assistant peut lire.",
+        "case_input_limit_exceeded": "Le dossier est trop volumineux pour que l’assistant l’examine de façon sécuritaire. Une personne examinera le dossier.",
         "processing_choice_timeout": "Les deux parties n’ont pas accepté le traitement automatisé à temps. Une personne examinera ce dossier."
       },
       "endButton": "Mettre fin à ma participation",

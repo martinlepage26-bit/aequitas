@@ -44,7 +44,7 @@ Reasons:
 | Evidence | `evidence_rejected`, `evidence_inadequate`, `evidence_extraction_failed`, `evidence_limit_exceeded` |
 | Process | `contestation_open` |
 | Program configuration | `program_rules_incomplete` |
-| Model and capacity | `model_unavailable`, `model_failed`, `model_requested_review` (including unresolved material-fact conflicts), `model_output_rejected`, `daily_model_call_limit_reached`, `model_budget_unavailable` |
+| Model and capacity | `model_unavailable`, `model_failed`, `model_requested_review` (including unresolved material-fact conflicts), `model_output_rejected`, `case_input_limit_exceeded`, `daily_model_call_limit_reached`, `model_budget_unavailable` |
 
 ## Evidence the agent actually reads
 
@@ -57,6 +57,7 @@ The agent reuses the existing pipeline in `src/lib/evidenceText.ts`:
 | PNG, JPEG, TIFF, WebP | `tesseract` OCR | Languages from `AEQUITAS_OCR_LANGUAGES`. OCR text is cited as extracted, not corrected. Static rasters only; multi-page TIFF and animated PNG/WebP go to staff. |
 
 - **Limits:** 25 MiB per file, 12 MP and 12,000 pixels per axis for direct image OCR, 12,000 characters per source, 12 files and 60,000 characters per case. Malformed image headers, animated PNG/WebP, multi-page or BigTIFF files and any other unreadable, partial or over-limit extraction go to a person.
+- **Complete model request:** the serialized system instruction, party positions, chronology, extracted evidence and output schema are capped at 92 KiB, leaving 4 KiB for the provider request envelope. Oversized cases go to a person before a provider call is reserved or made. This also bounds content that is not included in the evidence-text limits.
 - **Not read:** any page that remains empty after OCR, other formats (unsupported), and any truncated extraction. Each of these goes to a person. A filename or description is never treated as proof. When a page contains an embedded image, the selectable text layer and rendered OCR are retained together; OCR does not discard text already extracted from the PDF.
 - **Citations:** each records a stable response citation ID, evidence id, start and end character offsets, the source-file SHA-256, the extracted-text SHA-256, the extraction method and, for PDFs, the page. Summary, reasoning, and proposal-basis claims reference these IDs. A party opening a cited outcome excerpt gets it re-extracted and re-verified against both hashes. Citation digests are bound to the issuance event and checked by `verifyCase`.
 - **What the links prove:** they make it possible to trace each staff summary, reasoning, or proposal-basis claim to an exact excerpt in a hash-verified extraction. They do not prove that the excerpt semantically supports the claim, or that the document is authentic, accurate or relevant. Staff review and live-model evaluation are still required.

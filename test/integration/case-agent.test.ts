@@ -8,7 +8,7 @@ import type { DisputeCategory, GlobalRole } from "../../src/generated/prisma";
 import { prisma } from "../../src/lib/prisma";
 import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
-import { acceptCaseAgentProcessing, enrollCaseAgent, endParticipation, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
+import { acceptCaseAgentProcessing, enrollCaseAgent, endParticipation, MAX_CASE_AGENT_REQUEST_BYTES, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../../src/domain/caseAgent/evaluationApproval";
 import { caseAgentProgram, DAY_MS } from "../../src/domain/caseAgent/config";
@@ -22,6 +22,7 @@ import type { TextCompletion } from "../../src/domain/pipeline/provider";
 import { approveResolution, loadResolutionBlockers } from "../../src/domain/resolution";
 import { verifyCase } from "../../src/domain/verifyEvents";
 import { MAX_IMAGE_PIXELS } from "../../src/lib/evidenceText";
+import { caseAgentDailyModelUsage } from "../../src/domain/caseAgent/modelBudget";
 import { buildExportPdf, buildExportRecord } from "../../src/domain/exportBundle";
 
 vi.mock("../../src/lib/scan", () => ({ scanBuffer: vi.fn(async () => ({ clean: true, signature: "synthetic-clean" })) }));
@@ -502,6 +503,31 @@ describe("case agent: normal completion", () => {
     expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("waiting");
     expect(model.calls).toBe(1);
   }, 15_000);
+
+  it("hands oversized case input to a person before reserving or making a model call", async () => {
+    const s = await positionsCase();
+    const entryCount = Math.ceil(MAX_CASE_AGENT_REQUEST_BYTES / 8_000) + 2;
+    await prisma.chronologyEntry.createMany({
+      data: Array.from({ length: entryCount }, (_, index) => ({
+        caseId: s.caseId,
+        submittedById: index % 2 === 0 ? s.complainantId : s.respondentId,
+        occurredOn: new Date(`2026-10-${String((index % 28) + 1).padStart(2, "0")}T00:00:00.000Z`),
+        title: `Entry ${index + 1}`,
+        description: "x".repeat(8_000),
+        locale: index % 2 === 0 ? "fr-CA" : "en-CA",
+      })),
+    });
+    const now = new Date("2099-07-10T12:00:00.000Z");
+    const model = stub(() => { throw new Error("Oversized input must not reach the model."); });
+
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV, now })).toEqual({
+      status: "escalated",
+      reason: "case_input_limit_exceeded",
+    });
+    expect(model.calls).toBe(0);
+    expect(await caseAgentDailyModelUsage(now)).toEqual({ utcDay: "2099-07-10", used: 0 });
+    expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+  });
 
   it("detects a changed or missing party outcome citation in the audit record", async () => {
     const s = await positionsCase();

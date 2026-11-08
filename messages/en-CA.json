@@ -712,6 +712,7 @@
         "no_answer": "A party did not answer the proposal within the program's response period.",
         "evidence_extraction_failed": "A file could not be read in full.",
         "evidence_limit_exceeded": "The evidence exceeds what the assistant can read.",
+        "case_input_limit_exceeded": "The case file is too large for the assistant to review safely. A person will review this case.",
         "processing_choice_timeout": "The parties did not both accept automated processing in time. A person will review this case."
       },
       "endButton": "End my participation",

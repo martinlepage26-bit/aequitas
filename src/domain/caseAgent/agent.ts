@@ -44,6 +44,9 @@ export { caseAgentEnabled } from "./config";
  */
 
 export const CASE_AGENT_EMAIL = "case-agent@aequitas.invalid";
+/** Leave room for the schema and provider envelope below a conservative context ceiling. */
+export const MAX_CASE_AGENT_REQUEST_BYTES = 96 * 1024;
+const CASE_AGENT_PROVIDER_ENVELOPE_RESERVE_BYTES = 4 * 1024;
 
 export type EscalationReason =
   | "party_request"
@@ -66,6 +69,7 @@ export type EscalationReason =
   | "model_failed"
   | "model_requested_review"
   | "model_output_rejected"
+  | "case_input_limit_exceeded"
   | "daily_model_call_limit_reached"
   | "model_budget_unavailable"
   | "program_rules_incomplete";
@@ -526,6 +530,17 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
 
   const digest = materialDigest(first, evidenceSources);
   const prompt = buildCaseAgentPrompt(first, evidenceSources);
+  // Evidence is capped separately, but positions and chronology can also be
+  // large. Bound the fully serialized request (including its schema) before
+  // reserving a paid call or sending any case material to a provider.
+  const serializedInputBytes = Buffer.byteLength(JSON.stringify({
+    systemInstruction: prompt.systemInstruction,
+    userContent: prompt.userContent,
+    outputSchema: AGENT_OUTPUT_JSON_SCHEMA,
+  }), "utf8");
+  if (serializedInputBytes + CASE_AGENT_PROVIDER_ENVELOPE_RESERVE_BYTES > MAX_CASE_AGENT_REQUEST_BYTES) {
+    return escalate("case_input_limit_exceeded");
+  }
 
   // Evidence extraction can take long enough for a party to hand the case to
   // a person or for either party to update the file. Re-read both the handoff
