@@ -5,8 +5,8 @@
 # Node major follows .nvmrc (22).
 # Pin the multi-architecture OCI index digest so CI and deployments use the
 # same tested Node base on linux/amd64 and linux/arm64.
-ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-bookworm-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
-ARG NPM_VERSION=11.19.1
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-trixie-slim@sha256:be1e2a3dc2c4fd68cdfadad2a696a280e0d2749098bee509230174d72fb768c6
+ARG NPM_VERSION=11.21.2
 
 FROM ${NODE_IMAGE} AS node-base
 ARG NODE_IMAGE

@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install --global npm@11.19.1
+      - run: npm install --global npm@11.21.2
       - run: npm ci
       - name: Audit dependencies for high-severity vulnerabilities
         run: npm run audit
@@ -92,7 +92,7 @@ jobs:
         run: |
           docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
           docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
-            test "$(npm --version)" = "11.19.1"
+            test "$(npm --version)" = "11.21.2"
             for binary in pdftotext pdfimages pdftoppm tesseract; do
               command -v "$binary"
             done
