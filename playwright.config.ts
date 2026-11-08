@@ -80,11 +80,11 @@ process.env.WEBAUTHN_ORIGIN = `http://localhost:${testPort}`;
 /**
  * M2's "Done when" criterion (Section 19): "M2 E2E segment passes in both
  * locales." baseURL/webServer point at the same port `npm run dev` normally
- * uses. Locally, `reuseExistingServer` reuses a developer's already-running
- * dev server (Next.js 16 allows only one `next dev` per directory; see
- * DECISIONS.md, M2). CI has no server yet and `npm run build` has already
- * run, so it serves that production build with `next start`. `next dev`
- * compiles each route on first request, and that work used to fall inside
+ * uses. The wrapper starts a test-only parser with a credential-free
+ * environment, then runs `next dev` locally or the production build with
+ * `next start` in CI. Existing servers are not reused because they may not
+ * have the parser socket. `next dev` compiles each route on first request,
+ * and that work used to fall inside
  * the assertion that hit the route first. The sign-in form still hydrates
  * after the URL commits, on either server; the auth spec waits for the
  * hydrated field before clicking Continue.
@@ -105,11 +105,9 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: process.env.CI
-      ? `node node_modules/next/dist/bin/next start --port ${testPort}`
-      : `node node_modules/next/dist/bin/next dev --port ${testPort}`,
+    command: `node scripts/start-e2e-app.mjs --port ${testPort}`,
     url: `http://localhost:${testPort}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 60_000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

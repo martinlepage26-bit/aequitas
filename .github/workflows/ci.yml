@@ -36,14 +36,9 @@ jobs:
       - name: Audit dependencies for high-severity vulnerabilities
         run: npm run audit
 
-      # test/integration/evidence-extraction.test.ts needs real pdftotext
-      # (poppler-utils) and tesseract binaries — src/lib/evidenceText.ts
-      # returns status "unavailable" without them, which is exactly what
-      # this step's absence caused every prior CI run to hit, unnoticed
-      # behind the earlier minio/typecheck failures. Same package list
-      # Railway's RAILPACK_DEPLOY_APT_PACKAGES already installs for
-      # production (one already-verified source of truth, not a guess).
-      - name: Install poppler-utils and tesseract for evidence extraction
+      # Vitest starts a local Unix-socket parser service for native extraction
+      # coverage. The production container boundary is tested separately below.
+      - name: Install Poppler and Tesseract for parser tests
         run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra
 
       # Postgres, MinIO, and ClamAV via the same docker-compose.yml local
@@ -85,23 +80,127 @@ jobs:
       - run: npm run test
       - run: npm run build
 
-      # The production Docker image is the CT920 deployment artifact; a host
-      # npm build alone does not prove its PDF/OCR tools or scheduler entry
-      # point are present. Build the real image and verify those runtime bits.
-      - name: Build and verify production runtime image
+      # The app image must not carry native parsers. Build the separate parser
+      # image and verify that only it contains Poppler/Tesseract.
+      - name: Build and verify application runtime image
         run: |
           docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
           docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
             test "$(npm --version)" = "11.21.2"
             for binary in pdftotext pdfimages pdftoppm tesseract; do
-              command -v "$binary"
+              if command -v "$binary" >/dev/null 2>&1; then
+                echo "native parser unexpectedly exists in the application image: $binary" >&2
+                exit 1
+              fi
             done
-            tesseract --list-langs 2>/dev/null | grep -Fx eng
-            tesseract --list-langs 2>/dev/null | grep -Fx fra
             test -f /app/scripts/scheduled-ops.ts
             test -f /app/node_modules/tsx/dist/cli.mjs
             DATABASE_URL=postgresql://build:build@localhost:5432/build ./node_modules/.bin/prisma -v | grep -F "openssl-3.0.x"
           '
+          docker build --file Dockerfile.evidence-parser --tag aequitas-ci-evidence-parser .
+          docker run --rm --entrypoint /bin/sh aequitas-ci-evidence-parser -eu -c '
+            for binary in pdfinfo pdftotext pdfimages pdftoppm tesseract; do command -v "$binary"; done
+            tesseract --list-langs 2>/dev/null | grep -Fx eng
+            tesseract --list-langs 2>/dev/null | grep -Fx fra
+            test ! -d /app/node_modules
+            test ! -e /app/src/domain
+            test ! -e /app/scripts/scheduled-ops.js
+          '
+
+      - name: Verify networkless parser container and Unix-socket extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          parser_name="aequitas-ci-parser-${GITHUB_RUN_ID}"
+          socket_volume="aequitas-ci-parser-socket-${GITHUB_RUN_ID}"
+          smoke_pdf="$RUNNER_TEMP/aequitas-parser-smoke.pdf"
+          inspect_json="$RUNNER_TEMP/aequitas-parser-container.json"
+          cleanup() {
+            docker rm -f "$parser_name" >/dev/null 2>&1 || true
+            docker volume rm "$socket_volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker volume create --driver local \
+            --opt type=tmpfs --opt device=tmpfs \
+            --opt o=size=16m,uid=10001,gid=2000,mode=0730,noexec,nosuid,nodev \
+            "$socket_volume" >/dev/null
+          docker run -d --name "$parser_name" --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --pids-limit 32 --memory 1g --cpus 1.0 \
+            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=2000,mode=0700 \
+            --mount "type=volume,source=$socket_volume,target=/run/aeq-parser" \
+            aequitas-ci-evidence-parser >/dev/null
+          for attempt in $(seq 1 40); do
+            state="$(docker inspect --format '{{.State.Health.Status}}' "$parser_name" 2>/dev/null || true)"
+            [ "$state" = healthy ] && break
+            [ "$state" != unhealthy ] || { docker logs "$parser_name"; exit 1; }
+            sleep 1
+          done
+          [ "$(docker inspect --format '{{.State.Health.Status}}' "$parser_name")" = healthy ]
+          docker inspect "$parser_name" > "$inspect_json"
+          node - "$inspect_json" "$socket_volume" <<'NODE'
+          const assert = require('node:assert/strict');
+          const { readFileSync } = require('node:fs');
+          const c = JSON.parse(readFileSync(process.argv[2], 'utf8'))[0];
+          assert.equal(c.HostConfig.NetworkMode, 'none');
+          assert.equal(c.HostConfig.ReadonlyRootfs, true);
+          assert.deepEqual(c.HostConfig.CapDrop, ['ALL']);
+          assert.ok(c.HostConfig.SecurityOpt.includes('no-new-privileges:true'));
+          assert.equal(c.Config.User, '10001:2000');
+          assert.equal(c.HostConfig.PidsLimit, 32);
+          assert.equal(c.HostConfig.Memory, 1073741824);
+          const socketMount = c.Mounts.filter((m) => m.Destination === '/run/aeq-parser');
+          assert.deepEqual(socketMount.map((m) => [m.Type, m.Name, m.RW]), [
+            ['volume', process.argv[3], true],
+          ]);
+          assert.ok(c.Mounts.every((m) => ['/run/aeq-parser', '/tmp'].includes(m.Destination)));
+          assert.ok(c.HostConfig.Tmpfs['/tmp'].includes('size=128m'));
+          const env = c.Config.Env.join('\n');
+          assert.doesNotMatch(env, /DATABASE_URL|CLOUDFLARE_API_TOKEN|GEMINI_API_KEY|RESEND_API_KEY|STORAGE_SECRET_KEY/);
+          NODE
+          node - "$smoke_pdf" <<'NODE'
+          const { PDFDocument, StandardFonts } = require('pdf-lib');
+          const { writeFileSync } = require('node:fs');
+          (async () => {
+            const pdf = await PDFDocument.create();
+            const font = await pdf.embedFont(StandardFonts.Helvetica);
+            pdf.addPage([500, 120]).drawText('PARSER_ISOLATION_SMOKE_2026', { x: 24, y: 60, size: 20, font });
+            writeFileSync(process.argv[2], Buffer.from(await pdf.save()));
+          })().catch((error) => { process.stderr.write(String(error)); process.exitCode = 1; });
+          NODE
+          docker run --rm --network none --read-only --user 1000:1000 --group-add 2000 \
+            --mount "type=volume,source=$socket_volume,target=/run/aeq-parser,readonly" \
+            --mount "type=bind,source=$smoke_pdf,target=/tmp/parser-smoke.pdf,readonly" \
+            --entrypoint node aequitas-ci-runtime - <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { request } = require('node:http');
+          try {
+            fs.writeFileSync('/run/aeq-parser/write-check', 'blocked');
+            throw new Error('application unexpectedly wrote to the parser socket mount');
+          } catch (error) {
+            if (!['EROFS', 'EACCES', 'EPERM'].includes(error.code)) throw error;
+          }
+          const body = fs.readFileSync('/tmp/parser-smoke.pdf');
+          const req = request({
+            socketPath: '/run/aeq-parser/evidence.sock', path: '/extract', method: 'POST', agent: false,
+            headers: { 'content-type': 'application/octet-stream', 'x-aequitas-evidence-mime': 'application/pdf', 'content-length': body.length },
+          }, (res) => {
+            const chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => {
+              try {
+                assert.equal(res.statusCode, 200);
+                const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+                assert.equal(result.status, 'extracted');
+                assert.equal(result.method, 'pdftotext');
+                assert.ok(result.text.includes('PARSER_ISOLATION_SMOKE_2026'));
+              } catch (error) { process.stderr.write(String(error)); process.exitCode = 1; }
+            });
+          });
+          req.on('error', (error) => { process.stderr.write(String(error)); process.exitCode = 1; });
+          req.end(body);
+          NODE
 
       # Scan the built deployment image itself; the lockfile SBOM and dpkg
       # list below remain separate inventories for comparison and triage.
@@ -115,27 +214,48 @@ jobs:
           upload-release-assets: false
           dependency-snapshot: false
 
+      - name: Generate SPDX SBOM for isolated evidence parser image
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
+        with:
+          image: aequitas-ci-evidence-parser
+          format: spdx-json
+          output-file: ${{ runner.temp }}/aequitas-evidence-parser-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
       - name: Verify container image SBOM is valid and non-empty
         run: |
-          node - "$RUNNER_TEMP/aequitas-container-image.spdx.json" <<'NODE'
+          node - "$RUNNER_TEMP/aequitas-container-image.spdx.json" "$RUNNER_TEMP/aequitas-evidence-parser-image.spdx.json" <<'NODE'
           const assert = require('node:assert/strict');
           const { readFileSync } = require('node:fs');
           const sbom = JSON.parse(readFileSync(process.argv[2], 'utf8'));
           assert.match(sbom.spdxVersion, /^SPDX-2\.\d+$/);
           assert.ok(Array.isArray(sbom.packages) && sbom.packages.length > 0, 'image SBOM must inventory at least one package');
           console.log(`Container image SBOM verified (${sbom.packages.length} packages).`);
+          const parser = JSON.parse(readFileSync(process.argv[3], 'utf8'));
+          assert.match(parser.spdxVersion, /^SPDX-2\.\d+$/);
+          assert.ok(Array.isArray(parser.packages) && parser.packages.length > 0, 'parser image SBOM must inventory packages');
+          console.log(`Parser image SBOM verified (${parser.packages.length} packages).`);
           NODE
 
       - name: Generate production image dependency inventory
         run: |
           docker run --rm --entrypoint npm aequitas-ci-runtime sbom --package-lock-only --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-production-node.spdx.json"
           docker run --rm --entrypoint dpkg-query aequitas-ci-runtime -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-runtime-os-packages.txt"
+          docker run --rm --entrypoint dpkg-query aequitas-ci-evidence-parser -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-parser-os-packages.txt"
           {
             printf 'source_sha=%s\n' "$GITHUB_SHA"
             docker image inspect --format='image_id={{.Id}}' aequitas-ci-runtime
             docker image inspect --format='architecture={{.Architecture}}' aequitas-ci-runtime
             docker image inspect --format='base_image={{ index .Config.Labels "org.opencontainers.image.base.name" }}' aequitas-ci-runtime
           } > "$RUNNER_TEMP/aequitas-runtime-image.txt"
+          {
+            printf 'source_sha=%s\n' "$GITHUB_SHA"
+            docker image inspect --format='image_id={{.Id}}' aequitas-ci-evidence-parser
+            docker image inspect --format='architecture={{.Architecture}}' aequitas-ci-evidence-parser
+            docker image inspect --format='base_image={{ index .Config.Labels "org.opencontainers.image.base.name" }}' aequitas-ci-evidence-parser
+          } > "$RUNNER_TEMP/aequitas-parser-image.txt"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -143,17 +263,19 @@ jobs:
           path: |
             ${{ runner.temp }}/aequitas-production-node.spdx.json
             ${{ runner.temp }}/aequitas-container-image.spdx.json
+            ${{ runner.temp }}/aequitas-evidence-parser-image.spdx.json
             ${{ runner.temp }}/aequitas-runtime-os-packages.txt
+            ${{ runner.temp }}/aequitas-parser-os-packages.txt
             ${{ runner.temp }}/aequitas-runtime-image.txt
+            ${{ runner.temp }}/aequitas-parser-image.txt
           if-no-files-found: error
           retention-days: 90
 
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
       # M2's own "Done when" criterion (Section 19): "M2 E2E segment passes
-      # in both locales." The build above is what this step serves:
-      # playwright.config.ts starts `next start` when CI is set, so the
-      # suite does not pay for on-demand compilation inside the first test.
+      # in both locales." The wrapper serves the production build after
+      # starting a credential-free local parser sidecar.
       - run: npm run test:e2e
       - run: npm run test:e2e:pipeline
 
@@ -242,6 +364,24 @@ jobs:
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
         with:
           image: aequitas-ci-runtime
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table
+
+      - name: Report high-severity evidence parser vulnerabilities
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
+        with:
+          image: aequitas-ci-evidence-parser
+          fail-build: false
+          severity-cutoff: high
+          only-fixed: false
+          output-format: table
+
+      - name: Fail on fixable high-severity evidence parser vulnerabilities
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
+        with:
+          image: aequitas-ci-evidence-parser
           fail-build: true
           severity-cutoff: high
           only-fixed: true

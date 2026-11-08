@@ -1,6 +1,8 @@
 # Evidence parser isolation design
 
-**Status:** architecture proposal for review. This is not implemented, approved for production, or a claim that current parsing is a complete sandbox.
+**Status:** implementation is in progress on PR #14. It is not approved for production or a claim that current parsing is a complete sandbox. CI and the full acceptance evidence remain pending.
+
+The candidate now contains a separate parser image and Unix-socket service, a networkless CT920 Compose service, and an application client that fails closed when the service is missing or returns an invalid response. CI is being extended to inspect the container boundary and exercise a synthetic PDF through the socket. No production host was changed.
 
 ## Why this is a release concern
 

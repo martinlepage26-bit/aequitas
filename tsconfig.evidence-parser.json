@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "rootDir": ".",
+    "outDir": ".parser-build",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["node"]
+  },
+  "include": [
+    "scripts/evidence-parser-service.ts",
+    "scripts/evidence-parser-entry.ts",
+    "src/lib/evidenceParserCore.ts",
+    "src/lib/evidenceExtractionShared.ts"
+  ]
+}

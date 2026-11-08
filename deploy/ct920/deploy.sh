@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 test -f .env || { echo "missing deploy/ct920/.env (chmod 600)"; exit 1; }
 [ "$(stat -c %a .env)" = 600 ] || { echo ".env must be chmod 600"; exit 1; }
 export RELEASE_SHA="$(git -C ../.. rev-parse HEAD)"
-docker compose -p aeq-prod build app
+docker compose -p aeq-prod build app evidence-parser
 if [ -n "$(docker compose -p aeq-prod --profile scheduled ps -a -q scheduler)" ]; then
   docker compose -p aeq-prod --profile scheduled stop scheduler
 fi

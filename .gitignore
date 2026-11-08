@@ -22,6 +22,7 @@
 
 # production
 /build
+/.parser-build/
 
 # misc
 .DS_Store

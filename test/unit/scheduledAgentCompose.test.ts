@@ -69,4 +69,35 @@ describe("CT920 scheduled case-agent configuration", () => {
     expect(compose).toContain("AEQUITAS_VERTEX_CREDENTIALS_HOST_FILE");
     expect(compose).toContain("secrets: [vertex_adc]");
   });
+
+  it("keeps native evidence parsing in an unnetworked, secret-free sidecar", () => {
+    const compose = readFileSync(composePath, "utf8");
+    const parserStart = compose.indexOf("\n  evidence-parser:\n");
+    const parserEnd = compose.indexOf("\n  app:\n", parserStart);
+    if (parserStart < 0 || parserEnd < 0) throw new Error("CT920 evidence parser service is missing.");
+    const parser = compose.slice(parserStart, parserEnd);
+    expect(parser).toContain("network_mode: none");
+    expect(parser).toContain("read_only: true");
+    expect(parser).toContain("cap_drop: [ALL]");
+    expect(parser).toContain("no-new-privileges:true");
+    expect(parser).toContain('user: "10001:2000"');
+    expect(parser).toContain("source: aeq-prod-parser-socket");
+    expect(parser).not.toContain("env_file:");
+    for (const forbidden of ["DATABASE_URL", "CLOUDFLARE_API_TOKEN", "GEMINI_API_KEY", "RESEND_API_KEY", "aeq-prod-evidence:", "aeq-prod-net"]) {
+      expect(parser).not.toContain(forbidden);
+    }
+
+    for (const serviceName of ["app", "scheduler"]) {
+      const start = compose.indexOf(`\n  ${serviceName}:\n`);
+      const end = compose.indexOf(serviceName === "app" ? "\n  scheduler:\n" : "\n  postgres:\n", start);
+      if (start < 0 || end < 0) throw new Error(`CT920 ${serviceName} service is missing.`);
+      const service = compose.slice(start, end);
+      expect(service).toContain('group_add: ["2000"]');
+      expect(service).toContain("source: aeq-prod-parser-socket");
+      expect(service).toContain("read_only: true");
+      expect(service).toContain("AEQUITAS_EVIDENCE_PARSER_SOCKET: /run/aeq-parser/evidence.sock");
+    }
+    expect(compose).toContain("type: tmpfs");
+    expect(compose).toContain("mode=0730,noexec,nosuid,nodev");
+  });
 });

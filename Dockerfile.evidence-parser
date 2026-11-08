@@ -1,0 +1,37 @@
+# Dedicated runtime for parsing untrusted PDFs and raster evidence.
+# It contains only Node, Poppler, Tesseract, and the compiled parser service.
+ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-trixie-slim@sha256:be1e2a3dc2c4fd68cdfadad2a696a280e0d2749098bee509230174d72fb768c6
+
+FROM ${NODE_IMAGE} AS build
+WORKDIR /build
+RUN npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund \
+    typescript@6.0.3 @types/node@26.2.0
+COPY tsconfig.evidence-parser.json ./
+COPY scripts/evidence-parser-service.ts ./scripts/evidence-parser-service.ts
+COPY scripts/evidence-parser-entry.ts ./scripts/evidence-parser-entry.ts
+COPY src/lib/evidenceParserCore.ts src/lib/evidenceExtractionShared.ts ./src/lib/
+RUN ./node_modules/.bin/tsc --project tsconfig.evidence-parser.json --pretty false
+
+FROM ${NODE_IMAGE} AS runtime
+ARG NODE_IMAGE
+LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
+ENV NODE_ENV=production \
+    AEQUITAS_EVIDENCE_PARSER_SOCKET=/run/aeq-parser/evidence.sock \
+    AEQUITAS_OCR_LANGUAGES=eng+fra \
+    HOME=/tmp \
+    TMPDIR=/tmp
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 2000 aeq-parser \
+ && useradd --system --uid 10001 --gid 2000 --no-create-home --home-dir /tmp aeq-parser \
+ && mkdir -p /run/aeq-parser /tmp \
+ && chown 10001:2000 /run/aeq-parser /tmp \
+ && chmod 0730 /run/aeq-parser \
+ && chmod 0700 /tmp
+WORKDIR /app
+COPY --from=build --chown=10001:2000 /build/.parser-build/ ./
+USER 10001:2000
+STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=10s --timeout=2s --retries=3 --start-period=5s CMD ["node", "/app/scripts/evidence-parser-entry.js", "--healthcheck"]
+ENTRYPOINT ["node", "/app/scripts/evidence-parser-entry.js"]

@@ -9,6 +9,38 @@ x-logging: &logging
   options: { max-size: "10m", max-file: "5" }
 
 services:
+  evidence-parser:
+    container_name: aeq-prod-evidence-parser
+    image: aeq-prod-evidence-parser:${RELEASE_SHA:-unknown}
+    build:
+      context: ../..
+      dockerfile: Dockerfile.evidence-parser
+    init: true
+    restart: unless-stopped
+    user: "10001:2000"
+    environment:
+      AEQUITAS_EVIDENCE_PARSER_SOCKET: /run/aeq-parser/evidence.sock
+      AEQUITAS_OCR_LANGUAGES: ${AEQUITAS_OCR_LANGUAGES:-eng+fra}
+      HOME: /tmp
+      TMPDIR: /tmp
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 32
+    mem_limit: 1g
+    cpus: 1.0
+    ulimits:
+      nofile: { soft: 64, hard: 64 }
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,uid=10001,gid=2000,mode=0700
+    volumes:
+      - type: volume
+        source: aeq-prod-parser-socket
+        target: /run/aeq-parser
+    stop_grace_period: 10s
+    logging: *logging
+
   app:
     container_name: aeq-prod-app
     image: aeq-prod-app:${RELEASE_SHA:-unknown}
@@ -25,11 +57,19 @@ services:
       STORAGE_LOCAL_DIR: /data/evidence
       CLAMAV_HOST: aeq-prod-clamav
       CLAMAV_PORT: "3310"
+      AEQUITAS_EVIDENCE_PARSER_SOCKET: /run/aeq-parser/evidence.sock
     depends_on:
       postgres: { condition: service_healthy }
       clamav: { condition: service_healthy }
+      evidence-parser: { condition: service_healthy }
+    group_add: ["2000"]
     ports: ["127.0.0.1:18310:3000"]
-    volumes: ["aeq-prod-evidence:/data"]
+    volumes:
+      - aeq-prod-evidence:/data
+      - type: volume
+        source: aeq-prod-parser-socket
+        target: /run/aeq-parser
+        read_only: true
     mem_limit: 1g
     stop_grace_period: 30s
     healthcheck:
@@ -85,9 +125,17 @@ services:
       CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       AEQUITAS_WORKERS_AI_MODEL: ${AEQUITAS_WORKERS_AI_MODEL:-}
+      AEQUITAS_EVIDENCE_PARSER_SOCKET: /run/aeq-parser/evidence.sock
     depends_on:
       postgres: { condition: service_healthy }
-    volumes: ["aeq-prod-evidence:/data"]
+      evidence-parser: { condition: service_healthy }
+    group_add: ["2000"]
+    volumes:
+      - aeq-prod-evidence:/data
+      - type: volume
+        source: aeq-prod-parser-socket
+        target: /run/aeq-parser
+        read_only: true
     secrets: [vertex_adc]
     stop_grace_period: 30s
     logging: *logging
@@ -136,6 +184,13 @@ volumes:
   aeq-prod-pgdata: { name: aeq-prod-pgdata }
   aeq-prod-evidence: { name: aeq-prod-evidence }
   aeq-prod-clamav-db: { name: aeq-prod-clamav-db }
+  aeq-prod-parser-socket:
+    name: aeq-prod-parser-socket
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=16m,uid=10001,gid=2000,mode=0730,noexec,nosuid,nodev
 
 networks:
   aeq-prod-net: { name: aeq-prod-net }

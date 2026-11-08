@@ -4,7 +4,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
-import { resolveCaseDataModel, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
+import { resolveCaseDataModel, WORKERS_AI_MODEL, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { characterCount, parseEvaluationPricing, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
 import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
@@ -16,8 +16,7 @@ import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_PROTOCOL_VER
  *   npm run agent:evaluate -- --live [metrics.json]
  *   npm run agent:evaluate -- --live --review-report=/tmp/aequitas-review.json
  *
- * --live calls the configured runtime provider (Gemini, Vertex AI, or Workers AI
- * via the existing interface) and refuses to start unless the operator has set
+ * --live calls the selected Workers AI evaluation model and refuses to start unless the operator has set
  * AEQUITAS_CASE_AGENT_EVAL_APPROVED=true after confirming the provider's data
  * terms and spending limit. It writes only to the `_test` database. It never
  * prints credentials, prompts, or model replies. An explicitly requested
@@ -127,12 +126,16 @@ async function main() {
   const env = {
     ...process.env,
     // Offline evaluation uses an explicitly synthetic provider identity.
-    // Live evaluation uses the deployment's configured provider identity.
     ...(stub ? {
       AEQUITAS_PIPELINE_PROVIDER: "gemini",
       GEMINI_PROJECT_ID: "synthetic-evaluation-project",
       GEMINI_MODEL: "gemini-3.8-flash",
-    } : {}),
+    } : {
+      // Martin selected Workers AI for this synthetic-only evaluation. Do not
+      // inherit another provider or model from the deployment environment.
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      AEQUITAS_WORKERS_AI_MODEL: WORKERS_AI_MODEL,
+    }),
     AEQUITAS_CASE_AGENT_ENABLED: "true",
     // Synthetic evaluation values, not program policy.
     AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
@@ -148,8 +151,8 @@ async function main() {
   let model: TextCompletion;
   if (live) {
     // This command deliberately bypasses the human quality-review attestation
-    // so it can produce the synthetic evidence required to create it. Provider
-    // terms and Gemini billing gates still apply inside resolveCaseDataModel.
+    // so it can produce the synthetic evidence required to create it. The
+    // selected provider-terms identity and live-evaluation flag still apply.
     const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" });
     if (!resolved.ok) throw new Error("No approved runtime provider is configured.");
     model = resolved.model;

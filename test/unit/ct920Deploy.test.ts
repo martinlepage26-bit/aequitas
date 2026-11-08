@@ -83,6 +83,7 @@ describe("CT920 deployment scheduled operations", () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("scheduled operations are healthy on release synthetic-release");
+    expect(result.calls).toContain("compose -p aeq-prod build app evidence-parser");
     expect(schedulerStart).toBeGreaterThan(-1);
     expect(result.calls.lastIndexOf("curl")).toBeLessThan(schedulerStart);
     expect(result.calls.some((call) => call.includes("scripts/verify-scheduled-ops.ts"))).toBe(true);

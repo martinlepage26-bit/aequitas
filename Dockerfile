@@ -49,12 +49,6 @@ RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM node-base AS runtime
 LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
-# Same OS packages Railway installs via RAILPACK_DEPLOY_APT_PACKAGES
-# (PDF text extraction + OCR in eng/fra).
-RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
- && apt-get purge -y --auto-remove curl gnupg dirmngr \
- && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build --chown=node:node /app ./
