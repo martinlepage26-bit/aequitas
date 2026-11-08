@@ -1,5 +1,4 @@
 import "../src/lib/loadEnv";
-import { mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { test, expect, type Browser, type BrowserContext } from "@playwright/test";
 import { prisma } from "../src/lib/prisma";
@@ -8,8 +7,9 @@ import { SESSION_COOKIE } from "../src/lib/session";
 import { createCase, openIntake, submitCase } from "../src/domain/mutate";
 import fr from "../messages/fr-CA.json";
 import en from "../messages/en-CA.json";
+import { e2eArtifactDirectory } from "./artifactDirectory";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = e2eArtifactDirectory();
 
 function cookieFor(userId: string, globalRole: string): string {
   return signPayload({ purpose: "session", userId, globalRole, authMethod: "dev-bypass" }, 60 * 60);
@@ -28,7 +28,6 @@ async function contextFor(browser: Browser, userId: string, globalRole: string):
 for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
   test(`provenance click shows the excerpt in ${locale}`, async ({ browser }) => {
     test.setTimeout(120_000);
-    mkdirSync(ARTIFACTS, { recursive: true });
     const suffix = locale === "fr-CA" ? "fr" : "en";
     const complainant = await prisma.user.create({
       data: { email: `prov-c-${randomUUID()}@example.com`, displayName: `Prov Complainant ${suffix}`, globalRole: "COMPLAINANT", locale },
