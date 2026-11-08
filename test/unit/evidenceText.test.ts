@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 const download = vi.hoisted(() => vi.fn());
 vi.mock("../../src/lib/storage", () => ({ downloadBuffer: download }));
@@ -100,6 +100,31 @@ describe("source text extraction", () => {
   it("refuses malformed raster headers without starting OCR", async () => {
     const result = await extractEvidenceText(Buffer.alloc(24), "image/png");
     expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+  });
+  it("does not pass application secrets to the OCR subprocess", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "aequitas-ocr-env-test-"));
+    const executable = join(dir, "tesseract");
+    await writeFile(executable, [
+      "#!/bin/sh",
+      "printf '%s|%s|%s|%s|%s' \"${GEMINI_API_KEY:-missing}\" \"${DATABASE_URL:-missing}\" \"${HOME:-missing}\" \"${TMPDIR:-missing}\" \"$PWD\"",
+      "",
+    ].join("\n"), { mode: 0o700 });
+    vi.stubEnv("GEMINI_API_KEY", "synthetic-provider-secret");
+    vi.stubEnv("DATABASE_URL", "postgres://synthetic-database-secret");
+    vi.stubEnv("AEQUITAS_TESSERACT_PATH", executable);
+    try {
+      const result = await extractEvidenceText(pngHeader(100, 100), "image/png");
+      expect(result.status).toBe("extracted");
+      const [providerKey, databaseUrl, home, temp, workingDirectory] = result.text.split("|");
+      expect(providerKey).toBe("missing");
+      expect(databaseUrl).toBe("missing");
+      expect(home).toMatch(/\/aequitas-extract-[^/]+$/);
+      expect(temp).toBe(home);
+      expect(basename(workingDirectory)).toBe(basename(home));
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
   it("routes animated PNG, animated WebP and multipage TIFF to staff", async () => {
     const png = pngHeader(100, 100);

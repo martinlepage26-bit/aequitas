@@ -22,6 +22,30 @@ const MAX_PDF_OCR_PAGE_IMAGE_BYTES = 16 * 1024 * 1024;
 const PDF_OCR_TOTAL_TIMEOUT_MS = 90_000;
 const PDF_OCR_RENDER_TIMEOUT_MS = 30_000;
 const PDF_OCR_PAGE_TIMEOUT_MS = 8_000;
+
+/** Untrusted evidence parsers must not inherit database, model or email secrets. */
+function executeEvidenceTool(
+  file: string,
+  args: string[],
+  dir: string,
+  limits: { timeout: number; maxBuffer: number },
+) {
+  return execute(file, args, {
+    ...limits,
+    encoding: "utf8",
+    cwd: dir,
+    env: {
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      HOME: dir,
+      TMPDIR: dir,
+      LANG: "C",
+      LC_ALL: "C",
+      OMP_THREAD_LIMIT: "1",
+      NODE_ENV: "production",
+    },
+  });
+}
+
 export type EvidenceExtraction = {
   status: "extracted" | "bounded" | "empty" | "unsupported" | "unavailable";
   method: "utf8" | "pdftotext" | "tesseract" | "none";
@@ -175,21 +199,21 @@ function finish(text: string, method: EvidenceExtraction["method"], bounded = fa
 
 async function extractPdfText(input: string, dir: string, onOcr: () => void): Promise<EvidenceExtraction> {
   const pdfinfo = process.env.AEQUITAS_PDFINFO_PATH || "pdfinfo";
-  const { stdout: info } = await execute(pdfinfo, [input], { timeout: 15000, maxBuffer: 64 * 1024, encoding: "utf8" });
+  const { stdout: info } = await executeEvidenceTool(pdfinfo, [input], dir, { timeout: 15000, maxBuffer: 64 * 1024 });
   const totalPages = Number(/^Pages:\s+(\d+)\s*$/m.exec(info)?.[1] ?? 0);
   if (!Number.isSafeInteger(totalPages) || totalPages < 1) throw new Error("PDF page count could not be established.");
 
   const pageCount = Math.min(totalPages, MAX_PDF_PAGES);
   const pdftotext = process.env.AEQUITAS_PDFTOTEXT_PATH || "pdftotext";
-  const { stdout } = await execute(pdftotext, ["-f", "1", "-l", String(MAX_PDF_PAGES), "-enc", "UTF-8", input, "-"], {
-    timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8",
+  const { stdout } = await executeEvidenceTool(pdftotext, ["-f", "1", "-l", String(MAX_PDF_PAGES), "-enc", "UTF-8", input, "-"], dir, {
+    timeout: 15000, maxBuffer: 512 * 1024,
   });
   // A page can contain selectable text and an embedded scan at the same time.
   // OCR every page with image objects, then retain both text layers so OCR
   // omissions cannot silently discard text that Poppler already extracted.
   const pdfimages = process.env.AEQUITAS_PDFIMAGES_PATH || "pdfimages";
-  const { stdout: imageList } = await execute(pdfimages, ["-list", input], {
-    timeout: 15000, maxBuffer: 128 * 1024, encoding: "utf8",
+  const { stdout: imageList } = await executeEvidenceTool(pdfimages, ["-list", input], dir, {
+    timeout: 15000, maxBuffer: 128 * 1024,
   });
   const pagesWithImages = new Set([...imageList.matchAll(/^\s*(\d+)\s+\d+\s+(?:image|smask)\b/gm)].map((match) => Number(match[1])));
   const pageTexts = stdout.split("\f").slice(0, pageCount);
@@ -209,18 +233,16 @@ async function extractPdfText(input: string, dir: string, onOcr: () => void): Pr
     const prefix = join(dir, `ocr-page-${pageNumber}`);
     const imagePath = `${prefix}.png`;
     try {
-      await execute(rasterizer, [
+      await executeEvidenceTool(rasterizer, [
         "-f", String(pageNumber), "-l", String(pageNumber), "-singlefile", "-scale-to", "2000", "-png", input, prefix,
-      ], { timeout: Math.min(PDF_OCR_RENDER_TIMEOUT_MS, remaining), maxBuffer: 64 * 1024, encoding: "utf8" });
+      ], dir, { timeout: Math.min(PDF_OCR_RENDER_TIMEOUT_MS, remaining), maxBuffer: 64 * 1024 });
       const imageBytes = (await stat(imagePath)).size;
       if (imageBytes > MAX_PDF_OCR_PAGE_IMAGE_BYTES) throw new Error(`Rendered PDF page ${pageNumber} exceeds the OCR size limit.`);
       const timeLeft = PDF_OCR_TOTAL_TIMEOUT_MS - (Date.now() - startedAt);
       if (timeLeft <= 0) throw new Error("PDF OCR exceeded its total time limit.");
-      const { stdout: ocrText } = await execute(tesseract, [imagePath, "stdout", "-l", languages, "--psm", "6"], {
+      const { stdout: ocrText } = await executeEvidenceTool(tesseract, [imagePath, "stdout", "-l", languages, "--psm", "6"], dir, {
         timeout: Math.min(PDF_OCR_PAGE_TIMEOUT_MS, timeLeft),
         maxBuffer: 512 * 1024,
-        encoding: "utf8",
-        env: { ...process.env, OMP_THREAD_LIMIT: "1" },
       });
       const normalizedOcr = ocrText.trimEnd();
       const selectableText = pageTexts[pageNumber - 1].trimEnd();
@@ -256,8 +278,8 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
       return pdfText;
     }
     const tesseract = process.env.AEQUITAS_TESSERACT_PATH || "tesseract";
-    const { stdout } = await execute(tesseract, [input, "stdout", "-l", process.env.AEQUITAS_OCR_LANGUAGES || "eng+fra", "--psm", "6"], {
-      timeout: 15000, maxBuffer: 512 * 1024, encoding: "utf8", env: { ...process.env, OMP_THREAD_LIMIT: "1" },
+    const { stdout } = await executeEvidenceTool(tesseract, [input, "stdout", "-l", process.env.AEQUITAS_OCR_LANGUAGES || "eng+fra", "--psm", "6"], dir, {
+      timeout: 15000, maxBuffer: 512 * 1024,
     });
     return finish(stdout, "tesseract");
   } catch {
