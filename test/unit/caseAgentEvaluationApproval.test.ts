@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -39,7 +39,7 @@ describe("case-agent evaluation approval", () => {
   it("rejects the previous evaluation protocol's approval identity", () => {
     const previous = {
       ...env,
-      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:case-agent-evaluation-2026-11-07.2`,
+      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:case-agent-evaluation-2026-11-08.1`,
     };
     expect(caseAgentEvaluationApprovalBlocker(previous)).toContain("AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR");
     expect(resolveCaseAgentModel(previous)).toMatchObject({ ok: false });
@@ -53,5 +53,25 @@ describe("case-agent evaluation approval", () => {
     };
     expect(caseAgentEvaluationApprovalBlocker(approved)).toBeNull();
     expect(resolveCaseAgentModel(approved).ok).toBe(true);
+  });
+
+  it("blocks a live evaluation until the human pre-model baseline is approved for the exact identity", () => {
+    const identity = caseAgentEvaluationApprovalIdentity(env)!;
+    const missing = caseAgentLiveEvaluationPreflightBlockers(env);
+    expect(missing).toHaveLength(2);
+    expect(missing.join(" ")).toContain("AEQUITAS_CASE_AGENT_EVAL_APPROVED=true");
+    expect(missing.join(" ")).toContain("Before any model output");
+    expect(missing.join(" ")).toContain("AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR");
+    expect(missing.join(" ")).toContain(identity);
+
+    const approved = {
+      ...env,
+      AEQUITAS_CASE_AGENT_EVAL_APPROVED: "true",
+      AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR: identity,
+    };
+    expect(caseAgentLiveEvaluationPreflightBlockers(approved)).toEqual([]);
+
+    const stale = { ...approved, AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR: `${identity}:stale` };
+    expect(caseAgentLiveEvaluationPreflightBlockers(stale).join(" ")).toContain(identity);
   });
 });

@@ -7,7 +7,7 @@ import { applyTestDatabase } from "../test/testDatabaseUrl";
 import { resolveCaseDataModel, WORKERS_AI_MODEL, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { characterCount, parseEvaluationPricing, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
-import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
+import { caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
@@ -16,9 +16,9 @@ import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_PROTOCOL_VER
  *   npm run agent:evaluate -- --live [metrics.json]
  *   npm run agent:evaluate -- --live --review-report=/tmp/aequitas-review.json
  *
- * --live calls the selected Workers AI evaluation model and refuses to start unless the operator has set
- * AEQUITAS_CASE_AGENT_EVAL_APPROVED=true after confirming the provider's data
- * terms and spending limit. It writes only to the `_test` database. It never
+ * --live calls the selected Workers AI evaluation model only after the operator
+ * confirms provider terms/spend and attests that the human reference set was
+ * reviewed before model output. It writes only to the `_test` database. It never
  * prints credentials, prompts, or model replies. An explicitly requested
  * `--review-report` file contains sanitized generated text and cited excerpts
  * from these synthetic fixtures for manual semantic review. The ordinary
@@ -28,8 +28,6 @@ import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_PROTOCOL_VER
  * claims invoice cost. A small
  * synthetic run does not show the agent is safe or ready for real disputes.
  */
-
-applyTestDatabase();
 
 type Fixture = {
   name: string;
@@ -43,6 +41,8 @@ type Fixture = {
 };
 
 const PRIVATE_DETAIL_PHONE_MARKER = "514-555-0199";
+
+class EvaluationPreflightError extends Error {}
 
 const FIXTURES: Fixture[] = [
   { name: "routine-en", complainantLocale: "en-CA", respondentLocale: "en-CA", expect: "issued",
@@ -90,9 +90,24 @@ async function main() {
     && arg.endsWith(".json")
     && !(reviewFlagIndex >= 0 && index === reviewFlagIndex + 1));
   if (live === stub) throw new Error("Pass exactly one of --live or --stub.");
-  if (live && process.env.AEQUITAS_CASE_AGENT_EVAL_APPROVED !== "true") {
-    throw new Error("Live evaluation needs AEQUITAS_CASE_AGENT_EVAL_APPROVED=true after the provider's data terms and spending limit are confirmed.");
+
+  let preResolvedLiveModel: TextCompletion | undefined;
+  if (live) {
+    const preflightEnv = {
+      ...process.env,
+      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+      AEQUITAS_WORKERS_AI_MODEL: WORKERS_AI_MODEL,
+    };
+    const blockers = caseAgentLiveEvaluationPreflightBlockers(preflightEnv);
+    if (blockers.length > 0) throw new EvaluationPreflightError(blockers.join("\n- "));
+    const resolved = resolveCaseDataModel({ ...preflightEnv, AEQUITAS_PIPELINE_ENABLED: "true" });
+    if (!resolved.ok) throw new EvaluationPreflightError(resolved.reason);
+    preResolvedLiveModel = resolved.model;
   }
+
+  // Do not require or connect to a database until all offline live-call gates
+  // have passed and the selected provider credentials have been validated.
+  applyTestDatabase();
 
   // Never let synthetic evaluation write to a deployment volume or object store.
   evaluationStorageDir = mkdtempSync(join(tmpdir(), "aeq-agent-eval-"));
@@ -150,12 +165,8 @@ async function main() {
 
   let model: TextCompletion;
   if (live) {
-    // This command deliberately bypasses the human quality-review attestation
-    // so it can produce the synthetic evidence required to create it. The
-    // selected provider-terms identity and live-evaluation flag still apply.
-    const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" });
-    if (!resolved.ok) throw new Error("No approved runtime provider is configured.");
-    model = resolved.model;
+    if (!preResolvedLiveModel) throw new Error("Live evaluation provider preflight did not produce a model client.");
+    model = preResolvedLiveModel;
   } else {
     // Stub: answers from the ids in the prompt so the harness can be exercised offline.
     model = { provider: "stub", model: "harness-self-test", async complete(prompt: string, systemInstruction?: string) {
@@ -512,10 +523,14 @@ async function main() {
   evaluationStorageDir = undefined;
 }
 
-main().catch(async () => {
+main().catch(async (error: unknown) => {
   try { await clearEvaluationBudget?.(); } catch { /* preserve the safe error below */ }
   try { await disconnectDatabase?.(); } catch { /* preserve the safe error below */ }
   if (evaluationStorageDir) rmSync(evaluationStorageDir, { recursive: true, force: true });
-  console.error("Case-agent evaluation failed. Provider errors, prompts and case text were not logged.");
+  if (error instanceof EvaluationPreflightError) {
+    console.error(`Live synthetic evaluation is blocked:\n- ${error.message}`);
+  } else {
+    console.error("Case-agent evaluation failed. Provider errors, prompts and case text were not logged.");
+  }
   process.exitCode = 1;
 });

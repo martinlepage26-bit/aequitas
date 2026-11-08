@@ -9,5 +9,7 @@ describe("live evaluation environment example", () => {
     const example = readFileSync(envExamplePath, "utf8");
     expect(example).toMatch(/^# AEQUITAS_CASE_AGENT_EVAL_APPROVED=true$/m);
     expect(example).not.toMatch(/^AEQUITAS_CASE_AGENT_EVAL_APPROVED=/m);
+    expect(example).toMatch(/^# AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR=$/m);
+    expect(example).not.toMatch(/^AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR=/m);
   });
 });
