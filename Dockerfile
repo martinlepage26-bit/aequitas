@@ -12,7 +12,11 @@ FROM ${NODE_IMAGE} AS node-base
 ARG NODE_IMAGE
 ARG NPM_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
+# The digest pins the Node base; Debian security fixes published after it
+# (e.g. zlib1g 1:1.3.dfsg+really1.3.1-1+deb13u1) arrive only via apt, so
+# apply them here. Every later stage, including runtime, builds on this one.
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends ca-certificates openssl \
  && rm -rf /var/lib/apt/lists/* \
  && npm install --global "npm@${NPM_VERSION}" --no-audit --no-fund
