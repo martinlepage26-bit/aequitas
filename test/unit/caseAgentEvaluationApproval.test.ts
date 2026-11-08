@@ -36,6 +36,15 @@ describe("case-agent evaluation approval", () => {
     expect(resolveCaseAgentModel(stale)).toMatchObject({ ok: false });
   });
 
+  it("rejects the previous evaluation protocol's approval identity", () => {
+    const previous = {
+      ...env,
+      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:case-agent-evaluation-2026-11-07.2`,
+    };
+    expect(caseAgentEvaluationApprovalBlocker(previous)).toContain("AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR");
+    expect(resolveCaseAgentModel(previous)).toMatchObject({ ok: false });
+  });
+
   it("allows the evaluator to obtain the terms-approved provider before quality approval", () => {
     expect(resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }).ok).toBe(true);
     const approved = {

@@ -2,7 +2,7 @@ import { caseDataProviderApprovalIdentity } from "../pipeline/provider";
 import { AGENT_PROMPT_VERSION } from "./output";
 
 const APPROVAL_ENV = "AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR";
-export const CASE_AGENT_EVALUATION_PROTOCOL_VERSION = "case-agent-evaluation-2026-11-07.2";
+export const CASE_AGENT_EVALUATION_PROTOCOL_VERSION = "case-agent-evaluation-2026-11-08.1";
 
 /** Bind a human-reviewed synthetic evaluation to the exact model, prompt, and evaluation protocol. */
 export function caseAgentEvaluationApprovalIdentity(env: Record<string, string | undefined>): string | null {
