@@ -103,6 +103,29 @@ jobs:
             DATABASE_URL=postgresql://build:build@localhost:5432/build ./node_modules/.bin/prisma -v | grep -F "openssl-3.0.x"
           '
 
+      # Scan the built deployment image itself; the lockfile SBOM and dpkg
+      # list below remain separate inventories for comparison and triage.
+      - name: Generate SPDX SBOM for production runtime image
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
+        with:
+          image: aequitas-ci-runtime
+          format: spdx-json
+          output-file: ${{ runner.temp }}/aequitas-container-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Verify container image SBOM is valid and non-empty
+        run: |
+          node - "$RUNNER_TEMP/aequitas-container-image.spdx.json" <<'NODE'
+          const assert = require('node:assert/strict');
+          const { readFileSync } = require('node:fs');
+          const sbom = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          assert.match(sbom.spdxVersion, /^SPDX-2\.\d+$/);
+          assert.ok(Array.isArray(sbom.packages) && sbom.packages.length > 0, 'image SBOM must inventory at least one package');
+          console.log(`Container image SBOM verified (${sbom.packages.length} packages).`);
+          NODE
+
       - name: Generate production image dependency inventory
         run: |
           docker run --rm --entrypoint npm aequitas-ci-runtime sbom --package-lock-only --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-production-node.spdx.json"
@@ -119,6 +142,7 @@ jobs:
           name: aequitas-runtime-inventory-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/aequitas-production-node.spdx.json
+            ${{ runner.temp }}/aequitas-container-image.spdx.json
             ${{ runner.temp }}/aequitas-runtime-os-packages.txt
             ${{ runner.temp }}/aequitas-runtime-image.txt
           if-no-files-found: error
