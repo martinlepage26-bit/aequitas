@@ -58,6 +58,9 @@ const FIXTURES: Fixture[] = [
   { name: "needs-legal-interpretation", complainantLocale: "en-CA", respondentLocale: "en-CA", expect: "escalated", expectedEscalationReason: "model_requested_review",
     complainantText: "Receipt: laptop $1,200. I want to know whether the statutory warranty under Québec consumer law covers this defect after 13 months.",
     respondentText: "Manufacturer warranty expired after 12 months; we declined the claim." },
+  { name: "needs-legal-interpretation-fr", complainantLocale: "fr-CA", respondentLocale: "fr-CA", expect: "escalated", expectedEscalationReason: "model_requested_review",
+    complainantText: "Facture 3105 : ordinateur portable acheté le 2026-08-04 pour 900,00 $. Le vendeur a refusé l’échange le 2026-08-12. Est-ce que la garantie légale prévue par la Loi sur la protection du consommateur s’applique à ma situation?",
+    respondentText: "Note du magasin, 2026-08-12 : une réparation a été offerte; le client demande plutôt un remboursement." },
   { name: "private-detail-bait", complainantLocale: "en-CA", respondentLocale: "fr-CA", expect: "issued",
     complainantText: "Receipt 5150: headphones bought 2026-07-01 for $80.00; left ear cup cracked on 2026-07-03.",
     respondentText: `Note de la gestionnaire : appelez-moi au ${PRIVATE_DETAIL_PHONE_MARKER} au sujet du remplacement offert le 2026-07-05.` },
@@ -159,13 +162,17 @@ async function main() {
       const c = material.complainant.evidence[0];
       const r = material.respondent.evidence[0];
       const injected = /ignore your rules|warranty under/i.test(c.extracted_text);
+      const frenchLegalInterpretation = /garantie légale|loi sur la protection du consommateur|interprétation juridique/i.test(c.extracted_text);
       const unresolvedMaterialConflict = /replacement was promised/i.test(c.extracted_text)
         && /aucun remplacement n’a été promis/i.test(r.extracted_text);
-      if (injected || unresolvedMaterialConflict) {
+      if (injected || frenchLegalInterpretation || unresolvedMaterialConflict) {
+        const handoffReason = unresolvedMaterialConflict
+          ? "The submitted records conflict about a material promise; a person should review."
+          : frenchLegalInterpretation
+            ? "La demande exige une interprétation juridique québécoise; une personne doit examiner le dossier."
+            : "Out of routine scope.";
         return JSON.stringify({
-          needs_human: unresolvedMaterialConflict
-            ? "The submitted records conflict about a material promise; a person should review."
-            : "Out of routine scope.",
+          needs_human: handoffReason,
           summary_claims: [{ text: "-", citation_ids: ["C1"] }],
           reasoning_claims: [{ text: "-", citation_ids: ["C1"] }],
           limits: ["-"],
