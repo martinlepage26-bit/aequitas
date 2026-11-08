@@ -173,7 +173,7 @@ jobs:
           assert.equal(report.mode, 'stub');
           assert.equal(report.syntheticOnly, true);
           assert.equal(report.automatedChecksPassed, true);
-          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-07.2');
+          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-08.1');
           assert.equal(report.evaluationApprovalIdentity, null);
           assert.equal(report.status, 'human_review_required');
           assert.equal(report.fixtures.length, 7);
