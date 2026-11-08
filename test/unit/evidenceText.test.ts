@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -145,9 +145,11 @@ describe("source text extraction", () => {
   });
   it("retains selectable PDF text when OCR also reads an embedded image", async () => {
     const dir = await mkdtemp(join(tmpdir(), "aequitas-pdf-extraction-test-"));
+    const environmentLog = join(dir, "child-environment.log");
+    const environmentProbe = "printf '%s|%s|%s|%s|%s|%s\\n' \"${GEMINI_API_KEY:-missing}\" \"${DATABASE_URL:-missing}\" \"${RESEND_API_KEY:-missing}\" \"${HOME:-missing}\" \"${TMPDIR:-missing}\" \"$PWD\" >> '" + environmentLog + "'";
     const executable = async (name: string, body: string) => {
       const path = join(dir, name);
-      await writeFile(path, `#!/bin/sh\nset -eu\n${body}\n`, { mode: 0o700 });
+      await writeFile(path, `#!/bin/sh\nset -eu\n${environmentProbe}\n${body}\n`, { mode: 0o700 });
       return path;
     };
     try {
@@ -161,11 +163,22 @@ describe("source text extraction", () => {
       vi.stubEnv("AEQUITAS_PDFIMAGES_PATH", pdfimages);
       vi.stubEnv("AEQUITAS_PDFTOPPM_PATH", pdftoppm);
       vi.stubEnv("AEQUITAS_TESSERACT_PATH", tesseract);
+      vi.stubEnv("GEMINI_API_KEY", "synthetic-provider-secret");
+      vi.stubEnv("DATABASE_URL", "postgres://synthetic-database-secret");
+      vi.stubEnv("RESEND_API_KEY", "synthetic-email-secret");
 
       const result = await extractEvidenceText(Buffer.from("%PDF-synthetic"), "application/pdf");
       expect(result.status).toBe("extracted");
       expect(result.text).toContain("SELECTABLE_TEXT");
       expect(result.text).toContain("OCR_VISIBLE_TEXT");
+      const observations = (await readFile(environmentLog, "utf8")).trim().split("\n").map((line) => line.split("|"));
+      expect(observations).toHaveLength(5);
+      for (const [providerKey, databaseUrl, emailKey, home, temp, workingDirectory] of observations) {
+        expect([providerKey, databaseUrl, emailKey]).toEqual(["missing", "missing", "missing"]);
+        expect(home).toMatch(/\/aequitas-extract-[^/]+$/);
+        expect(temp).toBe(home);
+        expect(basename(workingDirectory)).toBe(basename(home));
+      }
     } finally {
       vi.unstubAllEnvs();
       await rm(dir, { recursive: true, force: true });
