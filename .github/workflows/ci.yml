@@ -224,14 +224,25 @@ jobs:
           console.log('Synthetic human-review report checks passed.');
           NODE
 
-      # Scan the exact production image after the rest of CI has run. The SBOM
-      # and runtime inventory are uploaded above, so findings still have the
-      # package evidence needed for triage.
-      - name: Scan production runtime image for high-severity vulnerabilities
+      # Keep the full high/critical report visible, including distro findings
+      # without a fixed package version. The SBOM and runtime inventory above
+      # provide package evidence for triage.
+      - name: Report high-severity production image vulnerabilities
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
+        with:
+          image: aequitas-ci-runtime
+          fail-build: false
+          severity-cutoff: high
+          only-fixed: false
+          output-format: table
+
+      # Block releases when an update is available; unpatched distro findings
+      # remain in the report above and are not silently filtered from CI.
+      - name: Fail on fixable high-severity production image vulnerabilities
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
         with:
           image: aequitas-ci-runtime
           fail-build: true
           severity-cutoff: high
-          only-fixed: false
+          only-fixed: true
           output-format: table
