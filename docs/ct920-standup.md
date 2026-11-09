@@ -7,20 +7,7 @@ its GitHub source disconnected. Railway Postgres and ClamAV remain available
 for the agreed rollback window; do not shut them down without Martin's
 separate approval.
 
-**Latest read-only check, 2026-11-07 19:20 UTC:** CT920's clean deployment
-checkout remains at `d74ed342693a96a6dc75d8907d288131c0148385`; `aeq-prod-app`
-is healthy on that image and the loopback health endpoint reports the same SHA.
-Postgres and ClamAV are healthy. No `aeq-prod` scheduler container or matching
-user systemd timer was found; the only matching user crontab entry is the 03:15
-off-box backup job. No case-agent or notification schedule was found in that
-user crontab. This deployed image predates PR 14's case-agent code and cannot
-run it. An external scheduler is not ruled out. Public routing, production
-migration state, database contents, Railway's current app/database/write state,
-and rollback readiness were not verified. Treat the October 16 Railway
-statements below as historical, not current operational evidence. Do not use
-Railway as a migration source or failback until its live service and data
-lineage are independently verified. This runbook does not authorize a
-deployment or cutover.
+**Latest read-only check, 2026-11-09 01:47 UTC, from the Mac client over `mtl-00`:** public `GET /api/health` returned HTTP 200 with release `d74ed342693a96a6dc75d8907d288131c0148385`. CT920's `aeq-prod-app` is healthy on image `aeq-prod-app:d74ed342693a96a6dc75d8907d288131c0148385`; Postgres 18 and ClamAV are healthy, and the Aequitas Cloudflare tunnel service is active. The production container listing has no `aeq-prod-evidence-parser` or `aeq-prod-scheduler`; the user timer and worker-process checks found no Aequitas scheduler or matching worker. The earlier user-crontab check (2026-11-08 18:29 UTC) found only the 03:15 off-box backup entry; an external scheduler is not ruled out. This deployed image predates PR #14's case-agent and parser-sidecar code. Production migration history, database contents, passkeys, email delivery, backups, Railway's current app/database/write state, and rollback readiness were not verified. Treat the October 16 Railway statements below as historical, not current operational evidence. Do not use Railway as a migration source or failback until its live service and data lineage are independently verified. This runbook does not authorize a deployment or cutover.
 
 ## What runs
 
