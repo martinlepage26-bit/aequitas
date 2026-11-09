@@ -12,7 +12,7 @@ This section supersedes older snapshots below where newer evidence is available.
 - **Exact synthetic review identity from that preflight:** reviewers must assess this identity and the policy it covers; changing a workflow setting produces a different identity:
 
   ```text
-  workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.2:fixtures:ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197
+  workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982f5:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.3:fixtures:821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970
   ```
 
 - **Human gate:** the [baseline review worksheet](case-agent-baseline-review-worksheet.md) remains blank. A program case reviewer must review all seven references, counsel both legal-handoff fixtures, and a Québec French reviewer all five fixtures with an `fr-CA` party before any model output. After that, the operator must set `AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR` to the exact identity above. The operator must also review the provider terms and cap before setting `AEQUITAS_CASE_AGENT_EVAL_APPROVED=true`. No real case data is authorized for this evaluation.

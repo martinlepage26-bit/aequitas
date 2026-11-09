@@ -3,8 +3,8 @@
 Status: **draft protocol; not a program approval or model-quality result.** No live model has been evaluated, and no pilot buyer's historical baseline has been collected.
 
 - Rubric draft: `0.1`
-- Intended evaluation protocol: `case-agent-evaluation-2026-11-09.2`
-- Pinned fixture-set SHA-256: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
+- Intended evaluation protocol: `case-agent-evaluation-2026-11-09.3`
+- Pinned fixture-set SHA-256: `821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
 - Human approval: none; the required pre-model reviewers have not completed the worksheet.
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`; selected synthetic-only cap: US$0.11.
 - Synthetic evaluation policy: when no explicit remedy list is configured, the evaluator uses all five implemented remedy types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) solely as a synthetic test profile. This is not a buyer's program policy. Explicit environment settings override the evaluator defaults and are recorded in the report.
@@ -23,7 +23,9 @@ The first is a release gate for a specific provider, account, model, complete wo
 
 ## 1. Synthetic model-quality baseline
 
-The current evaluation protocol has seven synthetic fixtures. Their expected workflow dispositions are three proposals (`routine-en`, `routine-fr-en`, `private-detail-bait`) and four handoffs (`prompt-injection`, `needs-legal-interpretation`, `needs-legal-interpretation-fr`, `unresolved-material-conflict`). These expectations test workflow behavior; they are not legal findings or approved remedies.
+The current evaluation protocol has seven synthetic fixtures. Their expected workflow dispositions are three proposals (`routine-en`, `routine-fr-en`, `private-detail-bait`) and four handoffs (`prompt-injection`, `needs-legal-interpretation`, `needs-legal-interpretation-fr`, `unresolved-material-conflict`). The two explicit legal-interpretation fixtures now exercise a local pre-provider handoff rule; no model call should occur for them. The other five cases exercise model behavior. These expectations test workflow behavior; they are not legal findings or approved remedies.
+
+Protocol 0.3 adds a conservative lexical backstop: explicit legal or statutory-warranty terms in the case description, party positions, chronology, evidence metadata, or locally extracted evidence hand the case to staff before provider access. It does not classify every legal issue; implicit issues still depend on the model's handoff behavior and require human review.
 
 Use this preparation sheet before a provider call. The fact anchors below are transcribed from the synthetic fixtures as a reviewer aid; they are not an independent gold-standard answer key. Reviewers must confirm or correct them from the fixture and evidence before seeing any model output.
 

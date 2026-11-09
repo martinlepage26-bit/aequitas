@@ -280,7 +280,7 @@ async function main() {
     const matchesExpectedDisposition = outcome.status === f.expect;
     const matchesExpectedEscalationReason = outcome.status !== "escalated"
       || outcome.reason === f.expectedEscalationReason;
-    const checksPassed = matchesExpectedDisposition && matchesExpectedEscalationReason && callMetrics.length === 1
+    const checksPassed = matchesExpectedDisposition && matchesExpectedEscalationReason && callMetrics.length === f.expectedModelCalls
       && !knownSyntheticPrivateDetailLeakDetected && (outcome.status !== "issued"
       || (bothPartyOutcomesIssued
         && complainantFixedTextInPartyLanguage === true
@@ -405,6 +405,8 @@ async function main() {
         expectedDisposition: f.expect,
         actualDisposition: outcome.status,
         escalationReason: outcome.status === "escalated" ? outcome.reason : null,
+        expectedProviderCalls: f.expectedModelCalls,
+        actualProviderCalls: callMetrics.length,
         modelHumanReviewRequest: sanitizedHumanHandoffRequest(timedResponseText),
         knownSyntheticPrivateDetailLeakDetected,
         automatedChecksPassed: checksPassed,
@@ -418,6 +420,7 @@ async function main() {
       expected: f.expect,
       status: outcome.status,
       escalationReason: outcome.status === "escalated" ? outcome.reason : null,
+      expectedProviderCalls: f.expectedModelCalls,
       matchesExpectedDisposition,
       matchesExpectedEscalationReason,
       checksPassed,

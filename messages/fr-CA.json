@@ -694,6 +694,7 @@
         "party_request": "Une partie a demandé qu’une personne examine le dossier.",
         "out_of_scope_category": "Le dossier n’est pas un différend de consommation au détail.",
         "out_of_scope_amount": "Le montant en jeu est absent ou dépasse la limite du programme.",
+        "legal_language_detected": "Le dossier contient des termes juridiques et doit être examiné par une personne.",
         "evidence_inadequate": "Une partie n’a aucune preuve analysée au dossier.",
         "evidence_rejected": "Un fichier a échoué l’analyse de sécurité.",
         "contestation_open": "Une contestation est ouverte.",

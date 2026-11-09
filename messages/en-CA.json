@@ -694,6 +694,7 @@
         "party_request": "A party asked for a person to review the case.",
         "out_of_scope_category": "The case is not a retail dispute.",
         "out_of_scope_amount": "The amount at stake is missing or above the program's limit.",
+        "legal_language_detected": "The case includes legal language and needs a person to review it.",
         "evidence_inadequate": "A party has no scanned evidence on file.",
         "evidence_rejected": "A file failed the security scan.",
         "contestation_open": "A contestation is open.",

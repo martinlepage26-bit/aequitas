@@ -4,8 +4,8 @@
 
 ## Scope
 
-- Evaluation protocol: `case-agent-evaluation-2026-11-09.2`
-- Fixture digest: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
+- Evaluation protocol: `case-agent-evaluation-2026-11-09.3`
+- Fixture digest: `821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
 - Synthetic evaluation remedy profile: all five implemented types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) unless an explicit environment list overrides it. This is a test profile, not an approved program policy.
 - Current evaluation identity: includes the selected provider/account/model and a digest of the full workflow policy (amount limit, remedies, daily call limit, response periods, withdrawal, consent-only resolution, and bilingual processing notice), plus prompt, protocol, and fixture digests. Use the exact identity printed by the evaluator; policy changes invalidate it.

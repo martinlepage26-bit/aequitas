@@ -16,6 +16,7 @@ import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } fro
 import { renderProposal } from "./proposal";
 import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudget";
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
+import { hasExplicitLegalIssueMarker } from "./legalEscalation";
 import { processingConsentMatches } from "./processingConsent";
 import { caseAgentPolicyFromEvents, createCaseAgentPolicySnapshot } from "./policy";
 import type { Remedy } from "./proposal";
@@ -58,6 +59,7 @@ export type EscalationReason =
   | "no_answer"
   | "out_of_scope_category"
   | "out_of_scope_amount"
+  | "legal_language_detected"
   | "evidence_inadequate"
   | "evidence_rejected"
   | "evidence_extraction_failed"
@@ -482,6 +484,13 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   if (!first.complainantPosition || !first.respondentPosition) return { status: "waiting", reason: "positions_missing" };
   if (row.category !== "RETAIL") return escalate("out_of_scope_category");
   if (row.amountAtStakeCents === null || row.amountAtStakeCents > program.maxAmountCents) return escalate("out_of_scope_amount");
+  if (hasExplicitLegalIssueMarker([
+    row.disputeDescription,
+    first.complainantPosition.body,
+    first.respondentPosition.body,
+    ...first.caseRow.chronologyEntries.flatMap((entry) => [entry.title, entry.description]),
+    ...first.current.flatMap((item) => [item.title, item.description]),
+  ])) return escalate("legal_language_detected");
   if (first.current.some((e) => e.scanStatus === "PENDING")) return { status: "waiting", reason: "scan_pending" };
   if (first.current.some((e) => e.scanStatus === "REJECTED")) return escalate("evidence_rejected");
   const clean = (partyId: string) => new Set(first.current.filter((e) => e.submittedById === partyId && e.scanStatus === "CLEAN").map((e) => e.id));
@@ -532,6 +541,12 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
       sourceSha256: item.sha256,
       extractedTextSha256: createHash("sha256").update(extraction.text).digest("hex"),
     });
+  }
+  // Local extraction is hash-verified and happens only after both parties
+  // accepted the configured processing notice. Explicit legal language in a
+  // file still hands the case off before any provider call.
+  if (hasExplicitLegalIssueMarker([...evidenceSources.values()].map((source) => source.text))) {
+    return escalate("legal_language_detected");
   }
 
   const digest = materialDigest(first, evidenceSources, program.allowedRemedies);

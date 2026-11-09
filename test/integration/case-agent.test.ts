@@ -737,6 +737,43 @@ describe("case agent: party isolation", () => {
 });
 
 describe("case agent: unsupported or unsafe cases go to a person", () => {
+  it.each([
+    ["English statutory-warranty question", "I want to know whether the statutory warranty under Québec consumer law covers this defect after 13 months."],
+    ["French statutory-warranty question", "Est-ce que la garantie légale prévue par la Loi sur la protection du consommateur s’applique à ma situation?"],
+  ])("hands off an explicit legal question before extracting or calling the model (%s)", async (_label, body) => {
+    const s = await positionsCase();
+    await prisma.positionStatement.updateMany({ where: { caseId: s.caseId, partyId: s.complainantId }, data: { body } });
+    const extract = vi.spyOn(evidenceText, "extractStoredEvidence");
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    try {
+      expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "legal_language_detected" });
+      expect(extract).not.toHaveBeenCalled();
+      expect(model.calls).toBe(0);
+      expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+      expect(await prisma.case.findUniqueOrThrow({ where: { id: s.caseId } })).toMatchObject({ agentEscalationReason: "legal_language_detected" });
+    } finally {
+      extract.mockRestore();
+    }
+  });
+
+  it("hands off legal language found in extracted evidence before the provider call", async () => {
+    const s = await positionsCase();
+    const stored = await uploadEvidence({
+      caseId: s.caseId,
+      evidenceId: s.complainantEvidence,
+      simulated: true,
+      buffer: Buffer.from("This letter asks whether the statutory warranty under Québec consumer law applies."),
+      mimeType: "text/plain",
+    });
+    await prisma.evidenceItem.update({ where: { id: s.complainantEvidence }, data: {
+      storageKey: stored.storageKey, sha256: stored.sha256, byteSize: stored.byteSize, mimeType: "text/plain",
+    } });
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    expect(await runCaseAgent({ caseId: s.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "legal_language_detected" });
+    expect(model.calls).toBe(0);
+    expect(await prisma.recommendation.count({ where: { caseId: s.caseId } })).toBe(0);
+  });
+
   it("hands a legacy agent-managed case without a policy snapshot to staff", async () => {
     const s = await positionsCase({ enroll: false });
     await prisma.case.update({ where: { id: s.caseId }, data: { agentManaged: true } });
