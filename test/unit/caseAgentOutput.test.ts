@@ -68,9 +68,10 @@ describe("case agent output checks", () => {
     expect(check({ ...ok, proposal: { ...ok.proposal, remedy: "refund_partial", amount_cents: 4500 } }).ok).toBe(true);
   });
   it("flags verdicts, scores, legal advice, binding or pressuring language in both languages", () => {
-    for (const bad of ["This is our decision.", "She is not credible.", "Il est menteur.", "There is a 70% chance.", "Vous êtes légalement tenu de payer.", "This is final and binding.", "Last chance to accept.", "La loi vous oblige à rembourser."]) {
+    for (const bad of ["This is our decision.", "She is not credible.", "Il est menteur.", "La partie ment.", "Les déclarations mentent.", "La partie a menti.", "There is a 70% chance.", "Vous êtes légalement tenu de payer.", "This is final and binding.", "Last chance to accept.", "La loi vous oblige à rembourser."]) {
       expect(agentTextProblem(bad), bad).not.toBeNull();
     }
+    expect(agentTextProblem("La note mentionne un échange.")).toBeNull();
     expect(agentTextProblem("Proposition non contraignante : remboursement du prix payé.")).toBeNull();
     expect(check({ ...ok, proposal: { ...ok.proposal, rationale_claims: [{ text: "This is our decision.", citation_ids: ["C1"] }] } }).ok).toBe(false);
   });
