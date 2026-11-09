@@ -10,6 +10,8 @@ Status: **draft protocol; not a program approval or model-quality result.** No l
 - Authorized seven-fixture spend cap: US$0.11. The conservative request-bound estimate is about US$0.103; this is not a provider-side dollar stop.
 - Fail-closed preflight (2026-11-09): blocked because the one-run evaluation approval and human baseline review are unset. It stopped before database connection or provider request; no model call occurred.
 
+For a fillable copy of the seven pre-model human reference records, use the [baseline review worksheet](case-agent-baseline-review-worksheet.md).
+
 This protocol separates two questions that must not be conflated:
 
 1. Does the selected model produce acceptable, evidence-supported behavior on a small, fixed synthetic set?
