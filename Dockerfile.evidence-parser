@@ -31,9 +31,12 @@ ENV NODE_ENV=production \
     AEQUITAS_OCR_LANGUAGES=eng+fra \
     HOME=/tmp \
     TMPDIR=/tmp
+# Trixie's libpoppler147 depends on libgpgmepp6t64 -> libgpgme11t64, which
+# needs "gnupg | gpg". Purging gpg therefore removes poppler-utils. Naming the
+# minimal gpg alternative keeps apt from pulling the full gnupg suite
+# (dirmngr, gpg-agent, gpgsm, pinentry); only gpg and gpgconf remain.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
- && apt-get purge -y --auto-remove dirmngr gnupg gnupg-l10n gpg gpg-agent gpgconf gpgsm pinentry-curses \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra gpg \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 2000 aeq-parser \
  && useradd --system --uid 10001 --gid 2000 --no-create-home --home-dir /tmp aeq-parser \
