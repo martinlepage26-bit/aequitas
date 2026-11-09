@@ -166,6 +166,17 @@ The automated case agent is the proposed routine workflow, but is off by default
 
 The public `/fr-CA/demo` and `/en-CA/demo` routes provide a static walkthrough built from invented content and the app's fixed proposal template. They do not call a model or use case data, and are not a live product demonstration.
 
+## Current production observation
+
+Read-only production check, **2026-11-09 around 01:27 UTC**, from the Mac client to CT920 over `mtl-00`:
+
+- The public `GET https://aequitas.app.pharos-ai.ca/api/health` returned HTTP 200 with `status: ok` and release `d74ed342693a96a6dc75d8907d288131c0148385`.
+- CT920's `aeq-prod-app` container reported healthy on image `aeq-prod-app:d74ed342693a96a6dc75d8907d288131c0148385`; the production PostgreSQL 18 and ClamAV containers also reported healthy. The Aequitas Cloudflare tunnel service was active.
+- The user timer inventory showed only the unrelated `pharos-lead-export.timer`. No Aequitas scheduler timer, scheduler container, or matching agent/notification worker process appeared in this inspection. The separate `aequitas-demo.service` is a loopback-only private demo.
+- PR #14 is still unmerged at candidate head `7c4457b2e9448614ed9dfdf9bedffa854045321d`; this candidate is not the release reported by production health.
+
+This is a point-in-time process and HTTP health check. It does not verify migrations, passkey enrolment, invitation/email delivery, worker execution, backups, recovery, or the live model path. Recheck the host before selecting or deploying a release.
+
 ## Launch gates (policy, engineering, or manual; not decided in code)
 
 1. **Release and hosting decision.** Confirm the deployed commit and host, and choose the pilot deployment. Merging into `main` may trigger Railway.
