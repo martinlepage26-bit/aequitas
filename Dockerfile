@@ -51,6 +51,12 @@ FROM node-base AS runtime
 LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# npm is used in the build stages only; the app and scheduler launch Node
+# entrypoints directly. Remove npm from the shipped runtime image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+ && test ! -e /usr/local/lib/node_modules/npm \
+ && test ! -e /usr/local/bin/npm \
+ && test ! -e /usr/local/bin/npx
 COPY --from=build --chown=node:node /app ./
 COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
 RUN mkdir -p /data/evidence && chown -R node:node /data

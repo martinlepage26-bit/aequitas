@@ -31,6 +31,12 @@ ENV NODE_ENV=production \
     AEQUITAS_OCR_LANGUAGES=eng+fra \
     HOME=/tmp \
     TMPDIR=/tmp
+# npm is needed to build the parser, but the isolated service runs directly
+# under Node and does not need a package manager in its runtime image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+ && test ! -e /usr/local/lib/node_modules/npm \
+ && test ! -e /usr/local/bin/npm \
+ && test ! -e /usr/local/bin/npx
 # Trixie's libpoppler147 depends on libgpgmepp6t64 -> libgpgme11t64, which
 # needs "gnupg | gpg". Purging gpg therefore removes poppler-utils. Naming the
 # minimal gpg alternative keeps apt from pulling the full gnupg suite
