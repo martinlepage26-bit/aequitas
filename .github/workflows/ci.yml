@@ -205,6 +205,21 @@ jobs:
       # Scan the built deployment image itself; the lockfile SBOM and dpkg
       # list below remain separate inventories for comparison and triage.
       - name: Generate SPDX SBOM for production runtime image
+        id: runtime_sbom_first
+        continue-on-error: true
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
+        with:
+          image: aequitas-ci-runtime
+          format: spdx-json
+          output-file: ${{ runner.temp }}/aequitas-container-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      # Retry once on transient release-asset download failures. The pinned
+      # action still verifies Syft's release checksums; a second failure stops CI.
+      - name: Retry SPDX SBOM for production runtime image once
+        if: ${{ steps.runtime_sbom_first.outcome == 'failure' }}
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
         with:
           image: aequitas-ci-runtime
@@ -215,6 +230,19 @@ jobs:
           dependency-snapshot: false
 
       - name: Generate SPDX SBOM for isolated evidence parser image
+        id: parser_sbom_first
+        continue-on-error: true
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
+        with:
+          image: aequitas-ci-evidence-parser
+          format: spdx-json
+          output-file: ${{ runner.temp }}/aequitas-evidence-parser-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+          dependency-snapshot: false
+
+      - name: Retry SPDX SBOM for isolated evidence parser image once
+        if: ${{ steps.parser_sbom_first.outcome == 'failure' }}
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3, signed immutable release
         with:
           image: aequitas-ci-evidence-parser
