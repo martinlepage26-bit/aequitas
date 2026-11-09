@@ -4,16 +4,16 @@
 
 ## Scope
 
-- Evaluation protocol: `case-agent-evaluation-2026-11-09.1`
+- Evaluation protocol: `case-agent-evaluation-2026-11-09.2`
 - Fixture digest: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
-- Program remedy allowlist: **not selected**. The evaluation identity will include its canonical-list SHA-256 digest; the previous `.3` identity is stale and must not be used.
-- Current evaluation identity: pending the program-approved remedy allowlist.
+- Synthetic evaluation remedy profile: all five implemented types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) unless an explicit environment list overrides it. This is a test profile, not an approved program policy.
+- Current evaluation identity: includes the selected provider/account/model and a digest of the full workflow policy (amount limit, remedies, daily call limit, response periods, withdrawal, consent-only resolution, and bilingual processing notice), plus prompt, protocol, and fixture digests. Use the exact identity printed by the evaluator; policy changes invalidate it.
 - Authorized synthetic-only spend ceiling: **US$0.11**. The evaluator refuses before database setup if its local worst-case request bound exceeds the cap and reserves that bound before each call. Current bound: about US$0.10241281. This does not cap unrelated or concurrent account usage; provider billing remains authoritative.
-- CI's all-remedies setting is a mechanics-only stub profile and is not authority to use that list for a live program evaluation.
+- The synthetic evaluator's default all-remedies setting is a benchmark profile only. A buyer program must select its own remedy list; a different production policy cannot reuse this evaluation identity.
 - Source: [exact synthetic submissions and full evaluation protocol](case-agent-baseline-protocol.md#exact-synthetic-submissions-for-pre-model-review).
 
-Complete all required records before any model output is available, after the program has selected the remedy allowlist and the evaluator has printed the matching identity. Begin with each fixture's exact submissions and write an independent assessment before consulting the protocol's expected-workflow and fact-anchor table. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption.
+Complete all required records before any model output is available and after the evaluator has printed the exact policy-bound identity. Begin with each fixture's exact submissions and write an independent assessment before consulting the protocol's expected-workflow and fact-anchor table. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption. Reviewers assess only the synthetic evaluation policy recorded in that identity; their review does not approve a buyer's operating policy.
 
 Required coverage: the program case reviewer reviews all seven fixtures; counsel reviews the two legal-interpretation fixtures; a Québec French reviewer reviews all five fixtures with an fr-CA party. One person may hold more than one role if qualified, but record each role and review separately. Resolve disagreements before freezing the reference.
 
@@ -26,7 +26,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Supportable facts and source submission for each:
 - Counterevidence, conflicts, and unknowns:
 - Independent workflow disposition and reason:
-- If proposing an outcome, permitted remedy limits and the program rule supporting each; otherwise, why no proposal is appropriate:
+- If proposing an outcome, whether its remedy follows the evaluated synthetic policy and the evidence; note any buyer-specific rule that remains unreviewed. Otherwise, why no proposal is appropriate:
 - Party-specific disclosure and privacy limits:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
@@ -40,7 +40,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Supportable facts and source submission for each:
 - Counterevidence, conflicts, and unknowns:
 - Independent workflow disposition and reason:
-- If proposing an outcome, permitted remedy limits and the program rule supporting each; otherwise, why no proposal is appropriate:
+- If proposing an outcome, whether its remedy follows the evaluated synthetic policy and the evidence; note any buyer-specific rule that remains unreviewed. Otherwise, why no proposal is appropriate:
 - Party-specific disclosure and privacy limits:
 - Québec French reviewer — name, role, date:
 - French proposal clarity, factual limits, and corrections:
@@ -106,7 +106,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Supportable facts and source submission for each:
 - Counterevidence, conflicts, and unknowns:
 - Independent workflow disposition and reason:
-- If proposing an outcome, permitted remedy limits and the program rule supporting each; otherwise, why no proposal is appropriate:
+- If proposing an outcome, whether its remedy follows the evaluated synthetic policy and the evidence; note any buyer-specific rule that remains unreviewed. Otherwise, why no proposal is appropriate:
 - Party-specific disclosure and privacy limits, including details that must not appear in the other party's outcome:
 - Québec French reviewer — name, role, date:
 - French respondent-facing proposal clarity and confirmation that private details remain excluded:

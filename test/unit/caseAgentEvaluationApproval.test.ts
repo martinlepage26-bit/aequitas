@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicySha256 } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -25,8 +25,26 @@ const env: Record<string, string | undefined> = {
 };
 
 describe("case-agent evaluation approval", () => {
-  it("binds the approval to provider, account, model, prompt, and evaluation protocol versions", () => {
-    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`);
+  it("binds the approval to provider, complete program policy, prompt, and evaluation protocol versions", () => {
+    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:program:${caseAgentProgramPolicySha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`);
+  });
+
+  it("invalidates approval when any workflow-affecting program setting changes", () => {
+    const identity = caseAgentEvaluationApprovalIdentity(env);
+    const changedPolicies = [
+      { AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500001" },
+      { AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES: "replacement" },
+      { AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "11" },
+      { AEQUITAS_CASE_AGENT_INTAKE_DAYS: "2" },
+      { AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "2" },
+      { AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true" },
+      { AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true" },
+      { AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Updated English notice." },
+      { AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis français mis à jour." },
+    ];
+    for (const change of changedPolicies) {
+      expect(caseAgentEvaluationApprovalIdentity({ ...env, ...change })).not.toBe(identity);
+    }
   });
 
   it("keeps live case processing blocked without an exact human-review attestation", () => {
@@ -41,7 +59,7 @@ describe("case-agent evaluation approval", () => {
   it("rejects the previous evaluation protocol's approval identity", () => {
     const previous = {
       ...env,
-      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:case-agent-evaluation-2026-11-08.1`,
+      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:program:${caseAgentProgramPolicySha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:case-agent-evaluation-2026-11-09.1`,
     };
     expect(caseAgentEvaluationApprovalBlocker(previous)).toContain("AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR");
     expect(resolveCaseAgentModel(previous)).toMatchObject({ ok: false });

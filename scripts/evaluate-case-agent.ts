@@ -4,12 +4,13 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
-import { resolveCaseDataModel, WORKERS_AI_MODEL, WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
+import { resolveCaseDataModel, WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
+import { caseAgentProgram } from "../src/domain/caseAgent/config";
+import { buildCaseAgentEvaluationEnvironment } from "../src/domain/caseAgent/evaluationEnvironment";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { CASE_AGENT_EVALUATION_FIXTURES as FIXTURES, caseAgentEvaluationFixtureSetSha256, PRIVATE_DETAIL_PHONE_MARKER, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { CASE_AGENT_EVALUATION_SPEND_CAP_USD, EvaluationSpendGuard, WORKERS_AI_EVALUATION_PRICING, characterCount, parseEvaluationPricing, tokenTotals, type EvaluationPricing, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
-import { caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
-import { REMEDIES } from "../src/domain/caseAgent/proposal";
+import { caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicyIdentityRecord, caseAgentProgramPolicySha256FromRecord, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
 import { MAX_CASE_AGENT_REQUEST_BYTES } from "../src/domain/caseAgent/limits";
 
 /**
@@ -68,6 +69,19 @@ async function main() {
     throw new EvaluationPreflightError("The synthetic fixture set does not match its pinned review digest. Review the changed fixtures, bump the evaluation protocol, and update the digest before evaluating.");
   }
 
+  const env = buildCaseAgentEvaluationEnvironment(process.env, stub);
+  const evaluationProgram = caseAgentProgram(env);
+  if (!evaluationProgram.ok) {
+    throw new EvaluationPreflightError(`Synthetic evaluation policy is incomplete: ${evaluationProgram.missing.join(", ")}`);
+  }
+  const allowedRemedies = evaluationProgram.program.allowedRemedies;
+  const allowedRemediesSha256 = caseAgentAllowedRemediesSha256(env);
+  const programPolicy = caseAgentProgramPolicyIdentityRecord(env);
+  const programPolicySha256 = programPolicy ? caseAgentProgramPolicySha256FromRecord(programPolicy) : null;
+  if (!allowedRemediesSha256 || !programPolicy || !programPolicySha256) {
+    throw new EvaluationPreflightError("Synthetic evaluation policy identity is unavailable.");
+  }
+
   let preResolvedLiveModel: TextCompletion | undefined;
   let evaluationSpendGuard: EvaluationSpendGuard | undefined;
   if (live) {
@@ -82,14 +96,9 @@ async function main() {
     } catch (error) {
       throw new EvaluationPreflightError(error instanceof Error ? error.message : "The spend bound could not be validated.");
     }
-    const preflightEnv = {
-      ...process.env,
-      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
-      AEQUITAS_WORKERS_AI_MODEL: WORKERS_AI_MODEL,
-    };
-    const blockers = caseAgentLiveEvaluationPreflightBlockers(preflightEnv);
+    const blockers = caseAgentLiveEvaluationPreflightBlockers(env);
     if (blockers.length > 0) throw new EvaluationPreflightError(blockers.join("\n- "));
-    const resolved = resolveCaseDataModel({ ...preflightEnv, AEQUITAS_PIPELINE_ENABLED: "true" });
+    const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" });
     if (!resolved.ok) throw new EvaluationPreflightError(resolved.reason);
     preResolvedLiveModel = resolved.model;
   }
@@ -121,45 +130,10 @@ async function main() {
   await clearEvaluationBudget();
   const { createCase, setPartyIntakeReady, submitCase, submitPosition } = await import("../src/domain/mutate");
   const { acceptCaseAgentProcessing, runCaseAgent } = await import("../src/domain/caseAgent/agent");
-  const { caseAgentProgram } = await import("../src/domain/caseAgent/config");
-  const { caseAgentAllowedRemediesSha256 } = await import("../src/domain/caseAgent/evaluationApproval");
   const { AGENT_PROMPT_VERSION } = await import("../src/domain/caseAgent/output");
   const { explanationRecordSchema } = await import("../src/domain/explanationRecord");
   const { extractStoredEvidence } = await import("../src/lib/evidenceText");
   const { uploadEvidence } = await import("../src/lib/storage");
-
-  const env = {
-    ...process.env,
-    // Offline evaluation uses an explicitly synthetic provider identity.
-    ...(stub ? {
-      AEQUITAS_PIPELINE_PROVIDER: "gemini",
-      GEMINI_PROJECT_ID: "synthetic-evaluation-project",
-      GEMINI_MODEL: "gemini-3.8-flash",
-    } : {
-      // Martin selected Workers AI for this synthetic-only evaluation. Do not
-      // inherit another provider or model from the deployment environment.
-      AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
-      AEQUITAS_WORKERS_AI_MODEL: WORKERS_AI_MODEL,
-    }),
-    AEQUITAS_CASE_AGENT_ENABLED: "true",
-    // Synthetic evaluation values, not program policy.
-    AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
-    // Only the stub harness uses the full closed list. Live mode must receive an operator-selected program list.
-    ...(stub ? { AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES: REMEDIES.join(",") } : {}),
-    AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "10",
-    AEQUITAS_CASE_AGENT_INTAKE_DAYS: "1",
-    AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "1",
-    AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
-    AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
-    AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic evaluation notice: this synthetic case's text and extracted evidence are sent to the configured model provider for this test only.",
-    AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis d’évaluation synthétique : le texte et les preuves extraites de ce dossier synthétique sont transmis au fournisseur de modèle configuré pour ce test seulement.",
-  };
-
-  const evaluationProgram = caseAgentProgram(env);
-  if (!evaluationProgram.ok) throw new Error(`Synthetic evaluation program configuration is incomplete: ${evaluationProgram.missing.join(", ")}`);
-  const allowedRemedies = evaluationProgram.program.allowedRemedies;
-  const allowedRemediesSha256 = caseAgentAllowedRemediesSha256(env);
-  if (!allowedRemediesSha256) throw new Error("Synthetic evaluation remedy identity is unavailable.");
 
   let model: TextCompletion;
   if (live) {
@@ -489,6 +463,9 @@ async function main() {
     promptVersion: AGENT_PROMPT_VERSION,
     allowedRemedies,
     allowedRemediesSha256,
+    programPolicySha256,
+    programPolicy,
+    programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
     evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
     evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
     evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
@@ -524,6 +501,9 @@ async function main() {
       promptVersion: AGENT_PROMPT_VERSION,
       allowedRemedies,
       allowedRemediesSha256,
+      programPolicySha256,
+      programPolicy,
+      programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
       evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
       evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
       evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,

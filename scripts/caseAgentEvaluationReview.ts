@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { parseAllowedRemedies } from "../src/domain/caseAgent/proposal";
+import { caseAgentProgramPolicySha256FromRecord, type CaseAgentProgramPolicyIdentityRecord } from "../src/domain/caseAgent/evaluationApproval";
 
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const NORTH_AMERICAN_PHONE = /\b(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 const CANADIAN_POSTAL_CODE = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b/gi;
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 const MAX_REVIEW_TEXT_CHARACTERS = 4000;
-export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v5";
+export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v6";
 
 const EXPECTED_FIXTURES = {
   "routine-en": "issued",
@@ -24,7 +25,7 @@ const HUMAN_REVIEW_FIELDS = [
   "proposalBasisFaithfulToCitedEvidence",
   "reasoningNeutralAndBalanced",
   "relevantCounterevidenceIncluded",
-  "proposalWithinProgramRules",
+  "proposalWithinEvaluatedPolicy",
   "partyPrivacyPreserved",
   "languageClearForEachParty",
 ] as const;
@@ -74,7 +75,7 @@ export function blankHumanReviewChecklist() {
     proposalBasisFaithfulToCitedEvidence: null as "pass" | "fail" | null,
     reasoningNeutralAndBalanced: null as "pass" | "fail" | null,
     relevantCounterevidenceIncluded: null as "pass" | "fail" | null,
-    proposalWithinProgramRules: null as "pass" | "fail" | null,
+    proposalWithinEvaluatedPolicy: null as "pass" | "fail" | null,
     partyPrivacyPreserved: null as "pass" | "fail" | null,
     languageClearForEachParty: null as "pass" | "fail" | null,
     reviewerNotes: "",
@@ -89,24 +90,58 @@ function isObject(value: unknown): value is ReviewObject {
 
 function expectedIdentityParts(identity: string): {
   provider: string;
+  providerIdentity: string;
   model: string;
   allowedRemediesSha256: string;
+  programPolicySha256: string;
   promptVersion: string;
   evaluationProtocolVersion: string;
   fixtureSetSha256: string;
 } | null {
-  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):remedies:([a-f0-9]{64}):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+):fixtures:([a-f0-9]{64})$/);
+  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):remedies:([a-f0-9]{64}):program:([a-f0-9]{64}):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+):fixtures:([a-f0-9]{64})$/);
   if (!match || !/^[A-Za-z0-9@._/:+-]+$/.test(identity)) return null;
   const identityParts = match[2].split(":");
   const expectedParts = match[1] === "vertex-ai" ? 3 : 2;
   if (identityParts.length !== expectedParts || identityParts.some((part) => part.length === 0)) return null;
   return {
     provider: match[1],
+    providerIdentity: `${match[1]}:${match[2]}`,
     model: identityParts.at(-1)!,
     allowedRemediesSha256: match[3],
-    promptVersion: match[4],
-    evaluationProtocolVersion: match[5],
-    fixtureSetSha256: match[6],
+    programPolicySha256: match[4],
+    promptVersion: match[5],
+    evaluationProtocolVersion: match[6],
+    fixtureSetSha256: match[7],
+  };
+}
+
+function validatedProgramPolicy(report: ReviewObject, expectedProviderIdentity: string): CaseAgentProgramPolicyIdentityRecord | null {
+  const value = report.programPolicy;
+  if (!isObject(value)
+    || !Number.isSafeInteger(value.maxAmountCents) || (value.maxAmountCents as number) < 1
+    || !Number.isSafeInteger(value.maxModelCallsPerUtcDay) || (value.maxModelCallsPerUtcDay as number) < 1
+    || !Number.isSafeInteger(value.intakeDays) || (value.intakeDays as number) < 1
+    || !Number.isSafeInteger(value.responseDays) || (value.responseDays as number) < 1
+    || typeof value.respondentMayWithdraw !== "boolean"
+    || typeof value.consentOnlyResolution !== "boolean"
+    || value.providerIdentity !== expectedProviderIdentity
+    || typeof value.processingNoticeHash !== "string" || !/^[a-f0-9]{64}$/.test(value.processingNoticeHash)) return null;
+  const supplied = Array.isArray(value.allowedRemedies) && value.allowedRemedies.every((item) => typeof item === "string")
+    ? value.allowedRemedies as string[]
+    : null;
+  const canonical = supplied ? parseAllowedRemedies(supplied.join(",")) : null;
+  if (!canonical || supplied?.some((remedy, index) => remedy !== canonical[index])) return null;
+  if (!Array.isArray(report.allowedRemedies) || JSON.stringify(report.allowedRemedies) !== JSON.stringify(canonical)) return null;
+  return {
+    maxAmountCents: value.maxAmountCents as number,
+    allowedRemedies: canonical,
+    maxModelCallsPerUtcDay: value.maxModelCallsPerUtcDay as number,
+    intakeDays: value.intakeDays as number,
+    responseDays: value.responseDays as number,
+    respondentMayWithdraw: value.respondentMayWithdraw,
+    consentOnlyResolution: value.consentOnlyResolution,
+    providerIdentity: value.providerIdentity,
+    processingNoticeHash: value.processingNoticeHash,
   };
 }
 
@@ -123,7 +158,7 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
   if (report.syntheticOnly !== true) blockers.push("Report is not marked synthetic-only.");
   if (report.automatedChecksPassed !== true) blockers.push("Automated evaluation checks did not all pass.");
   if (report.status !== "human_review_complete") blockers.push("Report status must be set to human_review_complete after review.");
-  if (!expectedIdentity) blockers.push("The current provider, account/project, model, or remedy allowlist identity is unavailable.");
+  if (!expectedIdentity) blockers.push("The current provider, account/project, model, or workflow-policy identity is unavailable.");
   if (typeof expectedIdentity === "string") {
     const parts = expectedIdentityParts(expectedIdentity);
     if (!parts) blockers.push("The current evaluation identity has an unsupported format.");
@@ -133,6 +168,10 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
     if (report.evaluationFixtureSetSha256 !== parts?.fixtureSetSha256) blockers.push("Report fixture-set digest does not match the current identity.");
     if (report.provider !== parts?.provider) blockers.push("Report provider does not match the current identity.");
     if (report.model !== parts?.model) blockers.push("Report model does not match the current identity.");
+    const programPolicy = parts ? validatedProgramPolicy(report, parts.providerIdentity) : null;
+    const programPolicySha256 = programPolicy ? caseAgentProgramPolicySha256FromRecord(programPolicy) : null;
+    if (!programPolicy || report.programPolicySha256 !== programPolicySha256
+      || programPolicySha256 !== parts?.programPolicySha256) blockers.push("Report workflow policy does not match the current evaluation identity.");
     const suppliedRemedies = Array.isArray(report.allowedRemedies)
       && report.allowedRemedies.every((item) => typeof item === "string")
       ? report.allowedRemedies as string[]

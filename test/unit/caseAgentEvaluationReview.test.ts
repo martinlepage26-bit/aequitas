@@ -1,11 +1,25 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, evaluationReviewBlockers, sanitizeReviewText, sanitizedHumanHandoffRequest } from "../../scripts/caseAgentEvaluationReview";
+import { caseAgentProgramPolicySha256FromRecord, type CaseAgentProgramPolicyIdentityRecord } from "../../src/domain/caseAgent/evaluationApproval";
 
 const fixtureSetSha256 = "a".repeat(64);
 const allowedRemedies = ["refund_full", "refund_partial", "store_credit", "replacement", "repair"];
 const allowedRemediesSha256 = createHash("sha256").update(JSON.stringify(allowedRemedies)).digest("hex");
-const approvalIdentity = `workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
+const providerIdentity = "workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it";
+const programPolicy: CaseAgentProgramPolicyIdentityRecord = {
+  maxAmountCents: 500000,
+  allowedRemedies,
+  maxModelCallsPerUtcDay: 10,
+  intakeDays: 1,
+  responseDays: 1,
+  respondentMayWithdraw: true,
+  consentOnlyResolution: true,
+  providerIdentity,
+  processingNoticeHash: "b".repeat(64),
+};
+const programPolicySha256 = caseAgentProgramPolicySha256FromRecord(programPolicy);
+const approvalIdentity = `${providerIdentity}:remedies:${allowedRemediesSha256}:program:${programPolicySha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.2:fixtures:${fixtureSetSha256}`;
 
 function completeReviewReport() {
   const names = [
@@ -23,9 +37,11 @@ function completeReviewReport() {
     provider: "workers-ai",
     model: "@cf/google/gemma-4-26b-a4b-it",
     promptVersion: "case-agent-2026-11-09.1",
-    evaluationProtocolVersion: "case-agent-evaluation-2026-11-09.1",
+    evaluationProtocolVersion: "case-agent-evaluation-2026-11-09.2",
     allowedRemedies,
     allowedRemediesSha256,
+    programPolicy,
+    programPolicySha256,
     evaluationFixtureSetSha256: fixtureSetSha256,
     evaluationApprovalIdentity: approvalIdentity,
     syntheticOnly: true,
@@ -52,7 +68,7 @@ function completeReviewReport() {
         proposalBasisFaithfulToCitedEvidence: "pass",
         reasoningNeutralAndBalanced: "pass",
         relevantCounterevidenceIncluded: "pass",
-        proposalWithinProgramRules: "pass",
+        proposalWithinEvaluatedPolicy: "pass",
         partyPrivacyPreserved: "pass",
         languageClearForEachParty: "pass",
         reviewerNotes: "Reviewed synthetic excerpts.",
@@ -64,7 +80,7 @@ function completeReviewReport() {
 describe("case-agent manual evaluation report", () => {
   it("uses a new approval identity for the reference rubric", async () => {
     const { CASE_AGENT_EVALUATION_PROTOCOL_VERSION } = await import("../../src/domain/caseAgent/evaluationApproval");
-    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-09.1");
+    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-09.2");
   });
 
   it("detects a seeded contact marker despite common formatting changes", () => {
@@ -92,7 +108,7 @@ describe("case-agent manual evaluation report", () => {
       proposalBasisFaithfulToCitedEvidence: null,
       reasoningNeutralAndBalanced: null,
       relevantCounterevidenceIncluded: null,
-      proposalWithinProgramRules: null,
+      proposalWithinEvaluatedPolicy: null,
       partyPrivacyPreserved: null,
       languageClearForEachParty: null,
       reviewerNotes: "",
@@ -116,23 +132,37 @@ describe("case-agent manual evaluation report", () => {
     expect(evaluationReviewBlockers(report, approvalIdentity)).toContain("Report fixture-set digest does not match the current identity.");
   });
 
+  it("rejects a report whose workflow settings were edited after the run", () => {
+    const report = completeReviewReport();
+    Object.assign(report, { programPolicy: { ...programPolicy, consentOnlyResolution: false } });
+    expect(evaluationReviewBlockers(report, approvalIdentity)).toContain("Report workflow policy does not match the current evaluation identity.");
+  });
+
   it("accepts the supported Vertex AI identity format", () => {
-    const vertexIdentity = `vertex-ai:synthetic-project:northamerica-northeast1:gemini-3.5-flash:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
+    const vertexProviderIdentity = "vertex-ai:synthetic-project:northamerica-northeast1:gemini-3.5-flash";
+    const vertexPolicy = { ...programPolicy, providerIdentity: vertexProviderIdentity };
+    const vertexIdentity = `${vertexProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(vertexPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.2:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "vertex-ai",
       model: "gemini-3.5-flash",
+      programPolicy: vertexPolicy,
+      programPolicySha256: caseAgentProgramPolicySha256FromRecord(vertexPolicy),
       evaluationApprovalIdentity: vertexIdentity,
     });
     expect(evaluationReviewBlockers(report, vertexIdentity)).toEqual([]);
   });
 
   it("accepts the supported Gemini identity format", () => {
-    const geminiIdentity = `gemini:synthetic-project:gemini-3.5-flash:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
+    const geminiProviderIdentity = "gemini:synthetic-project:gemini-3.5-flash";
+    const geminiPolicy = { ...programPolicy, providerIdentity: geminiProviderIdentity };
+    const geminiIdentity = `${geminiProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(geminiPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.2:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "gemini",
       model: "gemini-3.5-flash",
+      programPolicy: geminiPolicy,
+      programPolicySha256: caseAgentProgramPolicySha256FromRecord(geminiPolicy),
       evaluationApprovalIdentity: geminiIdentity,
     });
     expect(evaluationReviewBlockers(report, geminiIdentity)).toEqual([]);
