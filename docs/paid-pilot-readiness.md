@@ -2,6 +2,23 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
+## Current status (checked 2026-11-09 09:48 UTC)
+
+This section supersedes older snapshots below where newer evidence is available.
+
+- **Candidate:** PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, unmerged, and mergeable, targeting `ct920-standup`. Its current head is `1b7831362b8238c297e0fb4ececdc6cc8b6fb435`. Exact-head GitHub CI run [42590951266](https://github.com/martinlepage26-bit/aequitas/actions/runs/42590951266) completed successfully. PR [#13](https://github.com/martinlepage26-bit/aequitas/pull/13) remains open and draft, targeting `main`; its description says not to merge without Martin's OK. The public production health route still reports a release other than this candidate.
+- **Production:** a read-only `GET https://aequitas.app.pharos-ai.ca/api/health` from this Mac returned HTTP 200 at 09:42 UTC with release `d74ed342693a96a6dc75d8907d288131c0148385`. This checks the public health route only. The candidate case agent is not verified in production; the latest CT920 container and scheduler inspection recorded below is from 01:47 UTC.
+- **Synthetic model evaluation:** Martin selected Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76` and a US$0.11 total ceiling for seven synthetic fixtures, using `@cf/google/gemma-4-26b-a4b-it`. A guarded live-mode preflight explicitly set `AEQUITAS_CASE_AGENT_EVAL_APPROVED=false` and a nonmatching baseline attestation. It refused before database setup or provider resolution; no provider call or charge occurred. The local request-bound maximum is about US$0.10241281. This is an evaluator-side bound, not a provider-enforced or account-wide cap; account plan, daily usage, and logging/caching settings remain unverified.
+- **Exact synthetic review identity from that preflight:** reviewers must assess this identity and the policy it covers; changing a workflow setting produces a different identity:
+
+  ```text
+  workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.2:fixtures:ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197
+  ```
+
+- **Human gate:** the [baseline review worksheet](case-agent-baseline-review-worksheet.md) remains blank. A program case reviewer must review all seven references, counsel both legal-handoff fixtures, and a Québec French reviewer all five fixtures with an `fr-CA` party before any model output. After that, the operator must set `AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR` to the exact identity above. The operator must also review the provider terms and cap before setting `AEQUITAS_CASE_AGENT_EVAL_APPROVED=true`. No real case data is authorized for this evaluation.
+- **Candidate image security:** the exact-head candidate CI scan is in [run 42590951266](https://github.com/martinlepage26-bit/aequitas/actions/runs/42590951266); its full parser-image report contains 18 critical rows across 10 distinct CVEs. The fixable-only CI gate passed, but the full report is not clear and no security acceptance was made. The [vulnerability review](candidate-container-vulnerability-review.md) still documents the earlier run 42587666681, so its findings and reachability analysis need a current addendum and human disposition before deployment.
+- **Commercial baseline:** no buyer has supplied a historical cohort, staff-time or operating-cost baseline, eligible case volume, budget owner, or procurement path. The seven synthetic fixtures measure neither customer savings nor willingness to pay. Do not set pilot pricing or claim ROI from this model evaluation.
+
 ## Verification snapshot (public routes and copy rechecked 2026-11-09 03:03 UTC; PR/CI rechecked 04:52 UTC; CT920 runtime and scheduling rechecked 03:40 UTC)
 
 - **Candidate and CI:** PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, unmerged, and targets `ct920-standup`. At 04:52 UTC GitHub reported the PR as mergeable with state `CLEAN`; no formal review exists, and CodeRabbit was skipped. Exact head `e80c586c31bfbbe7adce8e4018b22df5e62b34fb` passed full CI in run [42562771225](https://github.com/martinlepage26-bit/aequitas/actions/runs/42562771225), completed at 04:52:43 UTC. No live model was called and no candidate deployment occurred.
