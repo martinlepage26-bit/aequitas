@@ -9,7 +9,7 @@ export const WORKERS_AI_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 /** Current Google Cloud model with documented ML processing at its Montréal regional endpoint. */
 export const VERTEX_CANADA_MODEL = "gemini-3.5-flash";
 export const VERTEX_CANADA_LOCATION = "northamerica-northeast1";
-const WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
+export const WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 const GEMINI_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 const VERTEX_STRUCTURED_OUTPUT_MAX_TOKENS = 16_000;
 

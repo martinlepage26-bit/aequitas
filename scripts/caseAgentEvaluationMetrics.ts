@@ -12,6 +12,91 @@ export type EvaluationPricing = {
   outputUsdPerMillion: number;
 };
 
+/** Owner-selected ceiling for the seven-call synthetic evaluation. */
+export const CASE_AGENT_EVALUATION_SPEND_CAP_USD = 0.11;
+/** Cloudflare model-page rates checked 2026-11-09 for the pinned Gemma 4 model. */
+export const WORKERS_AI_EVALUATION_PRICING: EvaluationPricing = {
+  inputUsdPerMillion: 0.1,
+  outputUsdPerMillion: 0.3,
+};
+
+export type EvaluationSpendGuardOptions = {
+  capUsd: number;
+  maxCalls: number;
+  /** Maximum serialized request bytes, used as a conservative input-token bound. */
+  maxInputBytesPerCall: number;
+  maxOutputTokensPerCall: number;
+  pricing: EvaluationPricing;
+};
+
+function roundUsdUp(value: number): number {
+  return Math.ceil(value * 100_000_000) / 100_000_000;
+}
+
+function worstCaseCostPerCallUsd(options: Omit<EvaluationSpendGuardOptions, "capUsd" | "maxCalls">): number {
+  return (options.maxInputBytesPerCall * options.pricing.inputUsdPerMillion
+    + options.maxOutputTokensPerCall * options.pricing.outputUsdPerMillion) / 1_000_000;
+}
+
+export function estimateWorstCaseEvaluationCostUsd(options: Omit<EvaluationSpendGuardOptions, "capUsd">): number {
+  const { maxCalls, maxInputBytesPerCall, maxOutputTokensPerCall, pricing } = options;
+  if (!Number.isSafeInteger(maxCalls) || maxCalls < 1
+    || !Number.isSafeInteger(maxInputBytesPerCall) || maxInputBytesPerCall < 1
+    || !Number.isSafeInteger(maxOutputTokensPerCall) || maxOutputTokensPerCall < 1
+    || !Number.isFinite(pricing.inputUsdPerMillion) || pricing.inputUsdPerMillion < 0
+    || !Number.isFinite(pricing.outputUsdPerMillion) || pricing.outputUsdPerMillion < 0) {
+    throw new Error("Evaluation spend bounds require positive limits and nonnegative finite rates.");
+  }
+  return roundUsdUp(worstCaseCostPerCallUsd({ maxInputBytesPerCall, maxOutputTokensPerCall, pricing }) * maxCalls);
+}
+
+/**
+ * Counts reserved requests, including failed attempts, against a conservative
+ * request-bound estimate. This is a local evaluator guard, not an account-wide
+ * or provider-enforced billing limit.
+ */
+export class EvaluationSpendGuard {
+  private reservedCalls = 0;
+  private reservedUsd = 0;
+  private readonly worstCaseUsdPerCall: number;
+  readonly maximumCostUsd: number;
+
+  constructor(private readonly options: EvaluationSpendGuardOptions) {
+    if (!Number.isFinite(options.capUsd) || options.capUsd <= 0) {
+      throw new Error("Evaluation spend cap must be a positive finite USD amount.");
+    }
+    this.maximumCostUsd = estimateWorstCaseEvaluationCostUsd(options);
+    this.worstCaseUsdPerCall = worstCaseCostPerCallUsd(options);
+    if (this.maximumCostUsd > options.capUsd) {
+      throw new Error(
+        `The conservative maximum request-bound cost ($${this.maximumCostUsd.toFixed(8)}) exceeds the authorized cap ($${options.capUsd.toFixed(2)}); no provider call is allowed.`,
+      );
+    }
+  }
+
+  reserveCall(): number {
+    if (this.reservedCalls >= this.options.maxCalls) {
+      throw new Error("The synthetic evaluation has reached its maximum provider-call count; no further request was sent.");
+    }
+    const nextReservedUsd = roundUsdUp(this.reservedUsd + this.worstCaseUsdPerCall);
+    if (nextReservedUsd > this.options.capUsd) {
+      throw new Error("The next provider request would exceed the authorized evaluation spend cap; no request was sent.");
+    }
+    this.reservedCalls += 1;
+    this.reservedUsd = nextReservedUsd;
+    return this.reservedUsd;
+  }
+
+  snapshot() {
+    return {
+      capUsd: this.options.capUsd,
+      maximumCostUsd: this.maximumCostUsd,
+      reservedCalls: this.reservedCalls,
+      reservedCostUsd: this.reservedUsd,
+    };
+  }
+}
+
 export function characterCount(value: string): number {
   return Array.from(value).length;
 }

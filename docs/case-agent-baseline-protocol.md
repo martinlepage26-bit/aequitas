@@ -8,7 +8,7 @@ Status: **draft protocol; not a program approval or model-quality result.** No l
 - Human approval: none; the required pre-model reviewers have not completed the worksheet.
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`; selected synthetic-only cap: US$0.11.
 - Program remedy allowlist: not selected. The previous `.3` evaluation identity is stale; a current identity cannot be formed until the program approves a non-empty remedy list.
-- Authorized seven-fixture spend cap: US$0.11. The conservative request-bound estimate is about US$0.103; this is not a provider-side dollar stop.
+- Authorized seven-fixture spend cap: US$0.11. The evaluator locally enforces a conservative request-bound maximum of about US$0.10241281 before database setup and before each call; it does not cap unrelated or concurrent account usage, and provider billing remains authoritative.
 - Fail-closed preflight (2026-11-09): blocked because the one-run evaluation approval and human baseline review are unset. It stopped before database connection or provider request; no model call occurred.
 
 For a fillable copy of the seven pre-model human reference records, use the [baseline review worksheet](case-agent-baseline-review-worksheet.md).

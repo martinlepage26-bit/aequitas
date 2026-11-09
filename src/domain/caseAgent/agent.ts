@@ -24,8 +24,10 @@ import { CASE_AGENT_POSITIONS_REQUESTED_KIND, MAX_DELIVERY_ATTEMPTS, emailConfig
 import { encryptEmailPayload, invitationEmailPayload } from "../../lib/emailPayload";
 import { invitationTokenHash, revokeInvitation } from "../../lib/invitations";
 import { invitePath, issueInviteToken } from "../../lib/invite";
+import { CASE_AGENT_PROVIDER_ENVELOPE_RESERVE_BYTES, MAX_CASE_AGENT_REQUEST_BYTES } from "./limits";
 
 export { caseAgentEnabled } from "./config";
+export { MAX_CASE_AGENT_REQUEST_BYTES } from "./limits";
 
 /**
  * Prototype case agent for one Québec retail-dispute program.
@@ -45,9 +47,6 @@ export { caseAgentEnabled } from "./config";
  */
 
 export const CASE_AGENT_EMAIL = "case-agent@aequitas.invalid";
-/** Leave room for the schema and provider envelope below a conservative context ceiling. */
-export const MAX_CASE_AGENT_REQUEST_BYTES = 96 * 1024;
-const CASE_AGENT_PROVIDER_ENVELOPE_RESERVE_BYTES = 4 * 1024;
 
 export type EscalationReason =
   | "party_request"

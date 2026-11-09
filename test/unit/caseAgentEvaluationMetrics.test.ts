@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { characterCount, parseEvaluationPricing, tokenTotals } from "../../scripts/caseAgentEvaluationMetrics";
+import {
+  CASE_AGENT_EVALUATION_SPEND_CAP_USD,
+  EvaluationSpendGuard,
+  characterCount,
+  estimateWorstCaseEvaluationCostUsd,
+  parseEvaluationPricing,
+  tokenTotals,
+  WORKERS_AI_EVALUATION_PRICING,
+} from "../../scripts/caseAgentEvaluationMetrics";
 
 describe("case-agent evaluation metrics", () => {
   it("counts Unicode code points rather than UTF-16 units", () => {
@@ -69,5 +77,40 @@ describe("case-agent evaluation metrics", () => {
 
   it("reports zero for fixtures that make no model calls", () => {
     expect(tokenTotals([], { inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.3 }).estimatedProviderCostUsd).toBe(0);
+  });
+
+  it("bounds seven maximum-sized requests below the selected synthetic cap", () => {
+    const maximumCost = estimateWorstCaseEvaluationCostUsd({
+      maxCalls: 7,
+      maxInputBytesPerCall: 96 * 1024,
+      maxOutputTokensPerCall: 16_000,
+      pricing: WORKERS_AI_EVALUATION_PRICING,
+    });
+    expect(maximumCost).toBeCloseTo(0.1024128, 7);
+    expect(maximumCost).toBeLessThan(CASE_AGENT_EVALUATION_SPEND_CAP_USD);
+  });
+
+  it("fails before any request when rates or limits put the envelope above the cap", () => {
+    expect(() => new EvaluationSpendGuard({
+      capUsd: 0.11,
+      maxCalls: 7,
+      maxInputBytesPerCall: 96 * 1024,
+      maxOutputTokensPerCall: 16_000,
+      pricing: { inputUsdPerMillion: 0.1, outputUsdPerMillion: 0.4 },
+    })).toThrow("exceeds the authorized cap");
+  });
+
+  it("reserves each attempt conservatively and refuses an eighth request", () => {
+    const guard = new EvaluationSpendGuard({
+      capUsd: CASE_AGENT_EVALUATION_SPEND_CAP_USD,
+      maxCalls: 7,
+      maxInputBytesPerCall: 96 * 1024,
+      maxOutputTokensPerCall: 16_000,
+      pricing: WORKERS_AI_EVALUATION_PRICING,
+    });
+    for (let call = 0; call < 7; call += 1) guard.reserveCall();
+    expect(guard.snapshot()).toMatchObject({ capUsd: 0.11, reservedCalls: 7 });
+    expect(guard.snapshot().maximumCostUsd).toBeCloseTo(0.1024128, 7);
+    expect(() => guard.reserveCall()).toThrow("maximum provider-call count");
   });
 });

@@ -4,12 +4,13 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { applyTestDatabase } from "../test/testDatabaseUrl";
-import { resolveCaseDataModel, WORKERS_AI_MODEL, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
+import { resolveCaseDataModel, WORKERS_AI_MODEL, WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { CASE_AGENT_EVALUATION_FIXTURES as FIXTURES, caseAgentEvaluationFixtureSetSha256, PRIVATE_DETAIL_PHONE_MARKER, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
-import { characterCount, parseEvaluationPricing, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
+import { CASE_AGENT_EVALUATION_SPEND_CAP_USD, EvaluationSpendGuard, WORKERS_AI_EVALUATION_PRICING, characterCount, parseEvaluationPricing, tokenTotals, type EvaluationPricing, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
 import { caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
 import { REMEDIES } from "../src/domain/caseAgent/proposal";
+import { MAX_CASE_AGENT_REQUEST_BYTES } from "../src/domain/caseAgent/limits";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
@@ -39,9 +40,15 @@ let clearEvaluationBudget: (() => Promise<void>) | undefined;
 
 async function main() {
   const args = process.argv.slice(2);
-  const evaluationPricing = parseEvaluationPricing(args);
   const live = args.includes("--live");
   const stub = args.includes("--stub");
+  const suppliedPricing = parseEvaluationPricing(args);
+  if (live && suppliedPricing
+    && (suppliedPricing.inputUsdPerMillion !== WORKERS_AI_EVALUATION_PRICING.inputUsdPerMillion
+      || suppliedPricing.outputUsdPerMillion !== WORKERS_AI_EVALUATION_PRICING.outputUsdPerMillion)) {
+    throw new Error("Live Workers AI pricing is pinned to the reviewed model-page rates; update the source and spend bound before using different rates.");
+  }
+  const evaluationPricing: EvaluationPricing | null = live ? WORKERS_AI_EVALUATION_PRICING : suppliedPricing;
   const reviewFlagIndex = args.findIndex((arg) => arg === "--review-report");
   const reviewFlagValue = args.find((arg) => arg.startsWith("--review-report="));
   const reviewReportValue = reviewFlagValue?.slice("--review-report=".length);
@@ -62,7 +69,19 @@ async function main() {
   }
 
   let preResolvedLiveModel: TextCompletion | undefined;
+  let evaluationSpendGuard: EvaluationSpendGuard | undefined;
   if (live) {
+    try {
+      evaluationSpendGuard = new EvaluationSpendGuard({
+        capUsd: CASE_AGENT_EVALUATION_SPEND_CAP_USD,
+        maxCalls: FIXTURES.length,
+        maxInputBytesPerCall: MAX_CASE_AGENT_REQUEST_BYTES,
+        maxOutputTokensPerCall: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
+        pricing: WORKERS_AI_EVALUATION_PRICING,
+      });
+    } catch (error) {
+      throw new EvaluationPreflightError(error instanceof Error ? error.message : "The spend bound could not be validated.");
+    }
     const preflightEnv = {
       ...process.env,
       AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
@@ -225,6 +244,9 @@ async function main() {
 
     const callMetrics: ModelCallMetric[] = [];
     const measure = async (prompt: string, systemInstruction: string | undefined, call: () => Promise<TextCompletionWithUsage>): Promise<TextCompletionWithUsage> => {
+      // Reserve the full worst-case cost before each outbound request. Failed
+      // provider attempts count because the service may still bill them.
+      if (live) evaluationSpendGuard?.reserveCall();
       const started = Date.now();
       const metric: ModelCallMetric = {
         latencyMs: 0,
@@ -445,6 +467,20 @@ async function main() {
   const withinCallLimit = modelCalls <= FIXTURES.length;
   const passed = results.filter((result) => result.checksPassed).length;
   const automatedChecksPassed = passed === FIXTURES.length && withinCallLimit;
+  const spendControl = live ? {
+    enforcement: "local_request_bound_before_database_and_before_each_provider_call",
+    capUsd: CASE_AGENT_EVALUATION_SPEND_CAP_USD,
+    conservativeMaximumCostUsd: evaluationSpendGuard?.maximumCostUsd ?? null,
+    reservedCalls: evaluationSpendGuard?.snapshot().reservedCalls ?? 0,
+    reservedCostUsd: evaluationSpendGuard?.snapshot().reservedCostUsd ?? 0,
+    maxCalls: FIXTURES.length,
+    maxInputBytesPerCall: MAX_CASE_AGENT_REQUEST_BYTES,
+    maxOutputTokensPerCall: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
+    inputUsdPerMillion: WORKERS_AI_EVALUATION_PRICING.inputUsdPerMillion,
+    outputUsdPerMillion: WORKERS_AI_EVALUATION_PRICING.outputUsdPerMillion,
+    pricingCheckedOn: "2026-11-09",
+    limitation: "This request-bound estimate does not cap unrelated or concurrent account usage; Cloudflare account billing remains authoritative.",
+  } : null;
 
   const report = {
     mode: live ? "live" : "stub",
@@ -466,10 +502,13 @@ async function main() {
     withinCallLimit,
     providerPricing: evaluationPricing ? {
       currency: "USD",
-      basis: "operator-supplied USD prices per million tokens multiplied by provider-reported token counts",
+      basis: live
+        ? "Pinned Cloudflare model-page rates multiplied by provider-reported token counts; actual billing remains authoritative"
+        : "operator-supplied USD prices per million tokens multiplied by provider-reported token counts",
       inputUsdPerMillion: evaluationPricing.inputUsdPerMillion,
       outputUsdPerMillion: evaluationPricing.outputUsdPerMillion,
     } : null,
+    spendControl,
     tokenUsage: tokenTotals(allModelCallMetrics, evaluationPricing),
     results,
     caveat: "Synthetic cases only. Not evidence that the agent is safe or ready for real disputes.",
@@ -488,6 +527,7 @@ async function main() {
       evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
       evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
       evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
+      spendControl,
       ranAt: report.ranAt,
       syntheticOnly: true,
       automatedChecksPassed,

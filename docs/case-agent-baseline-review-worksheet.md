@@ -9,7 +9,7 @@
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
 - Program remedy allowlist: **not selected**. The evaluation identity will include its canonical-list SHA-256 digest; the previous `.3` identity is stale and must not be used.
 - Current evaluation identity: pending the program-approved remedy allowlist.
-- Authorized synthetic-only spend ceiling: **US$0.11**. The estimated request-bound cost is about US$0.103; this is not a provider-enforced dollar stop.
+- Authorized synthetic-only spend ceiling: **US$0.11**. The evaluator refuses before database setup if its local worst-case request bound exceeds the cap and reserves that bound before each call. Current bound: about US$0.10241281. This does not cap unrelated or concurrent account usage; provider billing remains authoritative.
 - CI's all-remedies setting is a mechanics-only stub profile and is not authority to use that list for a live program evaluation.
 - Source: [exact synthetic submissions and full evaluation protocol](case-agent-baseline-protocol.md#exact-synthetic-submissions-for-pre-model-review).
 
