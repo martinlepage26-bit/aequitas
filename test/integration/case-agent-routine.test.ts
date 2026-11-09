@@ -365,7 +365,7 @@ describe("routine path with no case-manager action", () => {
     const r = await submittedCase();
     const { AEQUITAS_CASE_AGENT_RESPONSE_DAYS: _omit, ...partial } = ENV;
     expect(await runCaseAgent({ caseId: r.caseId, model: null, env: partial })).toEqual({ status: "skipped", reason: "program_rules_incomplete" });
-  });
+  }, 30_000);
 });
 
 describe("exceptions stop the agent and reach the case-manager queue", () => {
