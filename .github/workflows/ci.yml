@@ -348,8 +348,8 @@ jobs:
           NODE
 
       # Keep the full high/critical report visible, including distro findings
-      # without a fixed package version. The SBOM and runtime inventory above
-      # provide package evidence for triage.
+      # without a fixed package version. This report is non-blocking; its
+      # residual findings still require security review before release.
       - name: Report high-severity production image vulnerabilities
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
         with:
@@ -359,8 +359,10 @@ jobs:
           only-fixed: false
           output-format: table
 
-      # Block releases when an update is available; unpatched distro findings
-      # remain in the report above and are not silently filtered from CI.
+      # `only-fixed: true` makes Grype ignore not-fixed, won't-fix, and unknown
+      # matches for this blocking check. A pass means no fixable high/critical
+      # finding remains; it does not clear the full report above or approve the
+      # residual risk. See docs/candidate-container-vulnerability-review.md.
       - name: Fail on fixable high-severity production image vulnerabilities
         uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
         with:
