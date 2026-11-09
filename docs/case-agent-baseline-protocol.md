@@ -5,7 +5,10 @@ Status: **draft protocol; not a program approval or model-quality result.** No l
 - Rubric draft: `0.1`
 - Intended evaluation protocol: `case-agent-evaluation-2026-11-08.3`
 - Pinned fixture-set SHA-256: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
-- Human approval: none
+- Human approval: none; the required pre-model reviewers have not completed the worksheet.
+- Selected live-evaluation identity, confirmed 2026-11-09 for synthetic-only use: `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-07.1:evaluation:case-agent-evaluation-2026-11-08.3:fixtures:ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
+- Authorized seven-fixture spend cap: US$0.11. The conservative request-bound estimate is about US$0.103; this is not a provider-side dollar stop.
+- Fail-closed preflight (2026-11-09): blocked because the one-run evaluation approval and human baseline review are unset. It stopped before database connection or provider request; no model call occurred.
 
 This protocol separates two questions that must not be conflated:
 
