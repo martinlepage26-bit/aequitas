@@ -4,6 +4,8 @@ import {
   scheduledOperationIsHealthy,
   scheduledOperationsMissingReleaseSuccess,
   scheduledOperationsPlan,
+  scheduledOperationsWithStalledChildren,
+  SCHEDULER_PROGRESS_STALE_AFTER_MS,
   SCHEDULED_OPERATIONS,
 } from "../../src/domain/scheduledOperations";
 
@@ -37,6 +39,28 @@ describe("scheduled operations", () => {
     for (const state of ["never_run", "stalled", "overdue", "failed", "interrupted", "unknown"] as const) {
       expect(scheduledOperationIsHealthy(state)).toBe(false);
     }
+  });
+
+  it("detects stalled active children while ignoring inactive and recently-started runs", () => {
+    const now = new Date("2026-11-09T12:00:00.000Z");
+    const staleStart = new Date(now.getTime() - SCHEDULER_PROGRESS_STALE_AFTER_MS - 1);
+    const staleHeartbeat = {
+      lastStartedAt: staleStart,
+      lastHeartbeatAt: staleStart,
+      lastFinishedAt: null,
+      lastOutcome: "RUNNING",
+    };
+    const staleStarts = new Map([["case_agent", staleStart] as const]);
+    const staleRows = new Map([["case_agent", staleHeartbeat] as const]);
+    expect(scheduledOperationsWithStalledChildren(SCHEDULED_OPERATIONS, staleRows, staleStarts, now)).toEqual(["case_agent"]);
+
+    const recentStart = new Date(now.getTime() - 30_000);
+    expect(scheduledOperationsWithStalledChildren(SCHEDULED_OPERATIONS, new Map(), new Map([["case_agent", recentStart]]), now)).toEqual([]);
+    expect(scheduledOperationsWithStalledChildren(SCHEDULED_OPERATIONS, staleRows, new Map(), now)).toEqual([]);
+
+    // If the current run's start heartbeat failed to persist, use the child's
+    // own start time instead of mistaking an older run's row for this one.
+    expect(scheduledOperationsWithStalledChildren(SCHEDULED_OPERATIONS, staleRows, new Map([["case_agent", recentStart]]), now)).toEqual([]);
   });
 
   it("requires a fresh successful run of every worker for the deployed release", () => {

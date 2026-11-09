@@ -24,6 +24,31 @@ export type ScheduledOperationReleaseHeartbeatSnapshot = ScheduledOperationHeart
   lastSuccessfulAt: Date | null;
 };
 
+/** Return active child runs whose own progress has gone stale beyond recovery. */
+export function scheduledOperationsWithStalledChildren(
+  operations: readonly { name: ScheduledOperationName; intervalMs: number }[],
+  heartbeats: ReadonlyMap<ScheduledOperationName, ScheduledOperationHeartbeatSnapshot>,
+  childStartedAt: ReadonlyMap<ScheduledOperationName, Date>,
+  now = new Date(),
+): ScheduledOperationName[] {
+  return operations.flatMap((operation) => {
+    const startedAt = childStartedAt.get(operation.name);
+    if (!startedAt) return [];
+
+    const heartbeat = heartbeats.get(operation.name) ?? null;
+    const belongsToCurrentRun = Boolean(
+      heartbeat
+      && heartbeat.lastOutcome === "RUNNING"
+      && heartbeat.lastStartedAt
+      && heartbeat.lastStartedAt.getTime() >= startedAt.getTime(),
+    );
+    const stalled = heartbeat && belongsToCurrentRun
+      ? scheduledOperationHealth(operation.intervalMs, heartbeat, now) === "stalled"
+      : now.getTime() - startedAt.getTime() > SCHEDULER_PROGRESS_STALE_AFTER_MS;
+    return stalled ? [operation.name] : [];
+  });
+}
+
 /**
  * Classify only aggregate worker state. Active jobs are monitored by progress
  * pulses from their child process; completed jobs are checked against schedule.

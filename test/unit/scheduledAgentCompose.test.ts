@@ -108,6 +108,7 @@ describe("CT920 scheduled case-agent configuration", () => {
     const end = compose.indexOf("\n  postgres:\n", start);
     if (start < 0 || end < 0) throw new Error("CT920 scheduler service is missing.");
     const scheduler = compose.slice(start, end);
+    expect(scheduler).toContain("restart: unless-stopped");
     expect(scheduler).toContain("scripts/check-scheduled-ops-health.ts");
     expect(scheduler).toContain("interval: 60s");
     expect(scheduler).toContain("timeout: 10s");
