@@ -61,11 +61,36 @@ Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, writte
 `mtl-00-pve` SSH route to the separate `penguin-backups` NFS store, then verifies
 `SHA256SUMS` there. A final-data run passed on 2026-10-15 at 23:56 UTC.
 Off-box retention needs periodic review.
-Restore test: `verify-restore.sh <dump> [evidence.tar]`.
+The production replacement verifier is not a restore test or dry-run. It can
+overwrite the live database and, when an evidence archive is supplied, the
+live evidence directory. A separate isolated restore environment is still
+needed for routine recovery drills.
 
-## Data migration dry-run (`deploy/ct920/verify-restore.sh`)
-This restores a `pg_dump -Fc` into `aeq-prod-postgres` and then checks `prisma migrate status`, per-table row counts (`row-counts.sql`), `verify:events` (hash chain plus projections for every case) and `scripts/verify-evidence-files.ts` (re-hashes every evidence file against `EvidenceItem.sha256`/`byteSize`).
-Dumps live in `~/aequitas-prod/dumps/` (chmod 600).
+## Production replacement restore and verification (`deploy/ct920/verify-restore.sh`)
+
+This is a destructive cutover operation, not a dry-run. It requires the explicit
+`--confirm-production-replacement` flag and an interactive typed confirmation
+whose phrase changes when an evidence archive is supplied. It refuses unless
+PostgreSQL is healthy and both the app and any scheduler container are stopped.
+Before any production write, it validates the dump format and checks that the
+optional evidence archive can be listed in an isolated, network-disabled
+PostgreSQL utility container.
+The database replacement runs only after those checks and the typed confirmation.
+Verification then uses one-off containers from the stopped app's image; the live
+app and scheduler remain stopped when the script exits. No automatic rollback is
+provided. Use a separate isolated environment for restore drills; this script
+must not be used to test a backup against the live database. The one-off verifier
+receives only `DATABASE_URL` and its evidence path through a mode-0600 temporary
+environment file, removed when the script exits; it does not receive the app's
+other provider, mail, or session secrets.
+
+The script restores a `pg_dump -Fc` into `aeq-prod-postgres`, then checks
+`prisma migrate status`, per-table row counts (`row-counts.sql`), `verify:events`
+(hash chain plus projections for every case), and
+`scripts/verify-evidence-files.ts` (re-hashes each evidence file against
+`EvidenceItem.sha256`/`byteSize`). If the optional evidence archive is given, the
+production evidence directory is replaced before verification. Dumps live in
+`~/aequitas-prod/dumps/` (chmod 600).
 
 ## Gated cutover runbook. REQUIRES MARTIN'S EXPLICIT OK, routed through Metal with Argus checking
 **Current-state warning:** The steps below were written for the October 2026
@@ -75,9 +100,9 @@ destination data match. The October 16 Railway status is not current evidence.
 
 1. Pre-checks: Earth/Metal PASS on the draft PR, `deploy.sh` healthy on the final SHA, AQ-D4 decided, off-box backup target working, and a test restore passing.
 2. Use Cloudflare Tunnel `aeq-prod` and the private Workers VPC Service to reach `127.0.0.1:18310`. The Worker custom domain is `aequitas.app.pharos-ai.ca`; it provisions the nested hostname certificate. Existing tunnels and the telecom site remain untouched.
-3. Announce the window. **Write freeze on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK).
-4. Final `pg_dump -Fc` from Railway, plus a copy of `/data/evidence`, onto CT920.
-5. Run `verify-restore.sh final.dump evidence.tar`. Pass means no pending migrations, row counts equal to Railway, verify:events OK and 0 evidence problems.
+3. Announce the window. **Freeze writes on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK) and confirm the source is no longer accepting writes.
+4. Take the final `pg_dump -Fc` from Railway, copy `/data/evidence` onto CT920, and verify the backup checksums.
+5. With Martin's separate explicit OK for the maintenance window, stop `aeq-prod-scheduler` and `aeq-prod-app`; verify no other writer is active. From an interactive terminal, run `verify-restore.sh --confirm-production-replacement final.dump evidence.tar` and type the exact phrase it displays. Pass means no pending migrations, row counts equal Railway, `verify:events` succeeds, and evidence verification reports 0 problems. The app and scheduler stay stopped until deployment.
 6. Set `RESEND_API_KEY` and confirm `APP_URL`/`WEBAUTHN_*` match the chosen hostname, then `./deploy.sh`.
 7. Deploy the Worker custom domain and switch the link users get to the new hostname. Smoke test: sign-in, evidence upload (ClamAV), a pipeline run, `/api/health`.
 8. Install the `backup-offbox.sh` cron. Railway stays available as the rollback for 14 days.
