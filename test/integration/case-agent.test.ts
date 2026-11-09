@@ -375,6 +375,27 @@ describe("case agent: normal completion", () => {
     }
   });
 
+  it("records scheduled progress after each evidence extraction", async () => {
+    const s = await positionsCase();
+    const model = stub(() => JSON.stringify(goodOutput(s)));
+    const heartbeat = vi.spyOn(prisma.scheduledOperationHeartbeat, "updateMany");
+    const previousOperation = process.env.AEQUITAS_SCHEDULER_OPERATION;
+    process.env.AEQUITAS_SCHEDULER_OPERATION = "case_agent";
+    try {
+      expect((await runCaseAgent({ caseId: s.caseId, model, env: ENV })).status).toBe("issued");
+      expect(model.calls).toBe(1);
+      expect(heartbeat).toHaveBeenCalledTimes(2);
+      expect(heartbeat).toHaveBeenCalledWith({
+        where: { name: "case_agent", lastOutcome: "RUNNING" },
+        data: { lastHeartbeatAt: expect.any(Date) },
+      });
+    } finally {
+      if (previousOperation === undefined) delete process.env.AEQUITAS_SCHEDULER_OPERATION;
+      else process.env.AEQUITAS_SCHEDULER_OPERATION = previousOperation;
+      heartbeat.mockRestore();
+    }
+  });
+
   it("enforces one shared daily model-call limit atomically across concurrent cases", async () => {
     const a = await positionsCase();
     const b = await positionsCase();

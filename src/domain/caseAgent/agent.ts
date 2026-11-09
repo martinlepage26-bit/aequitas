@@ -8,6 +8,7 @@ import { appendEvent } from "../events";
 import { validateExplanationRecord, type ExplanationRecord } from "../explanationRecord";
 import { generateExportBundle } from "../exportBundle";
 import { extractStoredEvidence, MAX_CASE_EXTRACTED_CHARACTERS, MAX_EVIDENCE_FILES, type EvidenceExtraction } from "../../lib/evidenceText";
+import { recordScheduledOperationProgress } from "../../lib/scheduledOperationProgress";
 import { digestPartyOutcomeCitations, type PartyOutcomeCitationPointer } from "../partyOutcomeCitations";
 import { independentApproverNotifications, runMutation, type MutationOutcome, type WriteResult } from "../mutate";
 import { agentOutputJsonSchemaForRemedies, AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
@@ -530,7 +531,11 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   for (const item of cleanItems) {
     let extraction: EvidenceExtraction;
     try { extraction = await extractStoredEvidence(item); }
-    catch { return escalate("evidence_extraction_failed"); }
+    catch {
+      await recordScheduledOperationProgress("case_agent");
+      return escalate("evidence_extraction_failed");
+    }
+    await recordScheduledOperationProgress("case_agent");
     if (extraction.status !== "extracted" || extraction.method === "none") return escalate("evidence_extraction_failed");
     extractedCharacters += extraction.text.length;
     if (extractedCharacters > MAX_CASE_EXTRACTED_CHARACTERS) return escalate("evidence_limit_exceeded");
