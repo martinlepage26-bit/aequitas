@@ -3,6 +3,7 @@ import { prisma } from "../src/lib/prisma";
 import { resolveCaseAgentModel, runCaseAgent } from "../src/domain/caseAgent/agent";
 import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { claimAgentCase, findEligibleAgentCases, releaseAgentCase } from "../src/domain/caseAgent/scheduler";
+import { recordScheduledOperationProgress } from "../src/lib/scheduledOperationProgress";
 
 /**
  * Scheduled pass over agent-managed cases. It leases each case immediately
@@ -38,6 +39,7 @@ async function main() {
         try { await releaseAgentCase(lease); }
         catch { counts.lease_release_error = (counts.lease_release_error ?? 0) + 1; }
       }
+      await recordScheduledOperationProgress("case_agent");
     }
   }
   console.log(JSON.stringify({

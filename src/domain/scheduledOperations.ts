@@ -6,10 +6,9 @@ export const SCHEDULED_OPERATIONS = [
 export type ScheduledOperationName = (typeof SCHEDULED_OPERATIONS)[number]["name"];
 
 export type ScheduledOperationHealth = "never_run" | "running" | "stalled" | "healthy" | "overdue" | "failed" | "interrupted" | "unknown";
-export const SCHEDULER_HEARTBEAT_INTERVAL_MS = 60_000;
-export const SCHEDULER_HEARTBEAT_STALE_AFTER_MS = 3 * SCHEDULER_HEARTBEAT_INTERVAL_MS;
+export const SCHEDULER_PROGRESS_STALE_AFTER_MS = 3 * 60_000;
 
-/** A running operation has a fresh pulse; a completed one is within its schedule. */
+/** A running operation has reported recent completed work; a completed one is within its schedule. */
 export function scheduledOperationIsHealthy(health: ScheduledOperationHealth): boolean {
   return health === "running" || health === "healthy";
 }
@@ -26,8 +25,8 @@ export type ScheduledOperationReleaseHeartbeatSnapshot = ScheduledOperationHeart
 };
 
 /**
- * Classify only aggregate worker state. Active jobs are monitored by periodic
- * pulses; completed jobs are checked against their configured schedule.
+ * Classify only aggregate worker state. Active jobs are monitored by progress
+ * pulses from their child process; completed jobs are checked against schedule.
  */
 export function scheduledOperationHealth(
   intervalMs: number,
@@ -40,7 +39,7 @@ export function scheduledOperationHealth(
   const finishedAt = heartbeat.lastFinishedAt ?? heartbeat.lastStartedAt;
   const scheduleAgeMs = Math.max(0, now.getTime() - finishedAt.getTime());
   switch (heartbeat.lastOutcome) {
-    case "RUNNING": return activityAgeMs > SCHEDULER_HEARTBEAT_STALE_AFTER_MS ? "stalled" : "running";
+    case "RUNNING": return activityAgeMs > SCHEDULER_PROGRESS_STALE_AFTER_MS ? "stalled" : "running";
     case "SUCCEEDED": return scheduleAgeMs > intervalMs * 2 ? "overdue" : "healthy";
     case "FAILED": return "failed";
     case "INTERRUPTED": return "interrupted";

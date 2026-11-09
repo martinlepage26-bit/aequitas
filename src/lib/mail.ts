@@ -2,6 +2,7 @@ import type { DisputeCategory } from "../generated/prisma";
 import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
 import { decryptEmailPayload, type ProviderEmailPayload } from "./emailPayload";
+import { recordScheduledOperationProgress } from "./scheduledOperationProgress";
 
 /** Queued when a complainant submits a case and a case manager should see it. */
 export const CASE_AWAITING_MANAGER_KIND = "case_awaiting_manager";
@@ -226,14 +227,22 @@ export async function deliverPendingTokenEmails(limit = 20) {
   let accepted = 0;
   let pending = false;
   for (const invitation of invitations) {
-    const status = await deliverTokenEmail("invitation", invitation.id);
-    if (status === "accepted") accepted += 1;
-    else if (status === "pending") pending = true;
+    try {
+      const status = await deliverTokenEmail("invitation", invitation.id);
+      if (status === "accepted") accepted += 1;
+      else if (status === "pending") pending = true;
+    } finally {
+      await recordScheduledOperationProgress("notification_retry");
+    }
   }
   for (const recovery of recoveries) {
-    const status = await deliverTokenEmail("recovery", recovery.id);
-    if (status === "accepted") accepted += 1;
-    else if (status === "pending") pending = true;
+    try {
+      const status = await deliverTokenEmail("recovery", recovery.id);
+      if (status === "accepted") accepted += 1;
+      else if (status === "pending") pending = true;
+    } finally {
+      await recordScheduledOperationProgress("notification_retry");
+    }
   }
   return { accepted, pending: pending || invitations.length === limit || recoveries.length === limit };
 }
@@ -366,6 +375,8 @@ export async function deliverPendingNotifications(caseId?: string) {
       console.error("Case notification delivery failed; retained for retry.");
       try { await prisma.notification.update({ where: { id: notification.id }, data: { attempts: { increment: 1 }, lastAttemptAt: new Date() } }); }
       catch { console.error("Notification attempt could not be recorded."); }
+    } finally {
+      await recordScheduledOperationProgress("notification_retry");
     }
   }
   return { accepted, pending: pending.length > accepted };

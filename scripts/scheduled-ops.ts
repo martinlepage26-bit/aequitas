@@ -2,14 +2,13 @@ import "../src/lib/loadEnv";
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import { prisma } from "../src/lib/prisma";
-import { scheduledOperationsPlan, SCHEDULED_OPERATIONS, SCHEDULER_HEARTBEAT_INTERVAL_MS } from "../src/domain/scheduledOperations";
+import { scheduledOperationsPlan, SCHEDULED_OPERATIONS } from "../src/domain/scheduledOperations";
 
 type ScheduledOperation = (typeof SCHEDULED_OPERATIONS)[number];
 type RuntimeOperation = ScheduledOperation & {
   timer: ReturnType<typeof setTimeout> | null;
   child: ChildProcess | null;
   starting: boolean;
-  heartbeatTimer: ReturnType<typeof setInterval> | null;
   heartbeatWrite: Promise<void>;
 };
 
@@ -18,7 +17,6 @@ const operations: RuntimeOperation[] = SCHEDULED_OPERATIONS.map((operation) => (
   timer: null,
   child: null,
   starting: false,
-  heartbeatTimer: null,
   heartbeatWrite: Promise.resolve(),
 }));
 const tsxCli = resolve(process.cwd(), "node_modules/tsx/dist/cli.mjs");
@@ -91,7 +89,7 @@ async function run(operation: RuntimeOperation) {
   try {
     child = spawn(process.execPath, [tsxCli, operation.entrypoint], {
       cwd: process.cwd(),
-      env: process.env,
+      env: { ...process.env, AEQUITAS_SCHEDULER_OPERATION: operation.name },
       stdio: "inherit",
     });
   } catch {
@@ -105,18 +103,12 @@ async function run(operation: RuntimeOperation) {
   }
   operation.child = child;
   operation.starting = false;
-  operation.heartbeatTimer = setInterval(() => {
-    void persistHeartbeat(operation, { lastStartedAt: startedAt, lastHeartbeatAt: new Date(), lastOutcome: "RUNNING" });
-  }, SCHEDULER_HEARTBEAT_INTERVAL_MS);
-  operation.heartbeatTimer.unref();
   let startFailed = false;
   let finalized = false;
   const finish = (code: number | null, signal: NodeJS.Signals | null) => {
     if (finalized) return;
     finalized = true;
     operation.child = null;
-    if (operation.heartbeatTimer) clearInterval(operation.heartbeatTimer);
-    operation.heartbeatTimer = null;
     const outcome = stopping && (signal === "SIGTERM" || signal === "SIGINT")
       ? "INTERRUPTED"
       : !startFailed && code === 0 && signal === null

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   notification: { findMany: vi.fn(), update: vi.fn() },
+  scheduledOperationHeartbeat: { updateMany: vi.fn() },
 }));
 vi.mock("../../src/lib/prisma", () => ({ prisma: db }));
 import {
@@ -54,6 +55,41 @@ describe("Resend notification delivery", () => {
     expect(await deliverPendingNotifications("case-1")).toEqual({ accepted: 1, pending: false });
     expect(db.notification.update.mock.calls[1][0].data).toMatchObject({ sentAt: expect.any(Date) });
     expect(fetch.mock.calls.map(([, request]) => request.headers["Idempotency-Key"])).toEqual(["notification/notification-1", "notification/notification-1"]);
+  });
+
+  it("records notification progress only when the scheduler runs the retry operation", async () => {
+    configure();
+    db.notification.findMany.mockResolvedValue([{
+      id: "notification-scheduled",
+      kind: CASE_AWAITING_MANAGER_KIND,
+      caseId: "case-secret",
+      locale: "en-CA",
+      user: { email: "manager@example.com" },
+      case: { referenceNumber: "AE-2026-000111", category: "TENANCY" },
+    }]);
+    db.scheduledOperationHeartbeat.updateMany.mockResolvedValue({ count: 1 });
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve(Response.json({ id: "resend-scheduled" })));
+    vi.stubGlobal("fetch", fetch);
+
+    const oneOffResult = await deliverPendingNotifications();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(oneOffResult).toEqual({ accepted: 1, pending: false });
+    expect(db.scheduledOperationHeartbeat.updateMany).not.toHaveBeenCalled();
+
+    vi.stubEnv("AEQUITAS_SCHEDULER_OPERATION", "notification_retry");
+    db.notification.findMany.mockResolvedValue([{
+      id: "notification-scheduled",
+      kind: CASE_AWAITING_MANAGER_KIND,
+      caseId: "case-secret",
+      locale: "en-CA",
+      user: { email: "manager@example.com" },
+      case: { referenceNumber: "AE-2026-000111", category: "TENANCY" },
+    }]);
+    expect(await deliverPendingNotifications()).toEqual({ accepted: 1, pending: false });
+    expect(db.scheduledOperationHeartbeat.updateMany).toHaveBeenCalledWith({
+      where: { name: "notification_retry", lastOutcome: "RUNNING" },
+      data: { lastHeartbeatAt: expect.any(Date) },
+    });
   });
 
   it("tells case managers only the reference and category, in their language", async () => {
