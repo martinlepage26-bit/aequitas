@@ -123,7 +123,7 @@ run_verifier() {
 }
 
 printf '%s\n' '== migrate status (one-off verifier; production app remains stopped)'
-run_verifier npx --no-install prisma migrate status
+run_verifier node node_modules/prisma/build/index.js migrate status
 printf '%s\n' '== row counts'
 docker exec -i aeq-prod-postgres psql -U aequitas -d aequitas -At -F' ' < row-counts.sql | sort
 printf '%s\n' '== verify:events (one-off verifier; production app remains stopped)'

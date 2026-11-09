@@ -11,7 +11,8 @@ if [ -n "$(docker compose -p aeq-prod --profile scheduled ps -a -q scheduler)" ]
   docker compose -p aeq-prod --profile scheduled stop scheduler
 fi
 docker compose -p aeq-prod up -d postgres clamav
-docker compose -p aeq-prod run --rm --no-deps app npx prisma migrate deploy
+# The runtime image has no npm/npx; invoke the Prisma CLI through Node.
+docker compose -p aeq-prod run --rm --no-deps app node node_modules/prisma/build/index.js migrate deploy
 docker compose -p aeq-prod up -d
 healthy=0
 for i in $(seq 1 60); do

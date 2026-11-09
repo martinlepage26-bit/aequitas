@@ -86,7 +86,13 @@ jobs:
         run: |
           docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
           docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
-            test "$(npm --version)" = "11.21.2"
+            # npm/npx are build-only; the shipped runtime image must not carry them.
+            for binary in npm npx; do
+              if command -v "$binary" >/dev/null 2>&1; then
+                echo "package manager unexpectedly exists in the application image: $binary" >&2
+                exit 1
+              fi
+            done
             for binary in pdftotext pdfimages pdftoppm tesseract; do
               if command -v "$binary" >/dev/null 2>&1; then
                 echo "native parser unexpectedly exists in the application image: $binary" >&2
@@ -291,7 +297,9 @@ jobs:
 
       - name: Generate production image dependency inventory
         run: |
-          docker run --rm --entrypoint npm aequitas-ci-runtime sbom --package-lock-only --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-production-node.spdx.json"
+          # The runtime image no longer ships npm; inventory the same lockfile
+          # with the runner's pinned npm instead.
+          npm sbom --package-lock-only --omit=dev --sbom-format=spdx > "$RUNNER_TEMP/aequitas-production-node.spdx.json"
           docker run --rm --entrypoint dpkg-query aequitas-ci-runtime -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-runtime-os-packages.txt"
           docker run --rm --entrypoint dpkg-query aequitas-ci-evidence-parser -W '-f=${binary:Package} ${Version}\n' > "$RUNNER_TEMP/aequitas-parser-os-packages.txt"
           {

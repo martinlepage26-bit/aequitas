@@ -92,7 +92,7 @@ describe("CT920 deployment scheduled operations", () => {
   it("stops an existing worker before migrations and restarts it on the verified release", () => {
     const result = runDeployment({ schedulerExists: true });
     const stop = result.calls.indexOf("compose -p aeq-prod --profile scheduled stop scheduler");
-    const migrate = result.calls.findIndex((call) => call.includes("npx prisma migrate deploy"));
+    const migrate = result.calls.findIndex((call) => call.includes("node node_modules/prisma/build/index.js migrate deploy"));
     const start = result.calls.indexOf("compose -p aeq-prod --profile scheduled up -d scheduler");
 
     expect(result.status).toBe(0);
