@@ -72,8 +72,10 @@ export type AgentOutput = z.infer<typeof agentOutputSchema>;
 const AGENT_DENY: RegExp[] = [
   /\b(credib\w*|crédib\w*|lying|liar|menteu\w*|menso\w*|dishonest\w*|malhonn\w*|truthful|véridique)\b/i,
   // Cover common conjugations of mentir; the exact verb "ment" is not
-  // covered by the adjective/noun stem "menteu*" above.
-  /\b(?:mens|ment|mente|mentes|mentent|mentons|mentez|mentais|mentait|mentaient|mentiez|mentant|menti|mentir\w*)\b/i,
+  // covered by the adjective/noun stem "menteu*" above. JavaScript's \b is
+  // ASCII-only, so an accented letter would count as a boundary and
+  // "élément" or "conformément" would match; use Unicode letter lookarounds.
+  /(?<![\p{L}\p{N}_])(?:mens|ment|mente|mentes|mentent|mentons|mentez|mentais|mentait|mentaient|mentiez|mentant|menti|mentir\p{L}*)(?![\p{L}\p{N}_])/iu,
   /\b(probab\w*|likelihood|vraisemblance|risk score|niveau de risque)\b/i,
   /\b(legal advice|avis juridique|conseil juridique|the law requires|la loi (vous )?(oblige|exige)|you are legally|vous êtes légalement|legally entitled|légalement en droit)\b/i,
   /\b(you must accept|vous devez accepter|final and binding|définiti\w* et contraignant\w*|is binding|est contraignant\w*|ruling|jugement|verdict)\b/i,

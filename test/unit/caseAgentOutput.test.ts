@@ -72,6 +72,9 @@ describe("case agent output checks", () => {
       expect(agentTextProblem(bad), bad).not.toBeNull();
     }
     expect(agentTextProblem("La note mentionne un échange.")).toBeNull();
+    for (const ok of ["Un élément de preuve est joint.", "Conformément aux règles du programme.", "Le reçu le confirme précisément.", "Les parties ont répondu séparément."]) {
+      expect(agentTextProblem(ok)).toBeNull();
+    }
     expect(agentTextProblem("Proposition non contraignante : remboursement du prix payé.")).toBeNull();
     expect(check({ ...ok, proposal: { ...ok.proposal, rationale_claims: [{ text: "This is our decision.", citation_ids: ["C1"] }] } }).ok).toBe(false);
   });
