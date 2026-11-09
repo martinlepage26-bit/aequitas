@@ -3,7 +3,7 @@ const NORTH_AMERICAN_PHONE = /\b(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[
 const CANADIAN_POSTAL_CODE = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b/gi;
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 const MAX_REVIEW_TEXT_CHARACTERS = 4000;
-export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v3";
+export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v4";
 
 const EXPECTED_FIXTURES = {
   "routine-en": "issued",
@@ -89,8 +89,9 @@ function expectedIdentityParts(identity: string): {
   model: string;
   promptVersion: string;
   evaluationProtocolVersion: string;
+  fixtureSetSha256: string;
 } | null {
-  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+)$/);
+  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+):fixtures:([a-f0-9]{64})$/);
   if (!match || !/^[A-Za-z0-9@._/:+-]+$/.test(identity)) return null;
   const identityParts = match[2].split(":");
   const expectedParts = match[1] === "vertex-ai" ? 3 : 2;
@@ -100,6 +101,7 @@ function expectedIdentityParts(identity: string): {
     model: identityParts.at(-1)!,
     promptVersion: match[3],
     evaluationProtocolVersion: match[4],
+    fixtureSetSha256: match[5],
   };
 }
 
@@ -123,6 +125,7 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
     if (report.evaluationApprovalIdentity !== expectedIdentity) blockers.push("Report identity does not match the current runtime identity.");
     if (report.promptVersion !== parts?.promptVersion) blockers.push("Report prompt version does not match the current identity.");
     if (report.evaluationProtocolVersion !== parts?.evaluationProtocolVersion) blockers.push("Report evaluation protocol does not match the current identity.");
+    if (report.evaluationFixtureSetSha256 !== parts?.fixtureSetSha256) blockers.push("Report fixture-set digest does not match the current identity.");
     if (report.provider !== parts?.provider) blockers.push("Report provider does not match the current identity.");
     if (report.model !== parts?.model) blockers.push("Report model does not match the current identity.");
   }

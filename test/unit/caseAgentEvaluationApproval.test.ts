@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -24,7 +24,7 @@ const env: Record<string, string | undefined> = {
 
 describe("case-agent evaluation approval", () => {
   it("binds the approval to provider, account, model, prompt, and evaluation protocol versions", () => {
-    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`);
+    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`);
   });
 
   it("keeps live case processing blocked without an exact human-review attestation", () => {
@@ -49,7 +49,7 @@ describe("case-agent evaluation approval", () => {
     expect(resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" }).ok).toBe(true);
     const approved = {
       ...env,
-      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`,
+      AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`,
     };
     expect(caseAgentEvaluationApprovalBlocker(approved)).toBeNull();
     expect(resolveCaseAgentModel(approved).ok).toBe(true);

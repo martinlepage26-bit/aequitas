@@ -4,17 +4,18 @@ import { AGENT_PROMPT_VERSION } from "./output";
 const APPROVAL_ENV = "AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR";
 const BASELINE_REVIEW_ENV = "AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR";
 const LIVE_EVALUATION_APPROVAL_ENV = "AEQUITAS_CASE_AGENT_EVAL_APPROVED";
-export const CASE_AGENT_EVALUATION_PROTOCOL_VERSION = "case-agent-evaluation-2026-11-08.2";
+export const CASE_AGENT_EVALUATION_PROTOCOL_VERSION = "case-agent-evaluation-2026-11-08.3";
+export const CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256 = "ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197";
 
-/** Bind a human-reviewed synthetic evaluation to the exact model, prompt, and evaluation protocol. */
+/** Bind a human-reviewed synthetic evaluation to the exact model, prompt, protocol, and fixture set. */
 export function caseAgentEvaluationApprovalIdentity(env: Record<string, string | undefined>): string | null {
   const providerIdentity = caseDataProviderApprovalIdentity(env);
   return providerIdentity
-    ? `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`
+    ? `${providerIdentity}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`
     : null;
 }
 
-/** Refuse a live call until spend/terms and the pre-model reference set are attested for this exact evaluation. */
+/** Refuse a live call until spend/terms and the pre-model references are attested for this exact fixture digest. */
 export function caseAgentLiveEvaluationPreflightBlockers(env: Record<string, string | undefined>): string[] {
   const blockers: string[] = [];
   if (env[LIVE_EVALUATION_APPROVAL_ENV] !== "true") {
@@ -37,5 +38,5 @@ export function caseAgentEvaluationApprovalBlocker(env: Record<string, string | 
   const identity = caseAgentEvaluationApprovalIdentity(env);
   if (!identity) return null;
   if (env[APPROVAL_ENV]?.trim() === identity) return null;
-  return `Run and review a successful live synthetic evaluation for the exact provider, account/project, model, prompt, and evaluation protocol; then set ${APPROVAL_ENV} to ${identity}.`;
+  return `Run and review a successful live synthetic evaluation for the exact provider, account/project, model, prompt, protocol, and fixture-set digest; then set ${APPROVAL_ENV} to ${identity}.`;
 }

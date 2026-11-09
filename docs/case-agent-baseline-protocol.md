@@ -3,7 +3,8 @@
 Status: **draft protocol; not a program approval or model-quality result.** No live model has been evaluated, and no pilot buyer's historical baseline has been collected.
 
 - Rubric draft: `0.1`
-- Intended evaluation protocol: `case-agent-evaluation-2026-11-08.2`
+- Intended evaluation protocol: `case-agent-evaluation-2026-11-08.3`
+- Pinned fixture-set SHA-256: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
 - Human approval: none
 
 This protocol separates two questions that must not be conflated:
@@ -11,7 +12,7 @@ This protocol separates two questions that must not be conflated:
 1. Does the selected model produce acceptable, evidence-supported behavior on a small, fixed synthetic set?
 2. Does the pilot improve the program's operating results compared with its own pre-pilot cases?
 
-The first is a release gate for a specific provider, account, model, prompt, and evaluation-protocol version. The second is a buyer-specific pilot measure. Passing one does not establish the other.
+The first is a release gate for a specific provider, account, model, prompt, evaluation-protocol version, and SHA-256 digest of the exact seven fixture records. The evaluator checks the digest before database connection or provider access, and includes it in the review identity. The second is a buyer-specific pilot measure. Passing one does not establish the other.
 
 ## 1. Synthetic model-quality baseline
 
@@ -35,7 +36,7 @@ Before the first live call, establish a human reference for each fixture **witho
 2. Have a program case reviewer independently mark the supportable facts and counterevidence, whether a proposal is appropriate, any proposal limits imposed by the synthetic program rules, and the reason a person must take over when escalation is expected.
 3. Have a Québec French reviewer assess the French-facing text criteria independently. Refer any legal interpretation or unresolved legal issue to counsel; the two legal-interpretation fixtures are expected to escalate, not to receive a model-generated legal answer.
 4. Resolve disagreements before inspecting model output. If reviewers cannot establish a safe reference, keep that fixture as a handoff case or remove it only through a documented protocol-version change.
-5. After the reviewers complete steps 1–4, set `AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR` to the exact provider/account/model/prompt/evaluation identity printed by the live evaluator's preflight error. The evaluator refuses to connect to the database or call a provider when this identity is missing or stale. This variable is an operator attestation; it cannot prove who reviewed the references or replace their completed worksheet.
+5. After the reviewers complete steps 1–4, set `AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR` to the exact provider/account/model/prompt/protocol/fixture-digest identity printed by the live evaluator's preflight error. The evaluator refuses to connect to the database or call a provider when this identity is missing or stale. The digest makes fixture edits invalidate the approval even if a protocol-version bump is accidentally omitted. This variable is an operator attestation; it cannot prove who reviewed the references or replace their completed worksheet.
 
 After the model run, review its report against the frozen references and the cited, hash-verified evidence excerpts. Mark a checklist item `pass` only when it is supported; uncertainty is a failure for approval purposes. The post-run review checklist is separate from the pre-model baseline approval.
 

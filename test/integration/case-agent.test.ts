@@ -10,7 +10,7 @@ import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
 import { acceptCaseAgentProcessing, enrollCaseAgent, endParticipation, MAX_CASE_AGENT_REQUEST_BYTES, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
-import { CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../../src/domain/caseAgent/evaluationApproval";
 import { caseAgentProgram, DAY_MS } from "../../src/domain/caseAgent/config";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import * as evidenceText from "../../src/lib/evidenceText";
@@ -43,7 +43,7 @@ const ENV = {
   AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW: "true",
   AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "true",
   AEQUITAS_AI_PROVIDER_TERMS_REVIEWED_FOR: "gemini:synthetic-project:gemini-3.8-flash",
-  AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `gemini:synthetic-project:gemini-3.8-flash:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}`,
+  AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR: `gemini:synthetic-project:gemini-3.8-flash:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`,
   AEQUITAS_GEMINI_PAID_TIER_CONFIRMED_FOR: "synthetic-project",
   GEMINI_PROJECT_ID: "synthetic-project",
   AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic test notice: case content would be sent to the configured model provider.",
