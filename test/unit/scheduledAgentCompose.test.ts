@@ -101,4 +101,17 @@ describe("CT920 scheduled case-agent configuration", () => {
     expect(compose).toContain("type: tmpfs");
     expect(compose).toContain("mode=0730,noexec,nosuid,nodev");
   });
+
+  it("checks scheduled-operation heartbeats in the production scheduler container", () => {
+    const compose = readFileSync(composePath, "utf8");
+    const start = compose.indexOf("\n  scheduler:\n");
+    const end = compose.indexOf("\n  postgres:\n", start);
+    if (start < 0 || end < 0) throw new Error("CT920 scheduler service is missing.");
+    const scheduler = compose.slice(start, end);
+    expect(scheduler).toContain("scripts/check-scheduled-ops-health.ts");
+    expect(scheduler).toContain("interval: 60s");
+    expect(scheduler).toContain("timeout: 10s");
+    expect(scheduler).toContain("retries: 3");
+    expect(scheduler).toContain("start_period: 180s");
+  });
 });

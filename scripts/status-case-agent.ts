@@ -2,7 +2,7 @@ import "../src/lib/loadEnv";
 import { prisma } from "../src/lib/prisma";
 import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { resolveCaseAgentModel } from "../src/domain/caseAgent/agent";
-import { scheduledOperationHealth, SCHEDULED_OPERATIONS } from "../src/domain/scheduledOperations";
+import { scheduledOperationHealth, scheduledOperationIsHealthy, SCHEDULED_OPERATIONS } from "../src/domain/scheduledOperations";
 import { emailConfigured, notificationBacklog } from "../src/lib/mail";
 import { caseAgentDailyModelUsage } from "../src/domain/caseAgent/modelBudget";
 
@@ -54,7 +54,7 @@ async function main() {
     };
   });
   const caseAgentScheduler = scheduledOperations.find((operation) => operation.name === "case_agent");
-  const caseAgentWorkerHealthy = caseAgentScheduler?.health === "healthy" || caseAgentScheduler?.health === "running";
+  const caseAgentWorkerHealthy = scheduledOperationIsHealthy(caseAgentScheduler?.health ?? "unknown");
 
   const eligibleOpenPool = program.ok
     ? await prisma.case.count({

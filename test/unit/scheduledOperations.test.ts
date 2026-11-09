@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   scheduledOperationHealth,
+  scheduledOperationIsHealthy,
   scheduledOperationsMissingReleaseSuccess,
   scheduledOperationsPlan,
   SCHEDULED_OPERATIONS,
@@ -28,6 +29,14 @@ describe("scheduled operations", () => {
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "FAILED" }, now)).toBe("failed");
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "INTERRUPTED" }, now)).toBe("interrupted");
     expect(scheduledOperationHealth(intervalMs, { ...recent, lastOutcome: "UNKNOWN" }, now)).toBe("unknown");
+  });
+
+  it("treats only fresh running or recently successful operations as healthy", () => {
+    expect(scheduledOperationIsHealthy("running")).toBe(true);
+    expect(scheduledOperationIsHealthy("healthy")).toBe(true);
+    for (const state of ["never_run", "stalled", "overdue", "failed", "interrupted", "unknown"] as const) {
+      expect(scheduledOperationIsHealthy(state)).toBe(false);
+    }
   });
 
   it("requires a fresh successful run of every worker for the deployed release", () => {

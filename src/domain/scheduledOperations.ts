@@ -9,6 +9,11 @@ export type ScheduledOperationHealth = "never_run" | "running" | "stalled" | "he
 export const SCHEDULER_HEARTBEAT_INTERVAL_MS = 60_000;
 export const SCHEDULER_HEARTBEAT_STALE_AFTER_MS = 3 * SCHEDULER_HEARTBEAT_INTERVAL_MS;
 
+/** A running operation has a fresh pulse; a completed one is within its schedule. */
+export function scheduledOperationIsHealthy(health: ScheduledOperationHealth): boolean {
+  return health === "running" || health === "healthy";
+}
+
 export type ScheduledOperationHeartbeatSnapshot = {
   lastStartedAt: Date | null;
   lastHeartbeatAt: Date | null;

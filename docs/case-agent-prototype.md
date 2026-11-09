@@ -133,6 +133,8 @@ The Vertex route is a Canada-capable candidate for model inference, not a cleare
 
 `npm run agent:status` also reports aggregate scheduler heartbeats for both scheduled operations and a sanitized reason when provider configuration is blocked (for example, a missing or mismatched terms-review identity). It marks a worker never observed, running, healthy, overdue, stalled, failed or interrupted; the rows contain only operation names, schedule intervals, outcomes, exit codes and timestamps, never case identifiers, party data, evidence or provider errors.
 
+The CT920 scheduled container runs an aggregate Docker healthcheck every 60 seconds. It passes while each scheduled operation is either running with a fresh heartbeat or completed within its configured interval; a never-run, stalled, overdue, failed, interrupted, unknown or unreadable heartbeat makes it unhealthy. Docker health status is a monitoring signal; Compose does not restart a container solely because it is unhealthy. The host operator must alert on `unhealthy` and inspect `npm run agent:status` and the scheduled-profile logs.
+
 **Operator status.** `npm run agent:status` prints aggregate readiness, case-state, escalation, lease, notification, UTC-day model-call usage and scheduler heartbeat data; it omits case IDs, party details, evidence, addresses, provider errors and secrets. A recent healthy heartbeat shows the operation completed within two configured intervals; it cannot prove that the scheduler process did not stop immediately after its last heartbeat. Check the scheduled-profile logs for exact operational errors and the provider account for usage and billed cost.
 
 ## Evaluation
