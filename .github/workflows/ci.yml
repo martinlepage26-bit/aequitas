@@ -109,9 +109,18 @@ jobs:
                 exit 1
               fi
             done
+            # dpkg-query -W also succeeds for purged ("pn") entries, which the
+            # Node base image leaves behind, so check the recorded state.
             for package in dirmngr gnupg gnupg-l10n gpg-agent gpgsm pinentry-curses; do
-              if dpkg-query -W "$package" >/dev/null 2>&1; then
-                echo "unexpected GnuPG runtime package is installed: $package" >&2
+              rc=0
+              state="$(dpkg-query -W -f="\${db:Status-Status}" "$package" 2>/dev/null)" || rc=$?
+              # 1 = unknown to dpkg; any other failure must not pass silently.
+              if [ "$rc" -gt 1 ]; then
+                echo "cannot read dpkg state for $package (exit $rc)" >&2
+                exit 1
+              fi
+              if [ "$rc" -eq 0 ] && [ "$state" != "not-installed" ]; then
+                echo "unexpected GnuPG runtime package is installed: $package ($state)" >&2
                 exit 1
               fi
             done
