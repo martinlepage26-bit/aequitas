@@ -33,6 +33,7 @@ ENV NODE_ENV=production \
     TMPDIR=/tmp
 RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
+ && apt-get purge -y --auto-remove dirmngr gnupg gnupg-l10n gpg gpg-agent gpgconf gpgsm pinentry-curses \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 2000 aeq-parser \
  && useradd --system --uid 10001 --gid 2000 --no-create-home --home-dir /tmp aeq-parser \

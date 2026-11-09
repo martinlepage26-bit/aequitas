@@ -102,6 +102,18 @@ jobs:
             for binary in pdfinfo pdftotext pdfimages pdftoppm tesseract; do command -v "$binary"; done
             tesseract --list-langs 2>/dev/null | grep -Fx eng
             tesseract --list-langs 2>/dev/null | grep -Fx fra
+            for binary in dirmngr gpg gpg-agent gpgconf gpgsm pinentry tiffcrop; do
+              if command -v "$binary" >/dev/null 2>&1; then
+                echo "unexpected unused or vulnerable parser utility is installed: $binary" >&2
+                exit 1
+              fi
+            done
+            for package in dirmngr gnupg gnupg-l10n gpg gpg-agent gpgconf gpgsm pinentry-curses; do
+              if dpkg-query -W "$package" >/dev/null 2>&1; then
+                echo "unexpected GnuPG runtime package is installed: $package" >&2
+                exit 1
+              fi
+            done
             test ! -d /app/node_modules
             test ! -e /app/src/domain
             test ! -e /app/scripts/scheduled-ops.js
