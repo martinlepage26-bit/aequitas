@@ -4,19 +4,19 @@
 
 ## Scope
 
-- Evaluation protocol: `case-agent-evaluation-2026-11-09.3`
-- Fixture digest: `821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
+- Evaluation protocol: `case-agent-evaluation-2026-11-09.4`
+- Fixture digest: `555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - Exact evaluation approval identity for the current default synthetic profile (printed by the fail-closed evaluator preflight):
-  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.3:fixtures:821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
+  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - This identity binds the provider, account, model, remedies, complete workflow-policy digest, prompt, protocol, and exact fixture digest. If any configured workflow policy differs from the defaults recorded here, rerun the preflight and use its new identity before review.
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
 - Synthetic evaluation remedy profile: all five implemented types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) unless an explicit environment list overrides it. This is a test profile, not an approved program policy.
 - Current evaluation identity: includes the selected provider/account/model and a digest of the full workflow policy (amount limit, remedies, daily call limit, response periods, withdrawal, consent-only resolution, and bilingual processing notice), plus prompt, protocol, and fixture digests. Use the exact identity printed by the evaluator; policy changes invalidate it.
 - Authorized synthetic-only spend ceiling: **US$0.11**. The evaluator refuses before database setup if its local worst-case request bound exceeds the cap and reserves that bound before each call. Current bound: about US$0.10241281. This does not cap unrelated or concurrent account usage; provider billing remains authoritative.
 - The synthetic evaluator's default all-remedies setting is a benchmark profile only. A buyer program must select its own remedy list; a different production policy cannot reuse this evaluation identity.
-- Source: [exact synthetic submissions and full evaluation protocol](case-agent-baseline-protocol.md#exact-synthetic-submissions-for-pre-model-review).
+- Blind pre-model reviewer copy: [complete inputs and independent assessment forms](case-agent-blind-reference-packet.md). Keep this worksheet and the reference protocol from reviewers until their independent assessments are recorded.
 
-Complete all required records before any model output is available and after the evaluator has printed the exact policy-bound identity. Begin with each fixture's exact submissions and write an independent assessment before consulting the protocol's expected-workflow and fact-anchor table. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption. Reviewers assess only the synthetic evaluation policy recorded in that identity; their review does not approve a buyer's operating policy.
+Give reviewers only `case-agent-blind-reference-packet.md` first. Do not show them this named worksheet or the reference sections of `case-agent-baseline-protocol.md` until they have recorded and dated their independent assessments. Then use this worksheet to compare the frozen views with the expected workflow and record corrections or disagreement. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption. Reviewers assess only the synthetic evaluation policy recorded in that identity; their review does not approve a buyer's operating policy.
 
 Required coverage: the program case reviewer reviews all seven fixtures; counsel reviews the two legal-interpretation fixtures; a Québec French reviewer reviews all five fixtures with an fr-CA party. One person may hold more than one role if qualified, but record each role and review separately. Resolve disagreements before freezing the reference.
 
@@ -46,7 +46,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - If proposing an outcome, whether its remedy follows the evaluated synthetic policy and the evidence; note any buyer-specific rule that remains unreviewed. Otherwise, why no proposal is appropriate:
 - Party-specific disclosure and privacy limits:
 - Québec French reviewer — name, role, date:
-- French proposal clarity, factual limits, and corrections:
+- Pre-model French acceptance criteria; after the live run, proposal clarity, factual limits, and corrections:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
 
@@ -62,7 +62,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Why a proposal is or is not appropriate:
 - Party-specific disclosure and privacy limits:
 - Québec French reviewer — name, role, date:
-- French handoff notice clarity and withheld-outcome/privacy findings:
+- Pre-model review of the existing French handoff notice and withheld-outcome wording; after the live run, clarity and privacy findings:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
 
@@ -96,7 +96,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Counsel — name, role, date:
 - Counsel finding or required handoff; confirm no model-generated legal interpretation:
 - Québec French reviewer — name, role, date:
-- French handoff notice clarity and withheld-outcome findings:
+- Pre-model review of the existing French handoff notice and withheld-outcome wording; after the live run, clarity and corrections:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
 
@@ -112,7 +112,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - If proposing an outcome, whether its remedy follows the evaluated synthetic policy and the evidence; note any buyer-specific rule that remains unreviewed. Otherwise, why no proposal is appropriate:
 - Party-specific disclosure and privacy limits, including details that must not appear in the other party's outcome:
 - Québec French reviewer — name, role, date:
-- French respondent-facing proposal clarity and confirmation that private details remain excluded:
+- Pre-model French acceptance criteria and privacy limits; after the live run, respondent-facing proposal clarity and confirmation that private details remain excluded:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
 
@@ -128,7 +128,7 @@ Exact submissions: [protocol section](case-agent-baseline-protocol.md#exact-synt
 - Why the agent must not decide which account is true or propose an outcome:
 - Party-specific disclosure and privacy limits:
 - Québec French reviewer — name, role, date:
-- French handoff notice clarity and withheld-outcome findings:
+- Pre-model review of the existing French handoff notice and withheld-outcome wording; after the live run, clarity and corrections:
 - Compare with protocol expected workflow after recording the independent view; corrections or disagreement:
 - Reference resolved and frozen before model output — yes / no; date:
 

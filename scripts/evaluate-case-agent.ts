@@ -189,7 +189,7 @@ async function main() {
     const c = await prisma.user.create({ data: { email: `eval-c-${randomUUID()}@example.org`, displayName: "Eval complainant", globalRole: "COMPLAINANT", locale: f.complainantLocale } });
     const r = await prisma.user.create({ data: { email: `eval-r-${randomUUID()}@example.org`, displayName: "Eval respondent", globalRole: "RESPONDENT", locale: f.respondentLocale } });
     await prisma.webAuthnCredential.create({ data: { userId: r.id, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
-    const created = await createCase({ actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-EVAL-${randomUUID().slice(0, 8)}`, complainantId: c.id, respondentId: r.id, simulated: true, category: "RETAIL", amountAtStakeCents: 12000, disputeDescription: `Synthetic evaluation case ${f.name}.`, requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
+    const created = await createCase({ actorId: c.id, actorRole: "COMPLAINANT", referenceNumber: `AE-EVAL-${randomUUID().slice(0, 8)}`, complainantId: c.id, respondentId: r.id, simulated: true, category: "RETAIL", amountAtStakeCents: f.amountAtStakeCents, disputeDescription: f.disputeDescription, requestedStatementVersionId: statement.id, currentStatementVersionId: statement.id });
     if (!created.ok) throw new Error(created.reason);
     const caseId = created.data.caseId;
     await submitCase({ actorId: c.id, actorRole: "COMPLAINANT", caseId });
@@ -204,8 +204,8 @@ async function main() {
     await setPartyIntakeReady({ actorId: c.id, actorRole: "COMPLAINANT", caseId, ready: true });
     await setPartyIntakeReady({ actorId: r.id, actorRole: "RESPONDENT", caseId, ready: true });
     await runCaseAgent({ caseId, model, env, now: proposalNow });
-    await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: f.complainantLocale === "fr-CA" ? "Position synthétique de la partie plaignante." : "Synthetic complainant position.", locale: f.complainantLocale });
-    await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: f.respondentLocale === "fr-CA" ? "Position synthétique de l’entreprise." : "Synthetic respondent position.", locale: f.respondentLocale });
+    await submitPosition({ actorId: c.id, actorRole: "COMPLAINANT", caseId, body: f.complainantPosition, locale: f.complainantLocale });
+    await submitPosition({ actorId: r.id, actorRole: "RESPONDENT", caseId, body: f.respondentPosition, locale: f.respondentLocale });
     const configuredProgram = caseAgentProgram(env);
     if (!configuredProgram.ok) throw new Error(`Synthetic evaluation processing notice is incomplete: ${configuredProgram.missing.join(", ")}`);
     // These are synthetic fixture actors, not real-party consents. They let
