@@ -108,6 +108,13 @@ jobs:
             for binary in pdfinfo pdftotext pdfimages pdftoppm tesseract; do command -v "$binary"; done
             tesseract --list-langs 2>/dev/null | grep -Fx eng
             tesseract --list-langs 2>/dev/null | grep -Fx fra
+            for package in libcurl4t64 libcurl3t64-gnutls; do
+              version="$(dpkg-query -W -f="\${Version}" "$package")"
+              if ! dpkg --compare-versions "$version" ge "8.21.0-2~bpo13+1"; then
+                echo "outdated vulnerable libcurl package: $package ($version)" >&2
+                exit 1
+              fi
+            done
             # gpg and gpgconf stay: libgpgme (a libpoppler dependency) requires gpg.
             for binary in dirmngr gpg-agent gpgsm pinentry tiffcrop; do
               if command -v "$binary" >/dev/null 2>&1; then

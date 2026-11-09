@@ -43,6 +43,10 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 # (dirmngr, gpg-agent, gpgsm, pinentry); only gpg and gpgconf remain.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra gpg \
+ && echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/trixie-backports.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends -t trixie-backports libcurl4t64 libcurl3t64-gnutls \
+ && rm -f /etc/apt/sources.list.d/trixie-backports.list \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 2000 aeq-parser \
  && useradd --system --uid 10001 --gid 2000 --no-create-home --home-dir /tmp aeq-parser \
