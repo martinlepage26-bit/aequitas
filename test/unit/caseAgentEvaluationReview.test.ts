@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, evaluationReviewBlockers, sanitizeReviewText, sanitizedHumanHandoffRequest } from "../../scripts/caseAgentEvaluationReview";
 
 const fixtureSetSha256 = "a".repeat(64);
-const approvalIdentity = `workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-07.1:evaluation:case-agent-evaluation-2026-11-08.3:fixtures:${fixtureSetSha256}`;
+const allowedRemedies = ["refund_full", "refund_partial", "store_credit", "replacement", "repair"];
+const allowedRemediesSha256 = createHash("sha256").update(JSON.stringify(allowedRemedies)).digest("hex");
+const approvalIdentity = `workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
 
 function completeReviewReport() {
   const names = [
@@ -19,8 +22,10 @@ function completeReviewReport() {
     mode: "live",
     provider: "workers-ai",
     model: "@cf/google/gemma-4-26b-a4b-it",
-    promptVersion: "case-agent-2026-11-07.1",
-    evaluationProtocolVersion: "case-agent-evaluation-2026-11-08.3",
+    promptVersion: "case-agent-2026-11-09.1",
+    evaluationProtocolVersion: "case-agent-evaluation-2026-11-09.1",
+    allowedRemedies,
+    allowedRemediesSha256,
     evaluationFixtureSetSha256: fixtureSetSha256,
     evaluationApprovalIdentity: approvalIdentity,
     syntheticOnly: true,
@@ -59,7 +64,7 @@ function completeReviewReport() {
 describe("case-agent manual evaluation report", () => {
   it("uses a new approval identity for the reference rubric", async () => {
     const { CASE_AGENT_EVALUATION_PROTOCOL_VERSION } = await import("../../src/domain/caseAgent/evaluationApproval");
-    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-08.3");
+    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-09.1");
   });
 
   it("detects a seeded contact marker despite common formatting changes", () => {
@@ -112,7 +117,7 @@ describe("case-agent manual evaluation report", () => {
   });
 
   it("accepts the supported Vertex AI identity format", () => {
-    const vertexIdentity = `vertex-ai:synthetic-project:northamerica-northeast1:gemini-3.5-flash:prompt:case-agent-2026-11-07.1:evaluation:case-agent-evaluation-2026-11-08.3:fixtures:${fixtureSetSha256}`;
+    const vertexIdentity = `vertex-ai:synthetic-project:northamerica-northeast1:gemini-3.5-flash:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "vertex-ai",
@@ -123,7 +128,7 @@ describe("case-agent manual evaluation report", () => {
   });
 
   it("accepts the supported Gemini identity format", () => {
-    const geminiIdentity = `gemini:synthetic-project:gemini-3.5-flash:prompt:case-agent-2026-11-07.1:evaluation:case-agent-evaluation-2026-11-08.3:fixtures:${fixtureSetSha256}`;
+    const geminiIdentity = `gemini:synthetic-project:gemini-3.5-flash:remedies:${allowedRemediesSha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.1:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "gemini",
@@ -137,7 +142,7 @@ describe("case-agent manual evaluation report", () => {
     const report = completeReviewReport();
     Object.assign(report, {
       mode: "stub",
-      evaluationApprovalIdentity: "workers-ai:old-account:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-06.1:evaluation:case-agent-evaluation-2026-11-07.2",
+      evaluationApprovalIdentity: "workers-ai:old-account:@cf/google/gemma-4-26b-a4b-it:remedies:bad:prompt:case-agent-2026-11-06.1:evaluation:case-agent-evaluation-2026-11-07.2",
       evaluationProtocolVersion: "case-agent-evaluation-2026-11-07.2",
       automatedChecksPassed: false,
       status: "human_review_required",

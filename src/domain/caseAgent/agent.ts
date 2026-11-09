@@ -10,7 +10,7 @@ import { generateExportBundle } from "../exportBundle";
 import { extractStoredEvidence, MAX_CASE_EXTRACTED_CHARACTERS, MAX_EVIDENCE_FILES, type EvidenceExtraction } from "../../lib/evidenceText";
 import { digestPartyOutcomeCitations, type PartyOutcomeCitationPointer } from "../partyOutcomeCitations";
 import { independentApproverNotifications, runMutation, type MutationOutcome, type WriteResult } from "../mutate";
-import { AGENT_OUTPUT_JSON_SCHEMA, AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
+import { agentOutputJsonSchemaForRemedies, AGENT_PROMPT_VERSION, checkAgentOutput } from "./output";
 import { buildCaseAgentOutputContext, buildCaseAgentPrompt } from "./prompt";
 import { caseAgentEnabled, caseAgentProgram, DAY_MS, type CaseAgentProgram } from "./config";
 import { renderProposal } from "./proposal";
@@ -18,6 +18,7 @@ import { caseAgentDailyModelUsage, reserveCaseAgentModelCall } from "./modelBudg
 import { caseAgentEvaluationApprovalBlocker } from "./evaluationApproval";
 import { processingConsentMatches } from "./processingConsent";
 import { caseAgentPolicyFromEvents, createCaseAgentPolicySnapshot } from "./policy";
+import type { Remedy } from "./proposal";
 import { consentAloneResolves } from "../resolution";
 import { CASE_AGENT_POSITIONS_REQUESTED_KIND, MAX_DELIVERY_ATTEMPTS, emailConfigured, sendInvitationEmail } from "../../lib/mail";
 import { encryptEmailPayload, invitationEmailPayload } from "../../lib/emailPayload";
@@ -383,8 +384,9 @@ type AgentEvidenceSource = {
 };
 
 /** Changes when anything the model saw changes; only this digest enters the event log. */
-function materialDigest(m: Material, evidenceSources: ReadonlyMap<string, AgentEvidenceSource>): string {
+function materialDigest(m: Material, evidenceSources: ReadonlyMap<string, AgentEvidenceSource>, allowedRemedies: readonly Remedy[]): string {
   const parts = {
+    allowedRemedies,
     case: [m.caseRow.category, m.caseRow.disputeDescription, m.caseRow.amountAtStakeCents, m.caseRow.complainant.locale, m.caseRow.respondent.locale],
     positions: [m.complainantPosition, m.respondentPosition].map((p) => p && [p.id, p.version, p.body, p.locale]),
     evidence: m.caseRow.evidenceItems.map((e) => [e.id, e.version, e.scanStatus, e.supersedesId, e.sha256, e.byteSize, e.mimeType, e.title, e.description]),
@@ -433,12 +435,17 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     select: { type: true, payload: true },
   });
   const policy = caseAgentPolicyFromEvents(enrollment ? [enrollment] : []);
-  if (!policy || policy.consentOnlyResolution !== current.agentConsentOnlyResolution) return escalate("program_rules_incomplete");
+  if (!policy || policy.consentOnlyResolution !== current.agentConsentOnlyResolution
+    || policy.allowedRemedies.join(",") !== configuredProgram.allowedRemedies.join(",")) {
+    return escalate("program_rules_incomplete");
+  }
   // The deployment can tighten the amount ceiling for safety, but cannot
   // expand an enrolled case's eligibility or rewrite its other party terms.
   const program: CaseAgentProgram = {
     ...configuredProgram,
     maxAmountCents: Math.min(configuredProgram.maxAmountCents, policy.maxAmountCents),
+    // The enrollment event is the immutable source of remedy authority for this case.
+    allowedRemedies: policy.allowedRemedies,
     intakeDays: policy.intakeDays,
     responseDays: policy.responseDays,
     respondentMayWithdraw: policy.respondentMayWithdraw,
@@ -528,15 +535,16 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     });
   }
 
-  const digest = materialDigest(first, evidenceSources);
-  const prompt = buildCaseAgentPrompt(first, evidenceSources);
+  const digest = materialDigest(first, evidenceSources, program.allowedRemedies);
+  const prompt = buildCaseAgentPrompt(first, evidenceSources, program.allowedRemedies);
+  const outputSchema = agentOutputJsonSchemaForRemedies(program.allowedRemedies);
   // Evidence is capped separately, but positions and chronology can also be
   // large. Bound the fully serialized request (including its schema) before
   // reserving a paid call or sending any case material to a provider.
   const serializedInputBytes = Buffer.byteLength(JSON.stringify({
     systemInstruction: prompt.systemInstruction,
     userContent: prompt.userContent,
-    outputSchema: AGENT_OUTPUT_JSON_SCHEMA,
+    outputSchema,
   }), "utf8");
   if (serializedInputBytes + CASE_AGENT_PROVIDER_ENVELOPE_RESERVE_BYTES > MAX_CASE_AGENT_REQUEST_BYTES) {
     return escalate("case_input_limit_exceeded");
@@ -550,7 +558,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   if (preflight.caseRow.agentEscalatedAt) return { status: "skipped", reason: "escalated" };
   if (!preflight.caseRow.agentManaged || preflight.caseRow.state !== "POSITIONS") return { status: "stale" };
   if (preflight.openContestations > 0) return escalate("contestation_open");
-  if (materialDigest(preflight, evidenceSources) !== digest) return { status: "stale" };
+  if (materialDigest(preflight, evidenceSources, program.allowedRemedies) !== digest) return { status: "stale" };
   const handoffWasRecorded = async () => {
     const latest = await prisma.case.findUnique({ where: { id: row.id }, select: { agentEscalatedAt: true } });
     return Boolean(latest?.agentEscalatedAt);
@@ -568,7 +576,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   let raw: string;
   try {
     if (input.model.completeWithJsonSchema) {
-      raw = (await input.model.completeWithJsonSchema(prompt.userContent, AGENT_OUTPUT_JSON_SCHEMA, prompt.systemInstruction)).text;
+      raw = (await input.model.completeWithJsonSchema(prompt.userContent, outputSchema, prompt.systemInstruction)).text;
     } else {
       raw = await input.model.complete(prompt.userContent, prompt.systemInstruction);
     }
@@ -579,7 +587,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   // The party can request a person while the provider is processing. It may
   // finish work on already-sent data, but this run must not create an outcome.
   if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
-  const context = buildCaseAgentOutputContext(first, evidenceSources);
+  const context = buildCaseAgentOutputContext(first, evidenceSources, program.allowedRemedies);
   const checked = checkAgentOutput(raw, context);
   if (!checked.ok) return escalate(checked.escalation);
   const out = checked.value;

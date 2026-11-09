@@ -9,6 +9,7 @@ import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, con
 import { CASE_AGENT_EVALUATION_FIXTURES as FIXTURES, caseAgentEvaluationFixtureSetSha256, PRIVATE_DETAIL_PHONE_MARKER, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { characterCount, parseEvaluationPricing, tokenTotals, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
 import { caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
+import { REMEDIES } from "../src/domain/caseAgent/proposal";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
@@ -102,6 +103,7 @@ async function main() {
   const { createCase, setPartyIntakeReady, submitCase, submitPosition } = await import("../src/domain/mutate");
   const { acceptCaseAgentProcessing, runCaseAgent } = await import("../src/domain/caseAgent/agent");
   const { caseAgentProgram } = await import("../src/domain/caseAgent/config");
+  const { caseAgentAllowedRemediesSha256 } = await import("../src/domain/caseAgent/evaluationApproval");
   const { AGENT_PROMPT_VERSION } = await import("../src/domain/caseAgent/output");
   const { explanationRecordSchema } = await import("../src/domain/explanationRecord");
   const { extractStoredEvidence } = await import("../src/lib/evidenceText");
@@ -123,6 +125,8 @@ async function main() {
     AEQUITAS_CASE_AGENT_ENABLED: "true",
     // Synthetic evaluation values, not program policy.
     AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+    // Only the stub harness uses the full closed list. Live mode must receive an operator-selected program list.
+    ...(stub ? { AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES: REMEDIES.join(",") } : {}),
     AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "10",
     AEQUITAS_CASE_AGENT_INTAKE_DAYS: "1",
     AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "1",
@@ -131,6 +135,12 @@ async function main() {
     AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic evaluation notice: this synthetic case's text and extracted evidence are sent to the configured model provider for this test only.",
     AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis d’évaluation synthétique : le texte et les preuves extraites de ce dossier synthétique sont transmis au fournisseur de modèle configuré pour ce test seulement.",
   };
+
+  const evaluationProgram = caseAgentProgram(env);
+  if (!evaluationProgram.ok) throw new Error(`Synthetic evaluation program configuration is incomplete: ${evaluationProgram.missing.join(", ")}`);
+  const allowedRemedies = evaluationProgram.program.allowedRemedies;
+  const allowedRemediesSha256 = caseAgentAllowedRemediesSha256(env);
+  if (!allowedRemediesSha256) throw new Error("Synthetic evaluation remedy identity is unavailable.");
 
   let model: TextCompletion;
   if (live) {
@@ -441,6 +451,8 @@ async function main() {
     provider: model.provider,
     model: model.model,
     promptVersion: AGENT_PROMPT_VERSION,
+    allowedRemedies,
+    allowedRemediesSha256,
     evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
     evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
     evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
@@ -471,6 +483,8 @@ async function main() {
       provider: model.provider,
       model: model.model,
       promptVersion: AGENT_PROMPT_VERSION,
+      allowedRemedies,
+      allowedRemediesSha256,
       evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
       evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
       evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,

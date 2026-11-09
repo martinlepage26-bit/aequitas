@@ -7,6 +7,7 @@ import {
 
 const terms = {
   maxAmountCents: 500_000,
+  allowedRemedies: ["refund_full", "replacement"] as const,
   intakeDays: 7,
   responseDays: 5,
   respondentMayWithdraw: true,
@@ -16,18 +17,18 @@ const terms = {
 describe("case agent enrollment policy", () => {
   it("serializes and validates the fixed party terms", () => {
     const snapshot = createCaseAgentPolicySnapshot(terms);
-    expect(parseCaseAgentPolicySnapshot(snapshot)).toEqual({ version: 1, ...terms });
+    expect(parseCaseAgentPolicySnapshot(snapshot)).toEqual({ version: 2, ...terms });
   });
 
   it("reads the first enrollment snapshot and ignores later events", () => {
     const first = { type: "AGENT_ENROLLED", payload: { origin: "case_manager", consentOnlyResolution: false, policySnapshot: createCaseAgentPolicySnapshot(terms) } };
     const later = { type: "AGENT_ENROLLED", payload: { origin: "program_rules", consentOnlyResolution: false, policySnapshot: { ...createCaseAgentPolicySnapshot(terms), responseDays: 90 } } };
-    expect(caseAgentPolicyFromEvents([first, later])).toEqual({ version: 1, ...terms });
+    expect(caseAgentPolicyFromEvents([first, later])).toEqual({ version: 2, ...terms });
   });
 
   it.each([
     ["missing", undefined],
-    ["unknown version", { ...createCaseAgentPolicySnapshot(terms), version: 2 }],
+    ["unknown version", { ...createCaseAgentPolicySnapshot(terms), version: 3 }],
     ["invalid amount", { ...createCaseAgentPolicySnapshot(terms), maxAmountCents: 0 }],
     ["invalid deadline", { ...createCaseAgentPolicySnapshot(terms), responseDays: 1.5 }],
     ["invalid withdrawal rule", { ...createCaseAgentPolicySnapshot(terms), respondentMayWithdraw: "yes" }],

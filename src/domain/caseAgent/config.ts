@@ -5,6 +5,7 @@ import {
   PROCESSING_NOTICE_FR_ENV,
   type CaseAgentProcessingDisclosure,
 } from "./processingConsent";
+import { parseAllowedRemedies, type Remedy } from "./proposal";
 
 /**
  * Program rules for the case agent. Every value comes from the deployment's
@@ -16,6 +17,8 @@ type Env = Record<string, string | undefined>;
 export interface CaseAgentProgram {
   /** Largest amount at stake, in CAD cents, the program lets the agent handle. */
   maxAmountCents: number;
+  /** Remedies this program permits the agent to propose. */
+  allowedRemedies: readonly Remedy[];
   /** Maximum number of outbound model-call attempts across this deployment per UTC day. */
   maxModelCallsPerUtcDay: number;
   /** Maximum days to complete evidence intake; an incomplete file goes to a person at expiry. */
@@ -38,6 +41,7 @@ const positiveInt = (value: string | undefined) => {
 export function caseAgentProgram(env: Env = process.env): { ok: true; program: CaseAgentProgram } | { ok: false; missing: string[] } {
   if (env.AEQUITAS_CASE_AGENT_ENABLED !== "true") return { ok: false, missing: ["AEQUITAS_CASE_AGENT_ENABLED"] };
   const maxAmountCents = positiveInt(env.AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS);
+  const allowedRemedies = parseAllowedRemedies(env.AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES);
   const maxModelCallsPerUtcDay = positiveInt(env.AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY);
   const intakeDays = positiveInt(env.AEQUITAS_CASE_AGENT_INTAKE_DAYS);
   const responseDays = positiveInt(env.AEQUITAS_CASE_AGENT_RESPONSE_DAYS);
@@ -48,6 +52,7 @@ export function caseAgentProgram(env: Env = process.env): { ok: true; program: C
   const processingDisclosure = caseAgentProcessingDisclosure(env);
   const missing = [
     maxAmountCents === null && "AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS",
+    allowedRemedies === null && "AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES",
     (maxModelCallsPerUtcDay === null || maxModelCallsPerUtcDay > 2_147_483_647) && "AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY",
     intakeDays === null && "AEQUITAS_CASE_AGENT_INTAKE_DAYS",
     responseDays === null && "AEQUITAS_CASE_AGENT_RESPONSE_DAYS",
@@ -60,7 +65,7 @@ export function caseAgentProgram(env: Env = process.env): { ok: true; program: C
     !processingDisclosure && "configured Gemini project, Vertex AI project/region/model, or Workers AI account and model",
   ].filter((v): v is string => Boolean(v));
   if (missing.length > 0) return { ok: false, missing };
-  return { ok: true, program: { maxAmountCents: maxAmountCents!, maxModelCallsPerUtcDay: maxModelCallsPerUtcDay!, intakeDays: intakeDays!, responseDays: responseDays!, respondentMayWithdraw: withdraw === "true", consentOnlyResolution: consentOnly === "true", processingDisclosure: processingDisclosure! } };
+  return { ok: true, program: { maxAmountCents: maxAmountCents!, allowedRemedies: allowedRemedies!, maxModelCallsPerUtcDay: maxModelCallsPerUtcDay!, intakeDays: intakeDays!, responseDays: responseDays!, respondentMayWithdraw: withdraw === "true", consentOnlyResolution: consentOnly === "true", processingDisclosure: processingDisclosure! } };
 }
 
 export function caseAgentEnabled(env: Env = process.env): boolean {

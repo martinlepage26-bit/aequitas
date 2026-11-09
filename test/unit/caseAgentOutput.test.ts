@@ -11,6 +11,7 @@ const ctx = {
   complainantEvidenceIds: new Set([C]), respondentEvidenceIds: new Set([R]),
   evidenceSources: new Map([[C, { text: complainantText }], [R, { text: respondentText }]]),
   amountAtStakeCents: 8999,
+  allowedRemedies: ["refund_full", "refund_partial", "store_credit", "replacement", "repair"] as const,
 };
 const ok = {
   needs_human: null,
@@ -93,6 +94,7 @@ describe("program rules", () => {
     const partial = caseAgentProgram({ AEQUITAS_CASE_AGENT_ENABLED: "true", AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000" });
     expect(partial.ok).toBe(false);
     expect(!partial.ok && partial.missing).toEqual([
+      "AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES",
       "AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY",
       "AEQUITAS_CASE_AGENT_INTAKE_DAYS",
       "AEQUITAS_CASE_AGENT_RESPONSE_DAYS",
@@ -105,6 +107,7 @@ describe("program rules", () => {
     const configured = {
       AEQUITAS_CASE_AGENT_ENABLED: "true",
       AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+      AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES: "repair,refund_full",
       AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "100",
       AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
       AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",
@@ -116,7 +119,7 @@ describe("program rules", () => {
       AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic English provider notice.",
       AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis synthétique au fournisseur en français.",
     };
-    expect(caseAgentProgram(configured)).toMatchObject({ ok: true, program: { respondentMayWithdraw: false, consentOnlyResolution: false, maxModelCallsPerUtcDay: 100 } });
+    expect(caseAgentProgram(configured)).toMatchObject({ ok: true, program: { respondentMayWithdraw: false, consentOnlyResolution: false, maxModelCallsPerUtcDay: 100, allowedRemedies: ["refund_full", "repair"] } });
     expect(caseAgentProgram({ ...configured, AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION: "yes" }).ok).toBe(false);
     expect(caseAgentProgram({ ...configured, AEQUITAS_CASE_AGENT_INTAKE_DAYS: "0" }).ok).toBe(false);
     expect(caseAgentProgram({ ...configured, AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "0" }).ok).toBe(false);

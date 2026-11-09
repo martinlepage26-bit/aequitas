@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { scanForForbiddenContent } from "../explanationRecord";
-import { proposalProblem, proposalSchema } from "./proposal";
+import { proposalProblem, proposalSchema, REMEDIES, type Remedy } from "./proposal";
 
 /**
  * Deterministic checks on what the model returns. The model is untrusted:
@@ -12,7 +12,7 @@ import { proposalProblem, proposalSchema } from "./proposal";
  * reject the patterns the program has ruled out.
  */
 
-export const AGENT_PROMPT_VERSION = "case-agent-2026-11-07.1";
+export const AGENT_PROMPT_VERSION = "case-agent-2026-11-09.1";
 export const MAX_CITATION_EXCERPT_CHARACTERS = 1000;
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -44,7 +44,20 @@ export const agentOutputSchema = z.object({
   party_evidence: z.object({ complainant: ids.min(1), respondent: ids.min(1) }).strict(),
 }).strict();
 
-/** Shared with provider-native structured generation; Zod remains the final validator. */
+/** Provider-native schema narrows the remedy enum to this case's enrolled program policy. */
+export function agentOutputJsonSchemaForRemedies(allowedRemedies: readonly Remedy[]) {
+  if (allowedRemedies.length === 0 || new Set(allowedRemedies).size !== allowedRemedies.length
+    || allowedRemedies.some((remedy) => !REMEDIES.includes(remedy))) {
+    throw new Error("Case-agent output schema requires a non-empty, unique remedy allowlist.");
+  }
+  const narrowedProposal = proposalOutputSchema.extend({
+    remedy: z.enum([...allowedRemedies] as [Remedy, ...Remedy[]]),
+  });
+  const narrowedOutput = agentOutputSchema.extend({ proposal: narrowedProposal });
+  return Object.fromEntries(Object.entries(z.toJSONSchema(narrowedOutput)).filter(([key]) => key !== "$schema"));
+}
+
+/** Broad schema retained for provider adapter contract checks; runtime calls use the narrowed version above. */
 export const AGENT_OUTPUT_JSON_SCHEMA = Object.fromEntries(
   Object.entries(z.toJSONSchema(agentOutputSchema)).filter(([key]) => key !== "$schema"),
 );
@@ -77,6 +90,7 @@ export interface OutputContext {
   /** Exact extracted text from each current clean evidence object. */
   evidenceSources: ReadonlyMap<string, { text: string }>;
   amountAtStakeCents: number;
+  allowedRemedies: readonly Remedy[];
 }
 
 export type OutputCheck =
@@ -94,6 +108,9 @@ export function checkAgentOutput(raw: string, ctx: OutputContext): OutputCheck {
   if (!parsed.success) return { ok: false, escalation: "model_output_rejected", detail: "schema" };
   const out = parsed.data;
   if (out.needs_human) return { ok: false, escalation: "model_requested_review", detail: "model asked for a person" };
+  if (!ctx.allowedRemedies.includes(out.proposal.remedy)) {
+    return { ok: false, escalation: "model_output_rejected", detail: "remedy is outside the enrolled program policy" };
+  }
 
   const texts = [
     ...out.summary_claims.map((claim) => claim.text),

@@ -4,13 +4,16 @@
 
 ## Scope
 
-- Evaluation protocol: `case-agent-evaluation-2026-11-08.3`
+- Evaluation protocol: `case-agent-evaluation-2026-11-09.1`
 - Fixture digest: `ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
-- Selected evaluation identity: `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:prompt:case-agent-2026-11-07.1:evaluation:case-agent-evaluation-2026-11-08.3:fixtures:ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197`
+- Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
+- Program remedy allowlist: **not selected**. The evaluation identity will include its canonical-list SHA-256 digest; the previous `.3` identity is stale and must not be used.
+- Current evaluation identity: pending the program-approved remedy allowlist.
 - Authorized synthetic-only spend ceiling: **US$0.11**. The estimated request-bound cost is about US$0.103; this is not a provider-enforced dollar stop.
+- CI's all-remedies setting is a mechanics-only stub profile and is not authority to use that list for a live program evaluation.
 - Source: [exact synthetic submissions and full evaluation protocol](case-agent-baseline-protocol.md#exact-synthetic-submissions-for-pre-model-review).
 
-Complete all required records before any model output is available. Begin with each fixture's exact submissions and write an independent assessment before consulting the protocol's expected-workflow and fact-anchor table. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption.
+Complete all required records before any model output is available, after the program has selected the remedy allowlist and the evaluator has printed the matching identity. Begin with each fixture's exact submissions and write an independent assessment before consulting the protocol's expected-workflow and fact-anchor table. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption.
 
 Required coverage: the program case reviewer reviews all seven fixtures; counsel reviews the two legal-interpretation fixtures; a Québec French reviewer reviews all five fixtures with an fr-CA party. One person may hold more than one role if qualified, but record each role and review separately. Resolve disagreements before freezing the reference.
 

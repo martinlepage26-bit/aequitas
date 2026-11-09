@@ -1,4 +1,5 @@
 import type { OutputContext } from "./output";
+import type { Remedy } from "./proposal";
 
 export interface CaseAgentPromptMaterial {
   caseRow: {
@@ -43,7 +44,9 @@ export interface CaseAgentPrompt {
 export function buildCaseAgentPrompt(
   material: CaseAgentPromptMaterial,
   evidenceSources: ReadonlyMap<string, CaseAgentExtractedSource>,
+  allowedRemedies: readonly Remedy[],
 ): CaseAgentPrompt {
+  if (allowedRemedies.length === 0) throw new Error("Case-agent prompt requires an enrolled remedy allowlist.");
   const side = (partyId: string, position: { body: string; locale: string } | null) => ({
     position: position ? { text: position.body, language: position.locale } : null,
     evidence: material.current.filter((item) => item.submittedById === partyId && item.scanStatus === "CLEAN").map((item) => ({
@@ -78,7 +81,7 @@ export function buildCaseAgentPrompt(
     "- Write summary_claims and reasoning_claims as separate, atomic statements. Every statement must cite one or more citation_ids from citations. Do not put uncited facts in a claim.",
     "- proposal.rationale_claims must be concise, atomic staff-only reasons why the selected remedy and amount fit this record. Each claim must cite one or more citation_ids from citations. Do not rely on unstated rules or assumptions; the rationale is for staff review and is never shown to either party.",
     "- Each citations entry has a citation_id and evidence_item_id. Copy its excerpt exactly from that item's extracted_text; do not translate or repair OCR spelling. A citation_id identifies the exact quoted span that supports a claim. Summary, reasoning, and proposal-basis claims may cite either side.",
-    `- proposal.remedy is one of refund_full, refund_partial, store_credit, replacement, repair. amount_cents is required only for refund_partial and store_credit and may not exceed ${material.caseRow.amountAtStakeCents ?? 0}; otherwise it is null. Parties receive fixed wording in their own language, not your text.`,
+    `- proposal.remedy must be one of the remedies approved by this enrolled program: ${allowedRemedies.join(", ")}. Do not propose any other remedy. amount_cents is required only for refund_partial and store_credit and may not exceed ${material.caseRow.amountAtStakeCents ?? 0}; otherwise it is null. Parties receive fixed wording in their own language, not your text.`,
     "- party_evidence.complainant lists only complainant evidence ids relied on; party_evidence.respondent lists only respondent evidence ids. Each listed id must also appear in citations.",
     "- If information is missing, the dispute needs legal interpretation, or you cannot follow these rules, set needs_human to a short reason and leave other fields minimal.",
     'Return only JSON: {"needs_human": null, "summary_claims": [{"text": "", "citation_ids": ["C1"]}], "reasoning_claims": [{"text": "", "citation_ids": ["C1"]}], "limits": [""], "not_considered": [""], "citations": [{"citation_id": "C1", "evidence_item_id": "", "relevance": "", "excerpt": ""}], "proposal": {"remedy": "", "amount_cents": null, "rationale_claims": [{"text": "", "citation_ids": ["C1"]}]}, "party_evidence": {"complainant": [""], "respondent": [""]}}',
@@ -92,6 +95,7 @@ export function buildCaseAgentPrompt(
 export function buildCaseAgentOutputContext(
   material: CaseAgentPromptMaterial,
   evidenceSources: ReadonlyMap<string, CaseAgentExtractedSource>,
+  allowedRemedies: readonly Remedy[],
 ): OutputContext {
   const idsFor = (partyId: string) => new Set(material.current
     .filter((item) => item.submittedById === partyId && item.scanStatus === "CLEAN")
@@ -101,5 +105,6 @@ export function buildCaseAgentOutputContext(
     respondentEvidenceIds: idsFor(material.caseRow.respondentId),
     evidenceSources,
     amountAtStakeCents: material.caseRow.amountAtStakeCents ?? 0,
+    allowedRemedies,
   };
 }

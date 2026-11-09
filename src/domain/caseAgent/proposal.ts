@@ -12,6 +12,17 @@ import { z } from "zod";
 export const REMEDIES = ["refund_full", "refund_partial", "store_credit", "replacement", "repair"] as const;
 export type Remedy = (typeof REMEDIES)[number];
 
+/** Parse an explicit program remedy subset and return it in canonical product order. */
+export function parseAllowedRemedies(value: string | undefined): Remedy[] | null {
+  if (value === undefined || value.trim() === "") return null;
+  const supplied = value.split(",").map((item) => item.trim());
+  if (supplied.some((item) => !item) || new Set(supplied).size !== supplied.length
+    || supplied.some((item) => !(REMEDIES as readonly string[]).includes(item))) return null;
+  const selected = new Set(supplied as Remedy[]);
+  const canonical = REMEDIES.filter((remedy) => selected.has(remedy));
+  return canonical.length > 0 ? [...canonical] : null;
+}
+
 export const proposalSchema = z.object({
   remedy: z.enum(REMEDIES),
   amount_cents: z.number().int().positive().nullable(),

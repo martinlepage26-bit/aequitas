@@ -319,11 +319,11 @@ jobs:
           const { readFileSync } = require('node:fs');
           const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 
-          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v4');
+          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v5');
           assert.equal(report.mode, 'stub');
           assert.equal(report.syntheticOnly, true);
           assert.equal(report.automatedChecksPassed, true);
-          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-08.3');
+          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-09.1');
           assert.equal(report.evaluationFixtureSetSha256, 'ace46851e56b855acf763bc5781b30b267b561de697150c4aee59559f5b4e197');
           assert.equal(report.evaluationApprovalIdentity, null);
           assert.equal(report.status, 'human_review_required');

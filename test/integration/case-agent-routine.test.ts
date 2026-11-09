@@ -36,6 +36,7 @@ const execFileAsync = promisify(execFile);
 const ENV = {
   AEQUITAS_CASE_AGENT_ENABLED: "true",
   AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS: "500000",
+  AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES: "refund_full,refund_partial,store_credit,replacement,repair",
   AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY: "1000",
   AEQUITAS_CASE_AGENT_INTAKE_DAYS: "7",
   AEQUITAS_CASE_AGENT_RESPONSE_DAYS: "5",

@@ -1,11 +1,13 @@
 import type { CaseAgentProgram } from "./config";
+import { REMEDIES, type Remedy } from "./proposal";
 
 /** Bump when the meaning or required fields of an enrollment policy change. */
-export const CASE_AGENT_POLICY_VERSION = 1;
+export const CASE_AGENT_POLICY_VERSION = 2;
 
 export type CaseAgentPolicySnapshot = {
   version: typeof CASE_AGENT_POLICY_VERSION;
   maxAmountCents: number;
+  allowedRemedies: Remedy[];
   intakeDays: number;
   responseDays: number;
   respondentMayWithdraw: boolean;
@@ -13,7 +15,7 @@ export type CaseAgentPolicySnapshot = {
 };
 
 type PolicyTerms = Pick<CaseAgentProgram,
-  "maxAmountCents" | "intakeDays" | "responseDays" | "respondentMayWithdraw" | "consentOnlyResolution"
+  "maxAmountCents" | "allowedRemedies" | "intakeDays" | "responseDays" | "respondentMayWithdraw" | "consentOnlyResolution"
 >;
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -26,10 +28,22 @@ function positiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
+function canonicalAllowedRemedies(value: unknown): Remedy[] | null {
+  if (!Array.isArray(value) || value.length === 0
+    || value.some((item) => typeof item !== "string" || !(REMEDIES as readonly string[]).includes(item))
+    || new Set(value).size !== value.length) return null;
+  const selected = new Set(value as Remedy[]);
+  const canonical = REMEDIES.filter((remedy) => selected.has(remedy));
+  return canonical.length === value.length && canonical.every((remedy, index) => remedy === value[index])
+    ? [...canonical]
+    : null;
+}
+
 export function createCaseAgentPolicySnapshot(program: PolicyTerms): CaseAgentPolicySnapshot {
   return {
     version: CASE_AGENT_POLICY_VERSION,
     maxAmountCents: program.maxAmountCents,
+    allowedRemedies: [...program.allowedRemedies],
     intakeDays: program.intakeDays,
     responseDays: program.responseDays,
     respondentMayWithdraw: program.respondentMayWithdraw,
@@ -40,17 +54,20 @@ export function createCaseAgentPolicySnapshot(program: PolicyTerms): CaseAgentPo
 /** Missing, malformed, or unknown policy versions fail closed for active cases. */
 export function parseCaseAgentPolicySnapshot(value: unknown): CaseAgentPolicySnapshot | null {
   const candidate = record(value);
+  const allowedRemedies = canonicalAllowedRemedies(candidate?.allowedRemedies);
   if (!candidate
     || candidate.version !== CASE_AGENT_POLICY_VERSION
     || !positiveSafeInteger(candidate.maxAmountCents)
     || !positiveSafeInteger(candidate.intakeDays)
     || !positiveSafeInteger(candidate.responseDays)
+    || !allowedRemedies
     || typeof candidate.respondentMayWithdraw !== "boolean"
     || typeof candidate.consentOnlyResolution !== "boolean") return null;
 
   return {
     version: CASE_AGENT_POLICY_VERSION,
     maxAmountCents: candidate.maxAmountCents,
+    allowedRemedies,
     intakeDays: candidate.intakeDays,
     responseDays: candidate.responseDays,
     respondentMayWithdraw: candidate.respondentMayWithdraw,

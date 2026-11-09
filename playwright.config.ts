@@ -16,6 +16,7 @@ process.env.SESSION_SECRET = "aequitas-playwright-test-only-session-secret";
 // synthetic provider identity. No provider credential is set in E2E.
 process.env.AEQUITAS_CASE_AGENT_ENABLED = "true";
 process.env.AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS = "500000";
+process.env.AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES = "refund_full,refund_partial,store_credit,replacement,repair";
 process.env.AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY = "1000";
 process.env.AEQUITAS_CASE_AGENT_INTAKE_DAYS = "7";
 process.env.AEQUITAS_CASE_AGENT_RESPONSE_DAYS = "5";

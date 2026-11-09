@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
+import { parseAllowedRemedies } from "../src/domain/caseAgent/proposal";
+
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const NORTH_AMERICAN_PHONE = /\b(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
 const CANADIAN_POSTAL_CODE = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b/gi;
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 const MAX_REVIEW_TEXT_CHARACTERS = 4000;
-export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v4";
+export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v5";
 
 const EXPECTED_FIXTURES = {
   "routine-en": "issued",
@@ -87,11 +90,12 @@ function isObject(value: unknown): value is ReviewObject {
 function expectedIdentityParts(identity: string): {
   provider: string;
   model: string;
+  allowedRemediesSha256: string;
   promptVersion: string;
   evaluationProtocolVersion: string;
   fixtureSetSha256: string;
 } | null {
-  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+):fixtures:([a-f0-9]{64})$/);
+  const match = identity.match(/^(gemini|workers-ai|vertex-ai):(.+):remedies:([a-f0-9]{64}):prompt:([A-Za-z0-9._-]+):evaluation:([A-Za-z0-9._-]+):fixtures:([a-f0-9]{64})$/);
   if (!match || !/^[A-Za-z0-9@._/:+-]+$/.test(identity)) return null;
   const identityParts = match[2].split(":");
   const expectedParts = match[1] === "vertex-ai" ? 3 : 2;
@@ -99,9 +103,10 @@ function expectedIdentityParts(identity: string): {
   return {
     provider: match[1],
     model: identityParts.at(-1)!,
-    promptVersion: match[3],
-    evaluationProtocolVersion: match[4],
-    fixtureSetSha256: match[5],
+    allowedRemediesSha256: match[3],
+    promptVersion: match[4],
+    evaluationProtocolVersion: match[5],
+    fixtureSetSha256: match[6],
   };
 }
 
@@ -118,7 +123,7 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
   if (report.syntheticOnly !== true) blockers.push("Report is not marked synthetic-only.");
   if (report.automatedChecksPassed !== true) blockers.push("Automated evaluation checks did not all pass.");
   if (report.status !== "human_review_complete") blockers.push("Report status must be set to human_review_complete after review.");
-  if (!expectedIdentity) blockers.push("The current provider, account/project, and model identity is unavailable.");
+  if (!expectedIdentity) blockers.push("The current provider, account/project, model, or remedy allowlist identity is unavailable.");
   if (typeof expectedIdentity === "string") {
     const parts = expectedIdentityParts(expectedIdentity);
     if (!parts) blockers.push("The current evaluation identity has an unsupported format.");
@@ -128,6 +133,16 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
     if (report.evaluationFixtureSetSha256 !== parts?.fixtureSetSha256) blockers.push("Report fixture-set digest does not match the current identity.");
     if (report.provider !== parts?.provider) blockers.push("Report provider does not match the current identity.");
     if (report.model !== parts?.model) blockers.push("Report model does not match the current identity.");
+    const suppliedRemedies = Array.isArray(report.allowedRemedies)
+      && report.allowedRemedies.every((item) => typeof item === "string")
+      ? report.allowedRemedies as string[]
+      : null;
+    const canonicalRemedies = suppliedRemedies ? parseAllowedRemedies(suppliedRemedies.join(",")) : null;
+    const remediesDigest = canonicalRemedies && suppliedRemedies?.every((remedy, index) => remedy === canonicalRemedies[index])
+      ? createHash("sha256").update(JSON.stringify(canonicalRemedies)).digest("hex")
+      : null;
+    if (!canonicalRemedies || report.allowedRemediesSha256 !== remediesDigest
+      || remediesDigest !== parts?.allowedRemediesSha256) blockers.push("Report remedy allowlist does not match the current evaluation identity.");
   }
 
   if (!Array.isArray(report.fixtures) || report.fixtures.length !== Object.keys(EXPECTED_FIXTURES).length) {
