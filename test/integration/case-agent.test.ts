@@ -10,6 +10,7 @@ import { uploadEvidence } from "../../src/lib/storage";
 import { authorDraft } from "../../src/domain/authoredDraft";
 import { acceptCaseAgentProcessing, enrollCaseAgent, endParticipation, MAX_CASE_AGENT_REQUEST_BYTES, requestHumanReview, runCaseAgent } from "../../src/domain/caseAgent/agent";
 import { caseAgentEvaluationApprovalIdentity } from "../../src/domain/caseAgent/evaluationApproval";
+import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { caseAgentProgram, DAY_MS } from "../../src/domain/caseAgent/config";
 import { visibleCaseEvents } from "../../src/domain/eventTimeline";
 import * as evidenceText from "../../src/lib/evidenceText";

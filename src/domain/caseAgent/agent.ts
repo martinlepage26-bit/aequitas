@@ -648,7 +648,7 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
           data: { state: "ISSUED" },
         });
         if (locked.count !== 1) throw new StaleAgentWrite();
-        if (materialDigest(await loadMaterialIn(tx, row.id), evidenceSources) !== digest) throw new StaleAgentWrite();
+        if (materialDigest(await loadMaterialIn(tx, row.id), evidenceSources, program.allowedRemedies) !== digest) throw new StaleAgentWrite();
         const issuedAt = new Date();
         const latest = await tx.recommendation.findFirst({ where: { caseId: row.id }, orderBy: { version: "desc" }, select: { version: true } });
         const recommendation = await tx.recommendation.create({
