@@ -6,6 +6,9 @@
 
 - Evaluation protocol: `case-agent-evaluation-2026-11-09.3`
 - Fixture digest: `821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
+- Exact evaluation approval identity for the current default synthetic profile (printed by the fail-closed evaluator preflight):
+  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.3:fixtures:821e1753d96096e55d92842594d0574438fef36d1e7da99135f8e110c05fa970`
+- This identity binds the provider, account, model, remedies, complete workflow-policy digest, prompt, protocol, and exact fixture digest. If any configured workflow policy differs from the defaults recorded here, rerun the preflight and use its new identity before review.
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
 - Synthetic evaluation remedy profile: all five implemented types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) unless an explicit environment list overrides it. This is a test profile, not an approved program policy.
 - Current evaluation identity: includes the selected provider/account/model and a digest of the full workflow policy (amount limit, remedies, daily call limit, response periods, withdrawal, consent-only resolution, and bilingual processing notice), plus prompt, protocol, and fixture digests. Use the exact identity printed by the evaluator; policy changes invalidate it.
