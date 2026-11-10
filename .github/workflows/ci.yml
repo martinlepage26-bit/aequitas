@@ -27,6 +27,13 @@ jobs:
       CLAMAV_PORT: 3310
     steps:
       - uses: actions/checkout@v4
+      - name: Validate CT920 deployment configuration
+        run: |
+          bash -n deploy/ct920/deploy.sh deploy/ct920/backup.sh deploy/ct920/backup-offbox.sh deploy/ct920/verify-restore.sh
+          umask 077
+          trap 'rm -f deploy/ct920/.env' EXIT
+          printf '%s\n' 'POSTGRES_PASSWORD=ci-syntax-only' > deploy/ct920/.env
+          docker compose -f deploy/ct920/compose.yaml --profile scheduled config --quiet
       - uses: actions/setup-node@v4
         with:
           node-version: 22
