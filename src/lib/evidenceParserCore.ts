@@ -142,12 +142,26 @@ function rasterDimensions(buffer: Buffer, mime: string): RasterDimensions | null
     if (read32(directory + 2 + entries * 12) !== 0) return null;
     let width: number | null = null;
     let height: number | null = null;
+    let samplesPerPixelSeen = false;
     for (let index = 0; index < entries; index++) {
       const entry = directory + 2 + index * 12;
       const tag = read16(entry);
-      if (tag !== 256 && tag !== 257) continue;
+      if (tag !== 256 && tag !== 257 && tag !== 277) continue;
       const type = read16(entry + 2);
       const count = read32(entry + 4);
+
+      // TIFF 6.0 defaults this tag to one sample. Bound an explicit channel
+      // count before Tesseract/libtiff sees attacker-controlled image data;
+      // grayscale, RGB, RGBA and CMYK evidence fit this limit. Unusual
+      // multispectral files are routed to staff instead of OCR.
+      if (tag === 277) {
+        if (samplesPerPixelSeen || type !== 3 || count !== 1) return null;
+        const samplesPerPixel = read16(entry + 8);
+        if (samplesPerPixel < 1 || samplesPerPixel > 4) return null;
+        samplesPerPixelSeen = true;
+        continue;
+      }
+
       if (count !== 1 || (type !== 3 && type !== 4)) return null;
       const value = type === 3 ? read16(entry + 8) : read32(entry + 8);
       if (tag === 256) width = value;
