@@ -1,6 +1,6 @@
-# Case agent (2026-11-09)
+# Case agent (updated 2026-11-10)
 
-Status: **off by default; tested on synthetic data with a stub model only.** No live model has been evaluated. Do not enable it for real cases before the decisions at the end of this page are made.
+Status: **off by default; tested on synthetic data with a stub model only.** Full CI passed on PR #14 head `8f042951d0ba2062e1a5795696f02c43749470f7` in run [42733174164](https://github.com/martinlepage26-bit/aequitas/actions/runs/42733174164). No live model has been evaluated. The local live-evaluation preflight remains blocked by missing independent references and provider-terms/spend approval; it stopped before database/provider access. Do not enable it for real cases before the decisions at the end of this page are made.
 
 ## Routine path it handles without a case manager
 
