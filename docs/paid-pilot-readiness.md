@@ -2,7 +2,18 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
-## Current status (checked 2026-11-10 20:15 UTC)
+## Current status (checked 2026-11-10 21:39 UTC)
+
+This section supersedes the older snapshots below where newer evidence is available.
+
+- **Candidate and CI:** PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, unmerged and mergeable into `ct920-standup` at exact head `97f9591dc4a71d8761c5b69ae65e2d7dd32d2b0f`. Exact-head full CI [run 42901732300](https://github.com/martinlepage26-bit/aequitas/actions/runs/42901732300) passed migrations, lint, typecheck, translation and forbidden-term checks, full Vitest, production build, app/parser image checks, parser socket extraction, SBOMs, both Playwright suites, stub-only case-agent evaluation, and configured critical/fixable-high image gates. No formal review or inline review threads are recorded.
+- **Buyer-facing demo:** the bilingual fictional-case simulation lets visitors switch between complainant and shop views and exercise consent, decline, or request-a-person. Choices stay in browser component state; the demo creates no case and does not send user choices to an API or model. Local lint, typecheck, translation parity (995 keys), forbidden-term check, diff check, focused demo Playwright (2/2), accessibility Playwright (2/2), and production build passed.
+- **Routine autonomy:** candidate code carries eligible synthetic retail cases through invitation, intake, evidence extraction, evidence-grounded proposals, party choices, closure or human escalation. CI uses a stub model; live-model quality, live email/passkey flows, and real-case handling remain unverified.
+- **Synthetic evaluation:** Martin selected Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`, seven unpublished synthetic cases, and a US$0.11 ceiling for one run. The local request-bound estimate is about US$0.1024 and is not an account-wide or provider-enforced cap. Independent program, counsel, and Québec French references are not approved; account-specific plan, terms, usage and logging/request-path settings are unverified. This Mac has no configured Cloudflare token or repo `.env.local`, and browser access is currently unavailable. No live model request or charge occurred.
+- **Candidate image security:** exact-head CI run 42901732300 passed its configured critical/fixable-high gates. Its parser scan reports Medium matches for Ubuntu `libtiff6` `4.7.0-3ubuntu5`: CVE-2026-12912, CVE-2026-18495, CVE-2026-36849, and CVE-2026-4775. The parser still accepts TIFF; header bounds reduce exposure but do not clear these package findings. No independent security disposition is recorded. See the [candidate vulnerability review](candidate-container-vulnerability-review.md).
+- **Operations and commercial readiness:** the latest recorded production check is still the 15:42 UTC check of release `d74ed342`; this update did not recheck production, and PR #14 is not deployed. The candidate provides one program per deployment. Retention/deletion, privacy/legal decisions, live operational acceptance, software-rights review, buyer demand, pricing, billing, and contract terms remain open.
+
+## Previous status snapshot (checked 2026-11-10 20:15 UTC; superseded)
 
 This section supersedes the earlier snapshots below where newer evidence is available.
 
