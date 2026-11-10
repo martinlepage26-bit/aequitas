@@ -990,18 +990,18 @@
   },
   "caseDemo": {
     "title": "A routine case, step by step",
-    "metadata": "A static, bilingual walkthrough of a fictional Aequitas retail dispute. No model is called.",
+    "metadata": "An interactive bilingual walkthrough of a fictional Aequitas retail dispute. Choices stay on this page; no model is called.",
     "kicker": "Synthetic walkthrough",
     "intro": "See how a configured routine case could move from intake to an evidence-cited proposal, while each party keeps control of their own submissions and choice.",
     "signIn": "Sign in with a passkey",
     "home": "Back to Aequitas",
     "imageCaption": "A shared record keeps each step traceable.",
     "sampleNoticeTitle": "This is an illustration",
-    "sampleNoticeBody": "The people, business, evidence and result below are invented. The text is written for this page; no case data was entered and no model was called. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
+    "sampleNoticeBody": "The people, business and evidence below are invented. This browser simulation does not send or save your choices, call a model, or create a case. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
     "caseTitle": "A kettle stops working after purchase",
     "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
     "amountLabel": "Amount at stake",
-    "evidenceTitle": "Each side provides its own evidence",
+    "evidenceTitle": "Evidence in this party's view",
     "party": {
       "complainant": "Buyer view",
       "respondent": "Shop view"
@@ -1013,9 +1013,28 @@
       "complainantEvidence": "Electric kettle, $124.50, purchased October 12.",
       "respondentEvidence": "Replacement available within 30 days after inspection."
     },
-    "privacyNote": "This explainer shows both fictional views together. In a real case, each person sees only their own outcome and cited evidence. The staff summary and reasoning remain staff-only.",
     "proposalTitle": "A non-binding proposal",
     "proposalDescription": "The app's fixed wording presents the same structured proposal in each person's language.",
+    "interaction": {
+      "title": "Try the two party views",
+      "description": "Switch sides to see how the same fictional case is presented separately. Choose a response for each side to see when the automated service proceeds or stops.",
+      "roleLabel": "Choose a fictional view",
+      "roleNotice": "This browser simulation lets you switch between both fictional roles. In a real case, each party uses a separate account and sees only its own outcome and cited evidence. Staff summaries and reasoning stay private. Responses here are not sent or saved.",
+      "positionLabel": "This party's account",
+      "choiceTitle": "What does this party choose?",
+      "choiceHint": "Both parties must consent. Under the standard program rules, a separate approver also signs off before closure.",
+      "consent": "I consent to this proposal",
+      "decline": "Decline this proposal",
+      "askPerson": "Ask a person to review",
+      "reset": "Start the simulation again",
+      "statusLabel": "Simulation status",
+      "status": {
+        "initial": "Choose a response for this fictional view. The other party's choice is not shown here.",
+        "accepted": "This view's response is recorded in the simulation. The case stays open until both parties consent and the required approver reviews it.",
+        "completed": "Both fictional parties consented. Under the standard rules, a separate approver still reviews the case before closure.",
+        "handoff": "Automation stops and the case returns to program staff. No agreement is recorded."
+      }
+    },
     "workflowTitle": "What happens next",
     "steps": {
       "intake": { "title": "Intake and invitation", "description": "Program rules check the case, then the respondent is invited." },

@@ -990,18 +990,18 @@
   },
   "caseDemo": {
     "title": "Un dossier courant, étape par étape",
-    "metadata": "Un parcours statique et bilingue d'un différend fictif de vente au détail. Aucun modèle n'est appelé.",
+    "metadata": "Un parcours interactif et bilingue d'un différend fictif de vente au détail. Les choix restent sur cette page; aucun modèle n'est appelé.",
     "kicker": "Parcours synthétique",
     "intro": "Voyez comment un dossier courant configuré pourrait passer de l'ouverture à une proposition qui cite les preuves, tandis que chaque partie garde le contrôle de ses propres soumissions et de son choix.",
     "signIn": "Se connecter avec une clé d'accès",
     "home": "Retour à Aequitas",
     "imageCaption": "Un dossier commun conserve la trace de chaque étape.",
     "sampleNoticeTitle": "Ceci est une illustration",
-    "sampleNoticeBody": "Les personnes, le commerce, les preuves et le résultat ci-dessous sont fictifs. Le texte a été rédigé pour cette page; aucune donnée de dossier n'a été saisie et aucun modèle n'a été appelé. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés. Dans l’application, les citations permettent de retrouver les extraits dans les pièces déposées. Elles ne vérifient pas l’exactitude des pièces et ne prouvent pas qu’un extrait appuie la proposition.",
+    "sampleNoticeBody": "Les personnes, le commerce et les preuves ci-dessous sont fictifs. Cette simulation dans votre navigateur n'envoie ni ne conserve vos choix, n'appelle aucun modèle et ne crée aucun dossier. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés. Dans l’application, les citations permettent de retrouver les extraits dans les pièces déposées. Elles ne vérifient pas l’exactitude des pièces et ne prouvent pas qu’un extrait appuie la proposition.",
     "caseTitle": "Une bouilloire cesse de fonctionner après l'achat",
     "caseDescription": "Une personne signale un problème avec un appareil. Le magasin confirme qu'un remplacement est possible. Cet exemple présente deux courts extraits de preuve fictifs.",
     "amountLabel": "Montant en jeu",
-    "evidenceTitle": "Chaque partie présente ses propres preuves",
+    "evidenceTitle": "Preuve visible dans cette vue",
     "party": {
       "complainant": "Vue de la partie plaignante",
       "respondent": "Vue du commerce"
@@ -1013,9 +1013,28 @@
       "complainantEvidence": "Bouilloire électrique, 124,50 $, achetée le 12 octobre.",
       "respondentEvidence": "Remplacement possible dans les 30 jours après inspection."
     },
-    "privacyNote": "Cette explication présente les deux vues fictives ensemble. Dans un vrai dossier, chaque personne voit seulement son propre résultat et les preuves qui le soutiennent. Le résumé et le raisonnement du personnel restent réservés au personnel.",
     "proposalTitle": "Une proposition non contraignante",
     "proposalDescription": "Le texte fixe de l'application présente la même proposition structurée dans la langue de chaque personne.",
+    "interaction": {
+      "title": "Essayez les deux vues des parties",
+      "description": "Changez de côté pour voir comment le même dossier fictif est présenté séparément. Choisissez une réponse pour chaque partie afin de voir quand le service automatisé poursuit ou s'arrête.",
+      "roleLabel": "Choisir une vue fictive",
+      "roleNotice": "Cette simulation dans votre navigateur vous permet de passer d'une partie fictive à l'autre. Dans un vrai dossier, chaque partie utilise un compte distinct et ne voit que son propre résultat et les preuves qui le soutiennent. Le résumé et le raisonnement du personnel restent confidentiels. Les réponses ici ne sont ni envoyées ni conservées.",
+      "positionLabel": "Version des faits de cette partie",
+      "choiceTitle": "Que choisit cette partie?",
+      "choiceHint": "Les deux parties doivent consentir. Selon les règles standard du programme, un approbateur distinct doit aussi autoriser la fermeture.",
+      "consent": "Je consens à cette proposition",
+      "decline": "Refuser cette proposition",
+      "askPerson": "Demander l'examen par une personne",
+      "reset": "Recommencer la simulation",
+      "statusLabel": "État de la simulation",
+      "status": {
+        "initial": "Choisissez une réponse pour cette vue fictive. Le choix de l'autre partie n'est pas affiché ici.",
+        "accepted": "La réponse de cette vue est enregistrée dans la simulation. Le dossier reste ouvert jusqu'au consentement des deux parties et à l'examen par l'approbateur requis.",
+        "completed": "Les deux parties fictives ont consenti. Selon les règles standard, un approbateur distinct doit encore examiner le dossier avant sa fermeture.",
+        "handoff": "L'automatisation s'arrête et transmet le dossier au personnel du programme. Aucun accord n'est enregistré."
+      }
+    },
     "workflowTitle": "La suite du parcours",
     "steps": {
       "intake": { "title": "Ouverture et invitation", "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation." },

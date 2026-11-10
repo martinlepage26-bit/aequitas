@@ -215,7 +215,7 @@ The manual journey is covered: submission → scanned evidence → positions →
 
 The automated case agent is the proposed routine workflow, but is off by default. Its program settings have no defaults; it needs the owner, operator and counsel decisions in `docs/case-agent-prototype.md` before any real case.
 
-The public `/fr-CA/demo` and `/en-CA/demo` routes provide a static walkthrough built from invented content and the app's fixed proposal template. They do not call a model or use case data, and are not a live product demonstration.
+The public `/fr-CA/demo` and `/en-CA/demo` routes provide an interactive simulation built from invented content and the app's fixed proposal template. Visitors can switch between the two fictional party views and simulate consent or handoff; the choices remain in page memory and are neither sent nor saved. The route makes no API request, calls no model and creates no case. It demonstrates interface behavior only; it does not verify the live model or production workflow.
 
 ## Launch gates (policy, engineering, or manual; not decided in code)
 

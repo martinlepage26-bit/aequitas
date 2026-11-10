@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { renderProposal } from "../../../domain/caseAgent/proposal";
 import { pilotContactUrl } from "../../../lib/pilotContact";
+import CaseDemoInteraction from "./CaseDemoInteraction";
 import styles from "./demo.module.css";
 
 const AMOUNT_AT_STAKE_CENTS = 12_450;
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return { title: `${t("title")} · Aequitas`, description: t("metadata") };
 }
 
-/** A public, static explainer. Its only proposal text comes from the app's fixed template. */
+/** A public simulation. Its fictional proposal text comes from the app's fixed template. */
 export default async function CaseDemoPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -22,10 +23,20 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
   const amount = new Intl.NumberFormat(locale, { style: "currency", currency: "CAD" }).format(AMOUNT_AT_STAKE_CENTS / 100);
   const complainantProposal = renderProposal({ remedy: "replacement", amount_cents: null }, AMOUNT_AT_STAKE_CENTS, "complainant", locale);
   const respondentProposal = renderProposal({ remedy: "replacement", amount_cents: null }, AMOUNT_AT_STAKE_CENTS, "respondent", locale);
-  const evidence = [
-    { role: "complainant", position: "claim", item: "complainantEvidence" },
-    { role: "respondent", position: "response", item: "respondentEvidence" },
-  ] as const;
+  const parties = {
+    complainant: {
+      label: t("party.complainant"),
+      position: t("sample.claim"),
+      evidence: t("sample.complainantEvidence"),
+      proposal: complainantProposal,
+    },
+    respondent: {
+      label: t("party.respondent"),
+      position: t("sample.response"),
+      evidence: t("sample.respondentEvidence"),
+      proposal: respondentProposal,
+    },
+  };
   const steps = ["intake", "evidence", "proposal", "choice"] as const;
 
   return (
@@ -69,41 +80,33 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
         </div>
       </section>
 
-      <section className={styles.evidenceSection} aria-labelledby="evidence-title">
-        <div className={styles.sectionHeading}>
-          <h2 id="evidence-title">{t("evidenceTitle")}</h2>
-        </div>
-        <div className={styles.evidenceGrid}>
-          {evidence.map(({ role, position, item }) => (
-            <article className={styles.evidenceColumn} key={role}>
-              <p className={styles.partyLabel}>{t(`party.${role}`)}</p>
-              <h3>{t(`sample.${position}`)}</h3>
-              <p className={styles.sourceLabel}>{t("evidenceLabel")}</p>
-              <blockquote>{t(`sample.${item}`)}</blockquote>
-            </article>
-          ))}
-        </div>
-        <p className={styles.isolationNote}>{t("privacyNote")}</p>
-      </section>
-
-      <section className={styles.proposalSection} aria-labelledby="proposal-title">
-        <div className={styles.sectionHeading}>
-          <h2 id="proposal-title">{t("proposalTitle")}</h2>
-          <p>{t("proposalDescription")}</p>
-        </div>
-        <div className={styles.proposalGrid}>
-          <article>
-            <h3>{t("party.complainant")}</h3>
-            <p className={styles.proposalText}>{complainantProposal}</p>
-            <p className={styles.citationNote}>{t("sample.complainantEvidence")}</p>
-          </article>
-          <article>
-            <h3>{t("party.respondent")}</h3>
-            <p className={styles.proposalText}>{respondentProposal}</p>
-            <p className={styles.citationNote}>{t("sample.respondentEvidence")}</p>
-          </article>
-        </div>
-      </section>
+      <CaseDemoInteraction
+        parties={parties}
+        copy={{
+          title: t("interaction.title"),
+          description: t("interaction.description"),
+          roleLabel: t("interaction.roleLabel"),
+          roleNotice: t("interaction.roleNotice"),
+          positionLabel: t("interaction.positionLabel"),
+          evidenceTitle: t("evidenceTitle"),
+          evidenceLabel: t("evidenceLabel"),
+          proposalTitle: t("proposalTitle"),
+          proposalDescription: t("proposalDescription"),
+          choiceTitle: t("interaction.choiceTitle"),
+          choiceHint: t("interaction.choiceHint"),
+          consent: t("interaction.consent"),
+          decline: t("interaction.decline"),
+          askPerson: t("interaction.askPerson"),
+          reset: t("interaction.reset"),
+          statusLabel: t("interaction.statusLabel"),
+          status: {
+            initial: t("interaction.status.initial"),
+            accepted: t("interaction.status.accepted"),
+            completed: t("interaction.status.completed"),
+            handoff: t("interaction.status.handoff"),
+          },
+        }}
+      />
 
       <section className={styles.nextSection} aria-labelledby="next-title">
         <h2 id="next-title">{t("workflowTitle")}</h2>

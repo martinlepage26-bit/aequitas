@@ -1,0 +1,49 @@
+.interaction { padding: 28px; border-top: 1px solid var(--border); }
+.interactionHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.interactionHeader h2 { margin: 0 0 8px; }
+.kicker { margin: 0 0 8px; color: var(--accent-text); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.description { max-width: 60ch; margin: 0; color: var(--muted); }
+.reset { flex: 0 0 auto; border-color: var(--control-border); background: transparent; color: var(--accent-text); }
+.reset:hover:not(:disabled) { background: var(--panel-raised); border-color: var(--accent-text); }
+.roleSwitch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 22px 0 10px; }
+.roleOption { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; border-color: var(--border); background: var(--panel-raised); color: var(--text); text-align: left; }
+.roleOption[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
+.roleHint { color: var(--accent-text); font-size: 1.1rem; }
+.roleNotice { margin: 0 0 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--panel-raised); color: var(--muted); }
+.partyRecord { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); }
+.recordHeader { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
+.recordHeader h3 { margin: 0; font-size: 1.2rem; }
+.recordEyebrow { margin: 0 0 4px; color: var(--muted); font-size: 0.82rem; }
+.recordBody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; padding: 22px; }
+.recordField { min-width: 0; padding-left: 14px; border-left: 2px solid var(--control-border); }
+.recordField h4 { margin-bottom: 8px; }
+.positionQuote, .evidenceQuote { margin: 0; color: var(--text); }
+.positionQuote { max-width: 58ch; font-family: var(--font-fraunces), "Iowan Old Style", Palatino, serif; font-size: 1.15rem; line-height: 1.4; }
+.sourceLabel { margin: 0 0 6px; color: var(--muted); font-size: 0.84rem; }
+.evidenceQuote { padding: 11px 13px; background: var(--panel-raised); font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 0.9rem; }
+.proposalField { grid-column: 1 / -1; }
+.proposalDescription { margin: 0 0 8px; color: var(--muted); }
+.proposalText { max-width: 70ch; margin: 0; }
+.citationNote { margin: 12px 0 0; padding-left: 12px; border-left: 2px solid var(--accent); color: var(--muted); font-size: 0.9rem; }
+.choiceArea { display: grid; gap: 16px; padding: 18px 22px 22px; border-top: 1px solid var(--border); background: var(--panel-raised); }
+.choiceHeading h4 { margin: 0 0 5px; }
+.choiceHeading p { max-width: 76ch; margin: 0; color: var(--muted); font-size: 0.93rem; }
+.choiceActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.secondaryChoice, .personChoice { border-color: var(--control-border); background: transparent; color: var(--accent-text); }
+.secondaryChoice:hover:not(:disabled), .personChoice:hover:not(:disabled) { background: var(--panel); border-color: var(--accent-text); }
+.statusPanel { display: grid; grid-template-columns: minmax(8rem, 0.3fr) minmax(0, 1fr); gap: 12px; align-items: start; padding: 13px 15px; border-left: 3px solid var(--accent); background: var(--panel); }
+.statusPanel > span { color: var(--muted); font-size: 0.86rem; font-weight: 650; }
+.statusPanel p { margin: 0; }
+
+@media (max-width: 759px) {
+  .interaction { padding: 22px 20px; }
+  .interactionHeader { flex-direction: column; gap: 14px; }
+  .reset { align-self: flex-start; }
+  .roleSwitch { gap: 8px; }
+  .roleOption { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; min-height: 72px; }
+  .recordBody { grid-template-columns: 1fr; gap: 20px; padding: 18px; }
+  .proposalField { grid-column: auto; }
+  .choiceArea { padding: 16px 18px 18px; }
+  .choiceActions { display: grid; }
+  .statusPanel { grid-template-columns: 1fr; gap: 4px; }
+}
