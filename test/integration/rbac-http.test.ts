@@ -52,6 +52,29 @@ async function waitForServer() {
   throw new Error(`Dev server on port ${PORT} did not become ready in time.`);
 }
 
+// `next dev` compiles each route on its first request. Pay that cost here,
+// under the hook timeout, instead of inside the first 5 s test to hit each
+// route. Unauthenticated requests return 401 and change no data.
+const ROUTES_UNDER_TEST: ReadonlyArray<readonly [string, string]> = [
+  ["POST", "/api/cases"],
+  ["POST", "/api/cases/warmup/submit"],
+  ["POST", "/api/cases/warmup/open-intake"],
+  ["POST", "/api/cases/warmup/close-intake"],
+  ["POST", "/api/cases/warmup/positions"],
+  ["POST", "/api/cases/warmup/evidence"],
+  ["GET", "/api/cases/warmup/events"],
+];
+
+async function compileRoutesUnderTest() {
+  for (const [method, path] of ROUTES_UNDER_TEST) {
+    await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: method === "POST" ? "{}" : undefined,
+    });
+  }
+}
+
 beforeAll(async () => {
   serverProcess = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--port", String(PORT)], {
     cwd: process.cwd(),
@@ -59,6 +82,7 @@ beforeAll(async () => {
     detached: true,
   });
   await waitForServer();
+  await compileRoutesUnderTest();
 }, 90_000);
 
 afterAll(async () => {
