@@ -4,6 +4,8 @@
 
 ## Scope
 
+For the selected Workers AI account's published terms, current model pricing, and limits of the cost/data-retention statements, see [the owner review brief](case-agent-workers-ai-evaluation-approval.md). That review is still pending.
+
 - Evaluation protocol: `case-agent-evaluation-2026-11-09.4`
 - Fixture digest: `555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - Exact evaluation approval identity for the current default synthetic profile (printed by the fail-closed evaluator preflight):
