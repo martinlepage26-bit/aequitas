@@ -30,6 +30,11 @@ function completeBaselineReview(
   review.referencesAgreeWithProtocol = true;
   review.referencesFrozen = true;
   review.frozenAt = "2026-10-02T12:00:00Z";
+  for (const reviewer of Object.values(review.reviewers)) {
+    reviewer.independentOfAequitasDevelopment = true;
+    reviewer.publicBenchmarkAnswersSeenBeforeReview = false;
+    reviewer.conflictDeclaration = "No conflicts declared.";
+  }
   review.reviewers.program.reviewerId = "reviewer-program";
   review.reviewers.program.name = "Synthetic Program Reviewer";
   review.reviewers.program.qualificationBasis = "Experienced case reviewer for the synthetic dispute program.";
@@ -90,6 +95,20 @@ describe("case-agent pre-model baseline review", () => {
     review.reviewers.counsel.reviewerId = review.reviewers.program.reviewerId;
     review.reviewers.quebecFrench.reviewerId = review.reviewers.program.reviewerId;
     expect(caseAgentBaselineReviewBlockers(review, identity)).toEqual([]);
+  });
+
+  it("requires each reviewer to attest independence, no prior public-answer exposure, and conflicts", () => {
+    const exposed = completeBaselineReview();
+    exposed.reviewers.program.publicBenchmarkAnswersSeenBeforeReview = true;
+    expect(caseAgentBaselineReviewBlockers(exposed, identity).join(" ")).toContain("public-answer exposure");
+
+    const notIndependent = completeBaselineReview();
+    notIndependent.reviewers.counsel.independentOfAequitasDevelopment = false;
+    expect(caseAgentBaselineReviewBlockers(notIndependent, identity).join(" ")).toContain("independence");
+
+    const noConflictStatement = completeBaselineReview();
+    noConflictStatement.reviewers.quebecFrench.conflictDeclaration = "";
+    expect(caseAgentBaselineReviewBlockers(noConflictStatement, identity).join(" ")).toContain("conflict declarations");
   });
 
   it("rejects the blank template and records missing reviewer work without exposing reviewer notes", () => {

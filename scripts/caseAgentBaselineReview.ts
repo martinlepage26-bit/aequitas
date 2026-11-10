@@ -5,7 +5,7 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { CASE_AGENT_EVALUATION_FIXTURES, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256 } from "../src/domain/caseAgent/evaluationApproval";
 
-export const CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION = "aequitas.case-agent-baseline-review.v1";
+export const CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION = "aequitas.case-agent-baseline-review.v2";
 const MAX_BASELINE_REVIEW_BYTES = 256 * 1024;
 
 type ReviewRecord = Record<string, unknown>;
@@ -34,7 +34,10 @@ function validateReviewer(value: unknown, role: string): value is ReviewRecord {
     && typeof value.reviewerId === "string"
     && /^[A-Za-z0-9._-]{3,80}$/.test(value.reviewerId)
     && hasText(value.name, 2)
-    && hasText(value.qualificationBasis, 12);
+    && hasText(value.qualificationBasis, 12)
+    && value.independentOfAequitasDevelopment === true
+    && value.publicBenchmarkAnswersSeenBeforeReview === false
+    && hasText(value.conflictDeclaration, 2);
 }
 
 /** Validate the operator-attested, pre-model human reference artifact without exposing its private notes. */
@@ -62,7 +65,7 @@ export function caseAgentBaselineReviewBlockers(
     || !validateReviewer(review.reviewers.program, "program_case_reviewer")
     || !validateReviewer(review.reviewers.counsel, "qualified_counsel")
     || !validateReviewer(review.reviewers.quebecFrench, "quebec_french_reviewer")) {
-    blockers.push("The baseline review must identify a program case reviewer, counsel, and a Québec French reviewer with qualification bases.");
+    blockers.push("The baseline review must identify qualified reviewers for all required roles and record their independence, public-answer exposure, and conflict declarations.");
   }
 
   if (!Array.isArray(review.fixtures)) {
@@ -222,9 +225,33 @@ export function blankCaseAgentBaselineReview(
     referencesFrozen: false,
     frozenAt: "",
     reviewers: {
-      program: { reviewerId: "", name: "", role: "program_case_reviewer", qualificationBasis: "" },
-      counsel: { reviewerId: "", name: "", role: "qualified_counsel", qualificationBasis: "" },
-      quebecFrench: { reviewerId: "", name: "", role: "quebec_french_reviewer", qualificationBasis: "" },
+      program: {
+        reviewerId: "",
+        name: "",
+        role: "program_case_reviewer",
+        qualificationBasis: "",
+        independentOfAequitasDevelopment: false,
+        publicBenchmarkAnswersSeenBeforeReview: null as boolean | null,
+        conflictDeclaration: "",
+      },
+      counsel: {
+        reviewerId: "",
+        name: "",
+        role: "qualified_counsel",
+        qualificationBasis: "",
+        independentOfAequitasDevelopment: false,
+        publicBenchmarkAnswersSeenBeforeReview: null as boolean | null,
+        conflictDeclaration: "",
+      },
+      quebecFrench: {
+        reviewerId: "",
+        name: "",
+        role: "quebec_french_reviewer",
+        qualificationBasis: "",
+        independentOfAequitasDevelopment: false,
+        publicBenchmarkAnswersSeenBeforeReview: null as boolean | null,
+        conflictDeclaration: "",
+      },
     },
     fixtures: fixtures.map((fixture, index) => ({
       caseReference: `Case ${String.fromCharCode(65 + index)}`,

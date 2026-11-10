@@ -21,6 +21,7 @@ The generated packet contains the complete synthetic inputs, exact model identit
 - A qualified Québec French reviewer assesses every case with an `fr-CA` party, including notices, handoffs, clarity, and party-specific privacy.
 - Resolve disagreements before freezing the reference. If a reviewer rejects an expected disposition or its basis, revise the private fixture set and review again. Do not force an answer to match the code.
 - Record reviewer names, roles, qualification bases, and UTC review times in the private review file. One person may hold multiple roles only when qualified and each role is separately recorded.
+- For each role, record that the reviewer is independent of Aequitas development, has not seen the public benchmark answers before this review, and has declared conflicts of interest. A reviewer who has seen those answers cannot provide an independent baseline for this run.
 
 After the reviewers complete their independent work, create and complete the owner-private structured form:
 
@@ -29,7 +30,7 @@ npm run agent:baseline-template -- --fixtures-file=/private/path/fixtures.json -
 npm run agent:validate-baseline -- --fixtures-file=/private/path/fixtures.json --file=/private/path/baseline-review.json
 ```
 
-The form binds the review to the exact provider, model, workflow policy, prompt, protocol, and private fixture-set digest. Validation checks structure, dates, required roles, fixture identity, file permissions, and recorded dispositions; it cannot verify reviewer identity, qualifications, independence, or the quality of their judgment.
+The form binds the review to the exact provider, model, workflow policy, prompt, protocol, and private fixture-set digest. Validation checks structure, dates, required roles, fixture identity, file permissions, recorded dispositions, and per-role independence, prior-answer-exposure, and conflict declarations. These are recorded attestations: validation cannot verify reviewer identity, qualifications, the truth of those declarations, or the quality of their judgment.
 
 ## Selected synthetic target and spend boundary
 
