@@ -984,7 +984,7 @@
     "footer": "Agent mode is optional and limited to eligible cases. Both parties choose whether to consent; either can ask for a person.",
     "pilot": {
       "title": "Running a dispute-resolution program?",
-      "body": "We are seeking one Québec program for a supervised pilot of Aequitas's optional case agent. For configured, eligible retail cases, it manages intake through an evidence-cited, non-binding proposal without case-manager action. Each party controls their submissions, chooses whether to consent, and can ask for a person; exceptions go to staff. The agent is off by default, and live-model quality and production operations have not yet been validated. Aequitas does not give legal advice.",
+      "body": "We are seeking one Québec dispute-resolution program to assess whether Aequitas fits a documented retail-case workflow its existing services do not cover. A supervised pilot would use the optional case agent for configured, eligible cases, from intake through an evidence-cited, non-binding proposal. Each party controls their submissions, chooses whether to consent, and can ask for a person; exceptions go to staff. The agent is off by default, and live-model quality and production operations have not yet been validated. Aequitas does not give legal advice.",
       "action": "Ask about a pilot"
     }
   },
