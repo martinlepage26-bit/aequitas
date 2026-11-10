@@ -21,6 +21,12 @@ Reviewed on 2026-11-10:
 
 These published statements do not establish the selected account's plan, billing state, remaining daily allowance, account-level settings, configured gateway or application logging, processing location, or legal suitability for any program. The documentation is not a Québec privacy assessment or legal opinion. Confirm the applicable Cloudflare agreement and actual configuration before authorizing even this synthetic request. No real case data may be used in this evaluation.
 
+## Local credential setup
+
+The evaluation runner pins the selected account and model; the only provider credential it needs from the local environment is `CLOUDFLARE_API_TOKEN`. Cloudflare's [Workers AI REST setup guide](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) provides a Workers AI token template. If creating a custom token instead, Cloudflare says to grant both `Workers AI - Read` and `Workers AI - Edit`.
+
+For this repository, standalone scripts load the repository-root `.env.local` first, then `.env`; `.env*` files are ignored by Git. Set `CLOUDFLARE_API_TOKEN` in `.env.local` on the operator's machine only. Never put the value in chat, the tracked example file, a review worksheet, a commit, or the PR. No token was configured in the loaded environment when this brief was refreshed on 2026-11-10. Do not make a provider request until the human references, account terms/settings review, and one-run approval are complete.
+
 ## Human review still required before the first request
 
 1. A qualified program case reviewer independently assesses all seven fixtures using only the [blind reviewer packet](case-agent-blind-reference-packet.md).
