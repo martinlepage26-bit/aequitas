@@ -49,22 +49,33 @@ function webpHeader(width: number, height: number) {
   return buffer;
 }
 
-function tiffHeader(width: number, height: number, hasNextPage = false) {
-  const buffer = Buffer.alloc(38);
+type TiffInlineEntry = { type: number; count: number; value: number };
+
+function tiffHeaderWithSamples(width: number, height: number, samples: TiffInlineEntry[], hasNextPage = false) {
+  const entries = [
+    { tag: 256, type: 4, count: 1, value: width },
+    { tag: 257, type: 4, count: 1, value: height },
+    ...samples.map((sample) => ({ tag: 277, ...sample })),
+  ];
+  const buffer = Buffer.alloc(8 + 2 + entries.length * 12 + 4);
   buffer.write("II", 0, "ascii");
   buffer.writeUInt16LE(42, 2);
   buffer.writeUInt32LE(8, 4);
-  buffer.writeUInt16LE(2, 8);
-  buffer.writeUInt16LE(256, 10);
-  buffer.writeUInt16LE(4, 12);
-  buffer.writeUInt32LE(1, 14);
-  buffer.writeUInt32LE(width, 18);
-  buffer.writeUInt16LE(257, 22);
-  buffer.writeUInt16LE(4, 24);
-  buffer.writeUInt32LE(1, 26);
-  buffer.writeUInt32LE(height, 30);
-  buffer.writeUInt32LE(hasNextPage ? 8 : 0, 34);
+  buffer.writeUInt16LE(entries.length, 8);
+  entries.forEach((entry, index) => {
+    const offset = 10 + index * 12;
+    buffer.writeUInt16LE(entry.tag, offset);
+    buffer.writeUInt16LE(entry.type, offset + 2);
+    buffer.writeUInt32LE(entry.count, offset + 4);
+    if (entry.type === 3) buffer.writeUInt16LE(entry.value, offset + 8);
+    else buffer.writeUInt32LE(entry.value, offset + 8);
+  });
+  buffer.writeUInt32LE(hasNextPage ? 8 : 0, buffer.length - 4);
   return buffer;
+}
+
+function tiffHeader(width: number, height: number, hasNextPage = false) {
+  return tiffHeaderWithSamples(width, height, [], hasNextPage);
 }
 
 describe("source text extraction", () => {
@@ -96,6 +107,42 @@ describe("source text extraction", () => {
   it("rejects a raster with one axis beyond the OCR dimension limit", async () => {
     const result = await extractEvidenceText(pngHeader(MAX_IMAGE_DIMENSION + 1, 1), "image/png");
     expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+  });
+  it("accepts the TIFF default and supported SamplesPerPixel values before OCR", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "aequitas-tiff-samples-test-"));
+    const tesseract = join(dir, "tesseract");
+    await writeFile(tesseract, "#!/bin/sh\nprintf 'synthetic OCR\\n'\n", { mode: 0o700 });
+    vi.stubEnv("AEQUITAS_TESSERACT_PATH", tesseract);
+    try {
+      const supported = [
+        tiffHeader(100, 100),
+        ...[1, 2, 3, 4].map((value) => tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value }])),
+      ];
+      for (const body of supported) {
+        const result = await extractEvidenceText(body, "image/tiff");
+        expect(result).toMatchObject({ status: "extracted", method: "tesseract" });
+        expect(result.text).toContain("synthetic OCR");
+      }
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+  it("routes malformed, duplicate, and out-of-range TIFF SamplesPerPixel tags to staff before OCR", async () => {
+    const invalid = [
+      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value: 0 }]),
+      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value: 5 }]),
+      tiffHeaderWithSamples(100, 100, [{ type: 4, count: 1, value: 3 }]),
+      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 2, value: 3 }]),
+      tiffHeaderWithSamples(100, 100, [
+        { type: 3, count: 1, value: 1 },
+        { type: 3, count: 1, value: 2 },
+      ]),
+    ];
+    for (const body of invalid) {
+      const result = await extractEvidenceText(body, "image/tiff");
+      expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
+    }
   });
   it("refuses malformed raster headers without starting OCR", async () => {
     const result = await extractEvidenceText(Buffer.alloc(24), "image/png");
