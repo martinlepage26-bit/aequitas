@@ -76,9 +76,15 @@ export default function WorkbenchShell({
               </Link>
             )}
             {isAdmin && (
-              <Link className={styles.navLink} href={`/${locale}/admin/invites`} aria-current={pathname.startsWith(`/${locale}/admin`) ? "page" : undefined}>
+              <Link className={styles.navLink} href={`/${locale}/admin/invites`} aria-current={pathname.startsWith(`/${locale}/admin/invites`) ? "page" : undefined}>
                 <Icon name="mail" />
                 <span className={styles.navLabel}>{tAuth("invites")}</span>
+              </Link>
+            )}
+            {isAdmin && (
+              <Link className={styles.navLink} href={`/${locale}/admin/operations`} aria-current={pathname.startsWith(`/${locale}/admin/operations`) ? "page" : undefined}>
+                <Icon name="review" />
+                <span className={styles.navLabel}>{tAuth("operations")}</span>
               </Link>
             )}
             {!signedIn && (
