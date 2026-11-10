@@ -1,7 +1,8 @@
 import "../src/lib/loadEnv";
 import { readFileSync } from "node:fs";
-import { caseAgentEvaluationApprovalIdentity } from "../src/domain/caseAgent/evaluationApproval";
+import { caseAgentEvaluationApprovalIdentity, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV } from "../src/domain/caseAgent/evaluationApproval";
 import { evaluationReviewBlockers } from "./caseAgentEvaluationReview";
+import { readPrivateCaseAgentFixtureSet } from "./privateCaseAgentFixtures";
 
 function reviewReportPath(args: string[]): string | null {
   const index = args.findIndex((arg) => arg === "--review-report");
@@ -15,14 +16,24 @@ function reviewReportPath(args: string[]): string | null {
 function main() {
   const args = process.argv.slice(2);
   const path = reviewReportPath(args);
-  if (!path) {
-    console.error("Usage: npm run agent:approve-evaluation -- --review-report <live-review.json> --confirm-human-review");
+  const fixtureFiles = args.filter((arg) => arg.startsWith("--fixtures-file="));
+  const fixtureFilePath = fixtureFiles[0]?.slice("--fixtures-file=".length);
+  if (!path || fixtureFiles.length !== 1 || !fixtureFilePath) {
+    console.error("Usage: npm run agent:approve-evaluation -- --fixtures-file=/private/path/fixtures.json --review-report <live-review.json> --confirm-human-review");
     process.exitCode = 2;
     return;
   }
   if (!args.includes("--confirm-human-review")) {
     console.error("After manually reviewing the synthetic report and completing every checklist item, rerun with --confirm-human-review.");
     process.exitCode = 2;
+    return;
+  }
+
+  const fixtureSet = readPrivateCaseAgentFixtureSet(fixtureFilePath);
+  if (!fixtureSet.fixtures || !fixtureSet.fixtureSetSha256 || fixtureSet.blockers.length > 0) {
+    console.error("The private fixture set is invalid:");
+    for (const blocker of fixtureSet.blockers) console.error("- " + blocker);
+    process.exitCode = 1;
     return;
   }
 
@@ -35,8 +46,12 @@ function main() {
     return;
   }
 
-  const identity = caseAgentEvaluationApprovalIdentity(process.env as Record<string, string | undefined>);
-  const blockers = evaluationReviewBlockers(report, identity);
+  const env = {
+    ...(process.env as Record<string, string | undefined>),
+    [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: fixtureSet.fixtureSetSha256,
+  };
+  const identity = caseAgentEvaluationApprovalIdentity(env);
+  const blockers = evaluationReviewBlockers(report, identity, fixtureSet.fixtures);
   if (blockers.length > 0 || !identity) {
     console.error("The evaluation review is incomplete or does not match the current runtime configuration:");
     for (const blocker of blockers) console.error(`- ${blocker}`);
@@ -45,6 +60,7 @@ function main() {
   }
 
   console.log("Validation checks passed. This command cannot prove who performed the human review; the confirmation flag is the operator's assertion.");
+  console.log(CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV + "=" + fixtureSet.fixtureSetSha256);
   console.log(`AEQUITAS_CASE_AGENT_EVALUATION_REVIEWED_FOR=${identity}`);
 }
 

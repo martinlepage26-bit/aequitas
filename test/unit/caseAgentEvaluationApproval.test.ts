@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicySha256 } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicySha256 } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -18,6 +18,7 @@ const env: Record<string, string | undefined> = {
   AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_EN: "Synthetic test notice: case content would be sent to the configured model provider.",
   AEQUITAS_CASE_AGENT_PROCESSING_NOTICE_FR: "Avis de test synthétique : le contenu du dossier serait transmis au fournisseur de modèle configuré.",
   AEQUITAS_PIPELINE_PROVIDER: "workers-ai",
+  [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: "b".repeat(64),
   CLOUDFLARE_ACCOUNT_ID: "acct-synthetic",
   CLOUDFLARE_API_TOKEN: "synthetic-token",
   AEQUITAS_WORKERS_AI_MODEL: "@cf/google/gemma-4-26b-a4b-it",
@@ -26,7 +27,7 @@ const env: Record<string, string | undefined> = {
 
 describe("case-agent evaluation approval", () => {
   it("binds the approval to provider, complete program policy, prompt, and evaluation protocol versions", () => {
-    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:program:${caseAgentProgramPolicySha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`);
+    expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:program:${caseAgentProgramPolicySha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${env[CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]}`);
     expect(CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY).toBe("workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it");
   });
 
@@ -46,6 +47,28 @@ describe("case-agent evaluation approval", () => {
     for (const change of changedPolicies) {
       expect(caseAgentEvaluationApprovalIdentity({ ...env, ...change })).not.toBe(identity);
     }
+  });
+
+  it("binds approval to a separately selected private fixture digest and rejects malformed digests", () => {
+    const digest = "a".repeat(64);
+    const privateSetIdentity = caseAgentEvaluationApprovalIdentity({
+      ...env,
+      [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: digest,
+    });
+    expect(privateSetIdentity).not.toBe(caseAgentEvaluationApprovalIdentity(env));
+    expect(privateSetIdentity).toMatch(/fixtures:a{64}$/);
+    expect(caseAgentEvaluationApprovalBlocker({
+      ...env,
+      [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: "not-a-digest",
+    })).toContain("must be a SHA-256 hex digest");
+    expect(CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256).toBe("555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c");
+    expect(caseAgentEvaluationApprovalBlocker({
+      ...env,
+      [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+    })).toContain("public CI fixture digest cannot approve live case processing");
+    expect(caseAgentEvaluationApprovalBlocker(Object.fromEntries(
+      Object.entries(env).filter(([key]) => key !== CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV),
+    ))).toContain("must be set to the digest of the privately reviewed synthetic evaluation fixtures");
   });
 
   it("keeps live case processing blocked without an exact human-review attestation", () => {
@@ -93,6 +116,11 @@ describe("case-agent evaluation approval", () => {
     expect(caseAgentLiveEvaluationPreflightBlockers(approved, false).join(" ")).toContain("single-run spend authorization");
     expect(caseAgentLiveEvaluationPreflightBlockers({ ...approved, AEQUITAS_CASE_AGENT_EVAL_APPROVED: "true" }).join(" "))
       .toContain("single-run spend authorization");
+
+    expect(caseAgentLiveEvaluationPreflightBlockers({
+      ...approved,
+      [CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV]: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+    }, true).join(" ")).toContain("unpublished private fixture set");
 
     const stale = { ...approved, AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR: `${identity}:stale` };
     expect(caseAgentLiveEvaluationPreflightBlockers(stale, true).join(" ")).toContain(identity);

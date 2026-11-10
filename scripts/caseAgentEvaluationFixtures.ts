@@ -73,6 +73,8 @@ export const CASE_AGENT_EVALUATION_FIXTURES: CaseAgentEvaluationFixture[] = [
 ];
 
 /** Stable digest over the full model input, party locales, and expected workflow dispositions. */
-export function caseAgentEvaluationFixtureSetSha256(): string {
-  return createHash("sha256").update(JSON.stringify(CASE_AGENT_EVALUATION_FIXTURES)).digest("hex");
+export function caseAgentEvaluationFixtureSetSha256(
+  fixtures: readonly CaseAgentEvaluationFixture[] = CASE_AGENT_EVALUATION_FIXTURES,
+): string {
+  return createHash("sha256").update(JSON.stringify(fixtures)).digest("hex");
 }

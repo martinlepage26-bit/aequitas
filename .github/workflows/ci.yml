@@ -383,11 +383,11 @@ jobs:
           const { readFileSync } = require('node:fs');
           const report = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 
-          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v8');
+          assert.equal(report.schemaVersion, 'aequitas.case-agent-human-review.v9');
           assert.equal(report.mode, 'stub');
           assert.equal(report.syntheticOnly, true);
           assert.equal(report.automatedChecksPassed, true);
-          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-09.5');
+          assert.equal(report.evaluationProtocolVersion, 'case-agent-evaluation-2026-11-10.1');
           assert.equal(report.evaluationFixtureSetSha256, '555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c');
           assert.equal(report.evaluationApprovalIdentity, null);
           assert.equal(report.status, 'human_review_required');
@@ -407,7 +407,7 @@ jobs:
           for (const fixture of report.fixtures) {
             assert.equal(fixture.actualDisposition, fixture.expectedDisposition);
             assert.equal(fixture.automatedChecksPassed, true);
-            assert.equal(fixture.knownSyntheticPrivateDetailLeakDetected, false);
+            assert.equal(fixture.crossPartyContactLeakDetected, false);
             for (const [key, value] of Object.entries(fixture.humanReviewChecklist)) {
               assert.equal(value, key === 'reviewerNotes' ? '' : null);
             }

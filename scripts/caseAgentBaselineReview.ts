@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { closeSync, fstatSync, openSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { CASE_AGENT_EVALUATION_FIXTURES } from "./caseAgentEvaluationFixtures";
+import { CASE_AGENT_EVALUATION_FIXTURES, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256 } from "../src/domain/caseAgent/evaluationApproval";
 
 export const CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION = "aequitas.case-agent-baseline-review.v1";
@@ -38,13 +38,18 @@ function validateReviewer(value: unknown, role: string): value is ReviewRecord {
 }
 
 /** Validate the operator-attested, pre-model human reference artifact without exposing its private notes. */
-export function caseAgentBaselineReviewBlockers(review: unknown, expectedIdentity: string | null): string[] {
+export function caseAgentBaselineReviewBlockers(
+  review: unknown,
+  expectedIdentity: string | null,
+  fixtures: readonly CaseAgentEvaluationFixture[] = CASE_AGENT_EVALUATION_FIXTURES,
+  fixtureSetSha256 = CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+): string[] {
   const blockers: string[] = [];
   if (!isRecord(review)) return ["The baseline review must be a JSON object."];
   if (!expectedIdentity) blockers.push("The current evaluation identity could not be constructed.");
   if (review.schemaVersion !== CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION) blockers.push("The baseline review schema is unsupported.");
   if (review.evaluationIdentity !== expectedIdentity) blockers.push("The baseline review is not for the current provider, policy, prompt, protocol, and fixture identity.");
-  if (review.fixtureSetSha256 !== CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256) blockers.push("The baseline review fixture digest is stale.");
+  if (review.fixtureSetSha256 !== fixtureSetSha256) blockers.push("The baseline review fixture digest is stale.");
   if (review.syntheticOnly !== true || review.noRealCaseInformation !== true) blockers.push("The baseline review must attest that it contains synthetic cases only.");
   if (review.modelOutputsSeenBeforeFreeze !== false) blockers.push("The baseline review must attest that no model output was seen before references were frozen.");
   if (review.preModelAttestationConfirmed !== true) blockers.push("The operator must confirm the independent reviewers used the blind packet before any model output.");
@@ -74,13 +79,13 @@ export function caseAgentBaselineReviewBlockers(review: unknown, expectedIdentit
     else records.set(fixture.caseReference, fixture);
   }
 
-  const blindLabels = CASE_AGENT_EVALUATION_FIXTURES.map((_, index) => `Case ${String.fromCharCode(65 + index)}`);
+  const blindLabels = fixtures.map((_, index) => "Case " + String.fromCharCode(65 + index));
   const knownLabels = new Set(blindLabels);
   for (const label of records.keys()) {
-    if (!knownLabels.has(label)) blockers.push(`${label} is not part of the pinned blind review set.`);
+    if (!knownLabels.has(label)) blockers.push(`${label} is not part of the private blind review set.`);
   }
 
-  for (const [index, fixture] of CASE_AGENT_EVALUATION_FIXTURES.entries()) {
+  for (const [index, fixture] of fixtures.entries()) {
     const caseLabel = blindLabels[index];
     const record = records.get(caseLabel);
     if (!record) {
@@ -101,7 +106,7 @@ export function caseAgentBaselineReviewBlockers(review: unknown, expectedIdentit
       || (program.disposition !== "proposal" && program.disposition !== "handoff")) {
       blockers.push(`${caseLabel} needs a complete, pre-model program case review.`);
     } else if (program.disposition !== (fixture.expect === "issued" ? "proposal" : "handoff")) {
-      blockers.push(`${caseLabel} conflicts with the pinned reference disposition; revise and reapprove the evaluation protocol before a live run.`);
+      blockers.push(`${caseLabel} conflicts with the private fixture-set reference disposition; revise and reapprove the evaluation protocol before a live run.`);
     }
 
     const needsCounsel = fixture.expectedEscalationReason === "legal_language_detected";
@@ -142,8 +147,8 @@ export function caseAgentBaselineReviewBlockers(review: unknown, expectedIdentit
     }
   }
 
-  if (review.fixtures.length !== CASE_AGENT_EVALUATION_FIXTURES.length) {
-    blockers.push("The baseline review must contain exactly the seven pinned fixtures.");
+  if (review.fixtures.length !== fixtures.length) {
+    blockers.push("The baseline review must contain exactly the seven private fixtures.");
   }
   return [...new Set(blockers)];
 }
@@ -152,6 +157,8 @@ export function caseAgentBaselineReviewBlockers(review: unknown, expectedIdentit
 export function readPrivateCaseAgentBaselineReviewFile(
   path: string,
   expectedIdentity: string | null,
+  fixtures: readonly CaseAgentEvaluationFixture[] = CASE_AGENT_EVALUATION_FIXTURES,
+  fixtureSetSha256 = CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
 ): { sha256: string | null; blockers: string[] } {
   if (!path.trim()) return { sha256: null, blockers: ["Provide a private baseline review file path."] };
   let absolutePath: string;
@@ -184,7 +191,7 @@ export function readPrivateCaseAgentBaselineReviewFile(
     } catch {
       return { sha256: null, blockers: ["The baseline review file is not valid JSON."] };
     }
-    const blockers = caseAgentBaselineReviewBlockers(review, expectedIdentity);
+    const blockers = caseAgentBaselineReviewBlockers(review, expectedIdentity, fixtures, fixtureSetSha256);
     return blockers.length > 0
       ? { sha256: null, blockers }
       : { sha256: createHash("sha256").update(bytes).digest("hex"), blockers: [] };
@@ -196,11 +203,15 @@ export function readPrivateCaseAgentBaselineReviewFile(
 }
 
 /** Return a blank private-file shape with fixture-specific reviewer sections. */
-export function blankCaseAgentBaselineReview(evaluationIdentity: string) {
+export function blankCaseAgentBaselineReview(
+  evaluationIdentity: string,
+  fixtures: readonly CaseAgentEvaluationFixture[] = CASE_AGENT_EVALUATION_FIXTURES,
+  fixtureSetSha256 = CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+) {
   return {
     schemaVersion: CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION,
     evaluationIdentity,
-    fixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+    fixtureSetSha256,
     syntheticOnly: null as boolean | null,
     noRealCaseInformation: null as boolean | null,
     modelOutputsSeenBeforeFreeze: null as boolean | null,
@@ -215,7 +226,7 @@ export function blankCaseAgentBaselineReview(evaluationIdentity: string) {
       counsel: { reviewerId: "", name: "", role: "qualified_counsel", qualificationBasis: "" },
       quebecFrench: { reviewerId: "", name: "", role: "quebec_french_reviewer", qualificationBasis: "" },
     },
-    fixtures: CASE_AGENT_EVALUATION_FIXTURES.map((fixture, index) => ({
+    fixtures: fixtures.map((fixture, index) => ({
       caseReference: `Case ${String.fromCharCode(65 + index)}`,
       programReview: {
         reviewedBeforeModelOutput: false,

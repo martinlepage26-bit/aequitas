@@ -3,7 +3,8 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CASE_AGENT_EVALUATION_FIXTURES } from "../../scripts/caseAgentEvaluationFixtures";
+import { CASE_AGENT_EVALUATION_FIXTURES, caseAgentEvaluationFixtureSetSha256 } from "../../scripts/caseAgentEvaluationFixtures";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256 } from "../../src/domain/caseAgent/evaluationApproval";
 import {
   blankCaseAgentBaselineReview,
   caseAgentBaselineReviewBlockers,
@@ -13,8 +14,12 @@ import {
 
 const identity = "workers-ai:acct-synthetic:@cf/google/gemma-4-26b-a4b-it:remedies:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:program:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:prompt:prompt-v1:evaluation:eval-v1:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c";
 
-function completeBaselineReview() {
-  const review = blankCaseAgentBaselineReview(identity);
+function completeBaselineReview(
+  fixtureSet = CASE_AGENT_EVALUATION_FIXTURES,
+  fixtureSetSha256 = CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+  reviewIdentity = identity,
+) {
+  const review = blankCaseAgentBaselineReview(reviewIdentity, fixtureSet, fixtureSetSha256);
   review.schemaVersion = CASE_AGENT_BASELINE_REVIEW_SCHEMA_VERSION;
   review.syntheticOnly = true;
   review.noRealCaseInformation = true;
@@ -35,7 +40,7 @@ function completeBaselineReview() {
   review.reviewers.quebecFrench.name = "Synthetic French Reviewer";
   review.reviewers.quebecFrench.qualificationBasis = "Qualified reviewer of Québec French service language.";
   for (const [index, fixture] of review.fixtures.entries()) {
-    const expected = CASE_AGENT_EVALUATION_FIXTURES[index];
+    const expected = fixtureSet[index];
     fixture.programReview.reviewedBeforeModelOutput = true;
     fixture.programReview.reviewedAt = "2026-10-01T12:00:00Z";
     fixture.programReview.approved = true;
@@ -69,6 +74,17 @@ describe("case-agent pre-model baseline review", () => {
     expect(caseAgentBaselineReviewBlockers(completeBaselineReview(), identity)).toEqual([]);
   });
 
+  it("accepts the same review structure for a fresh private fixture identity", () => {
+    const privateFixtures = CASE_AGENT_EVALUATION_FIXTURES.map((fixture, index) => ({
+      ...fixture,
+      name: "private-" + String.fromCharCode(97 + index),
+    }));
+    const digest = caseAgentEvaluationFixtureSetSha256(privateFixtures);
+    const privateIdentity = identity.slice(0, identity.lastIndexOf(":fixtures:") + 10) + digest;
+    const review = completeBaselineReview(privateFixtures, digest, privateIdentity);
+    expect(caseAgentBaselineReviewBlockers(review, privateIdentity, privateFixtures, digest)).toEqual([]);
+  });
+
   it("allows one qualified person to attest multiple roles when each role is separately recorded", () => {
     const review = completeBaselineReview();
     review.reviewers.counsel.reviewerId = review.reviewers.program.reviewerId;
@@ -95,7 +111,7 @@ describe("case-agent pre-model baseline review", () => {
   it("requires all seven fixtures, the two legal reviews, and five French reviews", () => {
     const review = completeBaselineReview();
     review.fixtures.pop();
-    expect(caseAgentBaselineReviewBlockers(review, identity).join(" ")).toContain("exactly the seven pinned fixtures");
+    expect(caseAgentBaselineReviewBlockers(review, identity).join(" ")).toContain("exactly the seven private fixtures");
 
     const withoutCounsel = completeBaselineReview();
     const legal = withoutCounsel.fixtures.find((fixture) => fixture.caseReference === "Case D");
@@ -112,7 +128,7 @@ describe("case-agent pre-model baseline review", () => {
     const review = completeBaselineReview();
     const legal = review.fixtures.find((fixture) => fixture.caseReference === "Case D");
     if (legal) legal.programReview.disposition = "proposal";
-    expect(caseAgentBaselineReviewBlockers(review, identity).join(" ")).toContain("conflicts with the pinned reference disposition");
+    expect(caseAgentBaselineReviewBlockers(review, identity).join(" ")).toContain("conflicts with the private fixture-set reference disposition");
   });
 
   it("reads only an owner-private regular file and reports the raw artifact hash", () => {

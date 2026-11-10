@@ -27,6 +27,7 @@
     "agent:status": "tsx scripts/status-case-agent.ts",
     "agent:metrics": "tsx scripts/report-case-agent-metrics.ts",
     "agent:baseline-template": "tsx scripts/create-case-agent-baseline-review.ts",
+    "agent:blind-packet": "tsx scripts/create-case-agent-blind-review-packet.ts",
     "agent:validate-baseline": "tsx scripts/validate-case-agent-baseline-review.ts",
     "ops:scheduler": "tsx scripts/scheduled-ops.ts",
     "agent:evaluate": "tsx scripts/evaluate-case-agent.ts",

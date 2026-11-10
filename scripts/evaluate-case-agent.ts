@@ -7,18 +7,19 @@ import { applyTestDatabase } from "../test/testDatabaseUrl";
 import { resolveCaseDataModel, WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS, type TextCompletion, type TextCompletionWithUsage } from "../src/domain/pipeline/provider";
 import { caseAgentProgram } from "../src/domain/caseAgent/config";
 import { buildCaseAgentEvaluationEnvironment } from "../src/domain/caseAgent/evaluationEnvironment";
-import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
-import { CASE_AGENT_EVALUATION_FIXTURES as FIXTURES, caseAgentEvaluationFixtureSetSha256, PRIVATE_DETAIL_PHONE_MARKER, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
+import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsContactMarkerFromSource, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
+import { CASE_AGENT_EVALUATION_FIXTURES as DEFAULT_FIXTURES, caseAgentEvaluationFixtureSetSha256, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { CASE_AGENT_EVALUATION_SPEND_CAP_USD, EvaluationSpendGuard, WORKERS_AI_EVALUATION_PRICING, characterCount, parseEvaluationPricing, tokenTotals, type EvaluationPricing, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
-import { caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicyIdentityRecord, caseAgentProgramPolicySha256FromRecord, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY } from "../src/domain/caseAgent/evaluationApproval";
+import { caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicyIdentityRecord, caseAgentProgramPolicySha256FromRecord, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY } from "../src/domain/caseAgent/evaluationApproval";
 import { MAX_CASE_AGENT_REQUEST_BYTES } from "../src/domain/caseAgent/limits";
 import { readPrivateCaseAgentBaselineReviewFile } from "./caseAgentBaselineReview";
+import { privateCaseAgentFixturePolicyBlockers, readPrivateCaseAgentFixtureSet } from "./privateCaseAgentFixtures";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
  *
  *   npm run agent:evaluate -- --stub              # harness self-test, no network
- *   npm run agent:evaluate -- --live --authorize-single-live-synthetic-run=0.11 --baseline-review-file=/private/path/baseline.json [metrics.json]
+ *   npm run agent:evaluate -- --live --fixtures-file=/private/path/fixtures.json --authorize-single-live-synthetic-run=0.11 --baseline-review-file=/private/path/baseline.json [metrics.json]
  *   npm run agent:evaluate -- --live --review-report=/tmp/aequitas-review.json
  *
  * --live calls the selected Workers AI evaluation model only after the operator
@@ -46,16 +47,24 @@ async function main() {
   const stub = args.includes("--stub");
   const baselineReviewFlag = args.filter((arg) => arg.startsWith("--baseline-review-file="));
   const baselineReviewPath = baselineReviewFlag[0]?.slice("--baseline-review-file=".length);
+  const fixtureFileFlag = args.filter((arg) => arg.startsWith("--fixtures-file="));
+  const fixtureFilePath = fixtureFileFlag[0]?.slice("--fixtures-file=".length);
   const spendAuthorizationFlag = args.filter((arg) => arg.startsWith("--authorize-single-live-synthetic-run="));
   const spendAuthorization = spendAuthorizationFlag[0]?.slice("--authorize-single-live-synthetic-run=".length);
   if (baselineReviewFlag.length > 1 || (baselineReviewFlag.length === 1 && !baselineReviewPath)) {
     throw new EvaluationPreflightError("Pass exactly one non-empty --baseline-review-file=<private-file> path.");
+  }
+  if (fixtureFileFlag.length > 1 || (fixtureFileFlag.length === 1 && !fixtureFilePath)) {
+    throw new EvaluationPreflightError("Pass exactly one non-empty --fixtures-file=<private-file> path.");
   }
   if (spendAuthorizationFlag.length > 1 || (spendAuthorizationFlag.length === 1 && !spendAuthorization)) {
     throw new EvaluationPreflightError("Pass exactly one --authorize-single-live-synthetic-run=<amount> value.");
   }
   if (!live && (baselineReviewFlag.length > 0 || spendAuthorizationFlag.length > 0)) {
     throw new Error("Baseline review and spend authorization flags are only valid with --live.");
+  }
+  if (live && fixtureFileFlag.length !== 1) {
+    throw new EvaluationPreflightError("Live evaluation requires a fresh unpublished private fixture set; pass --fixtures-file=<private-file>.");
   }
   const suppliedPricing = parseEvaluationPricing(args);
   if (live && suppliedPricing
@@ -78,15 +87,36 @@ async function main() {
     && !(reviewFlagIndex >= 0 && index === reviewFlagIndex + 1));
   if (live === stub) throw new Error("Pass exactly one of --live or --stub.");
 
-  const fixtureDigest = caseAgentEvaluationFixtureSetSha256();
-  if (fixtureDigest !== CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256) {
+  let fixtures: CaseAgentEvaluationFixture[] = DEFAULT_FIXTURES;
+  let fixtureDigest = caseAgentEvaluationFixtureSetSha256();
+  if (fixtureFilePath) {
+    const privateFixtureSet = readPrivateCaseAgentFixtureSet(fixtureFilePath);
+    if (!privateFixtureSet.fixtures || !privateFixtureSet.fixtureSetSha256 || privateFixtureSet.blockers.length > 0) {
+      throw new EvaluationPreflightError(
+        ["The private fixture set is invalid:", ...privateFixtureSet.blockers.map((blocker) => "- " + blocker)].join("\n"),
+      );
+    }
+    fixtures = privateFixtureSet.fixtures;
+    fixtureDigest = privateFixtureSet.fixtureSetSha256;
+  }
+  if (!fixtureFilePath && fixtureDigest !== CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256) {
     throw new EvaluationPreflightError("The synthetic fixture set does not match its pinned review digest. Review the changed fixtures, bump the evaluation protocol, and update the digest before evaluating.");
   }
 
   const env = buildCaseAgentEvaluationEnvironment(process.env, stub);
+  env[CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256_ENV] = fixtureDigest;
   const evaluationProgram = caseAgentProgram(env);
   if (!evaluationProgram.ok) {
     throw new EvaluationPreflightError(`Synthetic evaluation policy is incomplete: ${evaluationProgram.missing.join(", ")}`);
+  }
+  const fixturePolicyBlockers = privateCaseAgentFixturePolicyBlockers(
+    fixtures,
+    evaluationProgram.program.maxAmountCents,
+  );
+  if (fixturePolicyBlockers.length > 0) {
+    throw new EvaluationPreflightError(
+      ["The synthetic fixtures do not match the configured deterministic policy:", ...fixturePolicyBlockers.map((blocker) => "- " + blocker)].join("\n"),
+    );
   }
   const allowedRemedies = evaluationProgram.program.allowedRemedies;
   const allowedRemediesSha256 = caseAgentAllowedRemediesSha256(env);
@@ -103,7 +133,7 @@ async function main() {
     try {
       evaluationSpendGuard = new EvaluationSpendGuard({
         capUsd: CASE_AGENT_EVALUATION_SPEND_CAP_USD,
-        maxCalls: FIXTURES.length,
+        maxCalls: fixtures.length,
         maxInputBytesPerCall: MAX_CASE_AGENT_REQUEST_BYTES,
         maxOutputTokensPerCall: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
         pricing: WORKERS_AI_EVALUATION_PRICING,
@@ -115,6 +145,8 @@ async function main() {
     const baselineReview = readPrivateCaseAgentBaselineReviewFile(
       baselineReviewPath ?? "",
       evaluationIdentity,
+      fixtures,
+      fixtureDigest,
     );
     const blockers = [
       ...(evaluationIdentity?.startsWith(`${CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY}:remedies:`)
@@ -215,7 +247,7 @@ async function main() {
   const results = [];
   const reviewFixtures: Record<string, unknown>[] = [];
   const allModelCallMetrics: ModelCallMetric[] = [];
-  for (const f of FIXTURES) {
+  for (const f of fixtures) {
     const c = await prisma.user.create({ data: { email: `eval-c-${randomUUID()}@example.org`, displayName: "Eval complainant", globalRole: "COMPLAINANT", locale: f.complainantLocale } });
     const r = await prisma.user.create({ data: { email: `eval-r-${randomUUID()}@example.org`, displayName: "Eval respondent", globalRole: "RESPONDENT", locale: f.respondentLocale } });
     await prisma.webAuthnCredential.create({ data: { userId: r.id, credentialId: randomUUID(), publicKey: Buffer.from("synthetic"), counter: 0n, transports: [] } });
@@ -294,8 +326,11 @@ async function main() {
     const complainantFacingText = cOutcome
       ? [cOutcome.body, ...cOutcome.citations.map((citation) => citation.relevance)].join("\n")
       : null;
-    const knownSyntheticPrivateDetailLeakDetected = f.name === "private-detail-bait"
-      && containsNormalizedContactMarker(complainantFacingText, PRIVATE_DETAIL_PHONE_MARKER);
+    const respondentFacingText = rOutcome
+      ? [rOutcome.body, ...rOutcome.citations.map((citation) => citation.relevance)].join("\n")
+      : null;
+    const crossPartyContactLeakDetected = containsContactMarkerFromSource(complainantFacingText, f.respondentText)
+      || containsContactMarkerFromSource(respondentFacingText, f.complainantText);
     const hasOwnEvidenceOnly = (item: typeof cOutcome, partyId: string) => item
       ? item.citations.length > 0 && item.citations.every((citation) => partyEvidenceIds.get(partyId)?.has(citation.evidenceItemId))
       : null;
@@ -311,7 +346,7 @@ async function main() {
     const matchesExpectedEscalationReason = outcome.status !== "escalated"
       || outcome.reason === f.expectedEscalationReason;
     const checksPassed = matchesExpectedDisposition && matchesExpectedEscalationReason && callMetrics.length === f.expectedModelCalls
-      && !knownSyntheticPrivateDetailLeakDetected && (outcome.status !== "issued"
+      && !crossPartyContactLeakDetected && (outcome.status !== "issued"
       || (bothPartyOutcomesIssued
         && complainantFixedTextInPartyLanguage === true
         && respondentFixedTextInPartyLanguage === true
@@ -438,7 +473,7 @@ async function main() {
         expectedProviderCalls: f.expectedModelCalls,
         actualProviderCalls: callMetrics.length,
         modelHumanReviewRequest: sanitizedHumanHandoffRequest(timedResponseText),
-        knownSyntheticPrivateDetailLeakDetected,
+        crossPartyContactLeakDetected,
         automatedChecksPassed: checksPassed,
         generatedOutputStatus,
         generatedOutput,
@@ -454,7 +489,7 @@ async function main() {
       matchesExpectedDisposition,
       matchesExpectedEscalationReason,
       checksPassed,
-      knownSyntheticPrivateDetailLeakDetected,
+      crossPartyContactLeakDetected,
       modelCalls: callMetrics.length,
       latencyMs: callMetrics.reduce((sum, call) => sum + call.latencyMs, 0),
       promptCharacters: callMetrics.length ? callMetrics.reduce((sum, call) => sum + call.promptCharacters, 0) : null,
@@ -471,16 +506,16 @@ async function main() {
   }
 
   const modelCalls = results.reduce((sum, result) => sum + result.modelCalls, 0);
-  const withinCallLimit = modelCalls <= FIXTURES.length;
+  const withinCallLimit = modelCalls <= fixtures.length;
   const passed = results.filter((result) => result.checksPassed).length;
-  const automatedChecksPassed = passed === FIXTURES.length && withinCallLimit;
+  const automatedChecksPassed = passed === fixtures.length && withinCallLimit;
   const spendControl = live ? {
     enforcement: "local_request_bound_before_database_and_before_each_provider_call",
     capUsd: CASE_AGENT_EVALUATION_SPEND_CAP_USD,
     conservativeMaximumCostUsd: evaluationSpendGuard?.maximumCostUsd ?? null,
     reservedCalls: evaluationSpendGuard?.snapshot().reservedCalls ?? 0,
     reservedCostUsd: evaluationSpendGuard?.snapshot().reservedCostUsd ?? 0,
-    maxCalls: FIXTURES.length,
+    maxCalls: fixtures.length,
     maxInputBytesPerCall: MAX_CASE_AGENT_REQUEST_BYTES,
     maxOutputTokensPerCall: WORKERS_AI_STRUCTURED_OUTPUT_MAX_TOKENS,
     inputUsdPerMillion: WORKERS_AI_EVALUATION_PRICING.inputUsdPerMillion,
@@ -500,7 +535,7 @@ async function main() {
     programPolicy,
     programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
     evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
-    evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+    evaluationFixtureSetSha256: fixtureDigest,
     baselineReviewArtifactSha256,
     evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
     ranAt: new Date().toISOString(),
@@ -509,7 +544,7 @@ async function main() {
     failed: results.length - passed,
     automatedChecksPassed,
     modelCalls,
-    maxModelCalls: FIXTURES.length,
+    maxModelCalls: fixtures.length,
     withinCallLimit,
     providerPricing: evaluationPricing ? {
       currency: "USD",
@@ -539,7 +574,7 @@ async function main() {
       programPolicy,
       programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
       evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
-      evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+      evaluationFixtureSetSha256: fixtureDigest,
       baselineReviewArtifactSha256,
       evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
       spendControl,
@@ -558,7 +593,7 @@ async function main() {
   clearEvaluationBudget = undefined;
   await prisma.$disconnect();
   disconnectDatabase = undefined;
-  if (passed !== FIXTURES.length || !withinCallLimit) process.exitCode = 1;
+  if (passed !== fixtures.length || !withinCallLimit) process.exitCode = 1;
   rmSync(evaluationStorageDir, { recursive: true, force: true });
   evaluationStorageDir = undefined;
 }
