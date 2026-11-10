@@ -1,6 +1,6 @@
 # Workers AI synthetic evaluation: owner review brief
 
-**Status:** prepared for review; no provider-terms or human-reference approval is recorded. This brief does not authorize production case processing.
+**Status:** prepared for review. On 2026-11-10, Martin selected the account below and confirmed a US$0.11 synthetic-only evaluation ceiling. No account-specific provider-terms or human-reference approval is recorded. This brief does not authorize production case processing.
 
 ## Exact evaluation target
 
