@@ -6,10 +6,10 @@
 
 For the selected Workers AI account's published terms, current model pricing, and limits of the cost/data-retention statements, see [the owner review brief](case-agent-workers-ai-evaluation-approval.md). That review is still pending.
 
-- Evaluation protocol: `case-agent-evaluation-2026-11-09.4`
+- Evaluation protocol: `case-agent-evaluation-2026-11-09.5`
 - Fixture digest: `555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - Exact evaluation approval identity for the current default synthetic profile (printed by the fail-closed evaluator preflight):
-  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
+  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.5:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - This identity binds the provider, account, model, remedies, complete workflow-policy digest, prompt, protocol, and exact fixture digest. If any configured workflow policy differs from the defaults recorded here, rerun the preflight and use its new identity before review.
 - Selected provider/account/model: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`, model `@cf/google/gemma-4-26b-a4b-it`.
 - Synthetic evaluation remedy profile: all five implemented types (`refund_full`, `refund_partial`, `store_credit`, `replacement`, `repair`) unless an explicit environment list overrides it. This is a test profile, not an approved program policy.
@@ -20,7 +20,9 @@ For the selected Workers AI account's published terms, current model pricing, an
 
 Give reviewers only `case-agent-blind-reference-packet.md` first. Do not show them this named worksheet or the reference sections of `case-agent-baseline-protocol.md` until they have recorded and dated their independent assessments. Then use this worksheet to compare the frozen views with the expected workflow and record corrections or disagreement. Do not add real case information. If a fact, program rule, or language judgment is uncertain, record the uncertainty; do not fill the gap by assumption. Reviewers assess only the synthetic evaluation policy recorded in that identity; their review does not approve a buyer's operating policy.
 
-Required coverage: the program case reviewer reviews all seven fixtures; counsel reviews the two legal-interpretation fixtures; a Québec French reviewer reviews all five fixtures with an fr-CA party. One person may hold more than one role if qualified, but record each role and review separately. Resolve disagreements before freezing the reference.
+The live evaluator also requires a private structured review file. After the selected account, provider terms, and complete policy are configured locally, create it outside the repository with `npm run agent:baseline-template -- --out=/private/path/baseline-review.json`. Its Case A–G labels align with the blind packet and reveal no internal fixture names or expected dispositions. Complete the role-specific records from the independent reviews; the template itself is not an approval.
+
+Required coverage: the program case reviewer reviews all seven fixtures; counsel reviews the two legal-interpretation fixtures; a Québec French reviewer reviews all five fixtures with an fr-CA party. One person may hold more than one role if qualified, but record each role and review separately. Resolve disagreements before freezing the reference. Validate the completed private file with `npm run agent:validate-baseline -- --file=/private/path/baseline-review.json`; the validator checks structure and identity but cannot verify reviewer identity or substantive judgment.
 
 ## `routine-en`
 

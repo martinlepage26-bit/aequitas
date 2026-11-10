@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveCaseAgentModel } from "../../src/domain/caseAgent/agent";
-import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicySha256 } from "../../src/domain/caseAgent/evaluationApproval";
+import { CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY, caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalBlocker, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicySha256 } from "../../src/domain/caseAgent/evaluationApproval";
 import { AGENT_PROMPT_VERSION } from "../../src/domain/caseAgent/output";
 import { resolveCaseDataModel } from "../../src/domain/pipeline/provider";
 
@@ -27,6 +27,7 @@ const env: Record<string, string | undefined> = {
 describe("case-agent evaluation approval", () => {
   it("binds the approval to provider, complete program policy, prompt, and evaluation protocol versions", () => {
     expect(caseAgentEvaluationApprovalIdentity(env)).toBe(`${providerIdentity}:remedies:${caseAgentAllowedRemediesSha256(env)}:program:${caseAgentProgramPolicySha256(env)}:prompt:${AGENT_PROMPT_VERSION}:evaluation:${CASE_AGENT_EVALUATION_PROTOCOL_VERSION}:fixtures:${CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256}`);
+    expect(CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY).toBe("workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it");
   });
 
   it("invalidates approval when any workflow-affecting program setting changes", () => {
@@ -79,19 +80,21 @@ describe("case-agent evaluation approval", () => {
     const identity = caseAgentEvaluationApprovalIdentity(env)!;
     const missing = caseAgentLiveEvaluationPreflightBlockers(env);
     expect(missing).toHaveLength(2);
-    expect(missing.join(" ")).toContain("AEQUITAS_CASE_AGENT_EVAL_APPROVED=true");
+    expect(missing.join(" ")).toContain("single-run spend authorization");
     expect(missing.join(" ")).toContain("Before any model output");
     expect(missing.join(" ")).toContain("AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR");
     expect(missing.join(" ")).toContain(identity);
 
     const approved = {
       ...env,
-      AEQUITAS_CASE_AGENT_EVAL_APPROVED: "true",
       AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR: identity,
     };
-    expect(caseAgentLiveEvaluationPreflightBlockers(approved)).toEqual([]);
+    expect(caseAgentLiveEvaluationPreflightBlockers(approved, true)).toEqual([]);
+    expect(caseAgentLiveEvaluationPreflightBlockers(approved, false).join(" ")).toContain("single-run spend authorization");
+    expect(caseAgentLiveEvaluationPreflightBlockers({ ...approved, AEQUITAS_CASE_AGENT_EVAL_APPROVED: "true" }).join(" "))
+      .toContain("single-run spend authorization");
 
     const stale = { ...approved, AEQUITAS_CASE_AGENT_BASELINE_REVIEWED_FOR: `${identity}:stale` };
-    expect(caseAgentLiveEvaluationPreflightBlockers(stale).join(" ")).toContain(identity);
+    expect(caseAgentLiveEvaluationPreflightBlockers(stale, true).join(" ")).toContain(identity);
   });
 });

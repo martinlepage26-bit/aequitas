@@ -10,19 +10,20 @@ import { buildCaseAgentEvaluationEnvironment } from "../src/domain/caseAgent/eva
 import { blankHumanReviewChecklist, CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION, containsNormalizedContactMarker, sanitizeReviewText, sanitizedHumanHandoffRequest } from "./caseAgentEvaluationReview";
 import { CASE_AGENT_EVALUATION_FIXTURES as FIXTURES, caseAgentEvaluationFixtureSetSha256, PRIVATE_DETAIL_PHONE_MARKER, type CaseAgentEvaluationFixture } from "./caseAgentEvaluationFixtures";
 import { CASE_AGENT_EVALUATION_SPEND_CAP_USD, EvaluationSpendGuard, WORKERS_AI_EVALUATION_PRICING, characterCount, parseEvaluationPricing, tokenTotals, type EvaluationPricing, type ModelCallMetric } from "./caseAgentEvaluationMetrics";
-import { caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicyIdentityRecord, caseAgentProgramPolicySha256FromRecord, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION } from "../src/domain/caseAgent/evaluationApproval";
+import { caseAgentAllowedRemediesSha256, caseAgentEvaluationApprovalIdentity, caseAgentLiveEvaluationPreflightBlockers, caseAgentProgramPolicyIdentityRecord, caseAgentProgramPolicySha256FromRecord, CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256, CASE_AGENT_EVALUATION_PROTOCOL_VERSION, CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY } from "../src/domain/caseAgent/evaluationApproval";
 import { MAX_CASE_AGENT_REQUEST_BYTES } from "../src/domain/caseAgent/limits";
+import { readPrivateCaseAgentBaselineReviewFile } from "./caseAgentBaselineReview";
 
 /**
  * Bounded evaluation of the case agent on synthetic cases only.
  *
  *   npm run agent:evaluate -- --stub              # harness self-test, no network
- *   npm run agent:evaluate -- --live [metrics.json]
+ *   npm run agent:evaluate -- --live --authorize-single-live-synthetic-run=0.11 --baseline-review-file=/private/path/baseline.json [metrics.json]
  *   npm run agent:evaluate -- --live --review-report=/tmp/aequitas-review.json
  *
  * --live calls the selected Workers AI evaluation model only after the operator
- * confirms provider terms/spend and attests that the human reference set was
- * reviewed before model output. It writes only to the `_test` database. It never
+ * confirms provider terms/spend and supplies the identity-bound private human
+ * reference file frozen before model output. It writes only to the `_test` database. It never
  * prints credentials, prompts, or model replies. An explicitly requested
  * `--review-report` file contains sanitized generated text and cited excerpts
  * from these synthetic fixtures for manual semantic review. The ordinary
@@ -43,6 +44,19 @@ async function main() {
   const args = process.argv.slice(2);
   const live = args.includes("--live");
   const stub = args.includes("--stub");
+  const baselineReviewFlag = args.filter((arg) => arg.startsWith("--baseline-review-file="));
+  const baselineReviewPath = baselineReviewFlag[0]?.slice("--baseline-review-file=".length);
+  const spendAuthorizationFlag = args.filter((arg) => arg.startsWith("--authorize-single-live-synthetic-run="));
+  const spendAuthorization = spendAuthorizationFlag[0]?.slice("--authorize-single-live-synthetic-run=".length);
+  if (baselineReviewFlag.length > 1 || (baselineReviewFlag.length === 1 && !baselineReviewPath)) {
+    throw new EvaluationPreflightError("Pass exactly one non-empty --baseline-review-file=<private-file> path.");
+  }
+  if (spendAuthorizationFlag.length > 1 || (spendAuthorizationFlag.length === 1 && !spendAuthorization)) {
+    throw new EvaluationPreflightError("Pass exactly one --authorize-single-live-synthetic-run=<amount> value.");
+  }
+  if (!live && (baselineReviewFlag.length > 0 || spendAuthorizationFlag.length > 0)) {
+    throw new Error("Baseline review and spend authorization flags are only valid with --live.");
+  }
   const suppliedPricing = parseEvaluationPricing(args);
   if (live && suppliedPricing
     && (suppliedPricing.inputUsdPerMillion !== WORKERS_AI_EVALUATION_PRICING.inputUsdPerMillion
@@ -84,6 +98,7 @@ async function main() {
 
   let preResolvedLiveModel: TextCompletion | undefined;
   let evaluationSpendGuard: EvaluationSpendGuard | undefined;
+  let baselineReviewArtifactSha256: string | null = null;
   if (live) {
     try {
       evaluationSpendGuard = new EvaluationSpendGuard({
@@ -96,8 +111,23 @@ async function main() {
     } catch (error) {
       throw new EvaluationPreflightError(error instanceof Error ? error.message : "The spend bound could not be validated.");
     }
-    const blockers = caseAgentLiveEvaluationPreflightBlockers(env);
+    const evaluationIdentity = caseAgentEvaluationApprovalIdentity(env);
+    const baselineReview = readPrivateCaseAgentBaselineReviewFile(
+      baselineReviewPath ?? "",
+      evaluationIdentity,
+    );
+    const blockers = [
+      ...(evaluationIdentity?.startsWith(`${CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY}:remedies:`)
+        ? []
+        : [`Live synthetic evaluation is pinned to ${CASE_AGENT_SELECTED_EVALUATION_PROVIDER_IDENTITY}.`]),
+      ...caseAgentLiveEvaluationPreflightBlockers(
+        env,
+        spendAuthorization === CASE_AGENT_EVALUATION_SPEND_CAP_USD.toFixed(2),
+      ),
+      ...baselineReview.blockers,
+    ];
     if (blockers.length > 0) throw new EvaluationPreflightError(blockers.join("\n- "));
+    baselineReviewArtifactSha256 = baselineReview.sha256;
     const resolved = resolveCaseDataModel({ ...env, AEQUITAS_PIPELINE_ENABLED: "true" });
     if (!resolved.ok) throw new EvaluationPreflightError(resolved.reason);
     preResolvedLiveModel = resolved.model;
@@ -471,6 +501,7 @@ async function main() {
     programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
     evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
     evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+    baselineReviewArtifactSha256,
     evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
     ranAt: new Date().toISOString(),
     fixtures: results.length,
@@ -509,6 +540,7 @@ async function main() {
       programPolicySource: "explicit environment values or synthetic-only evaluator defaults; not a program approval",
       evaluationProtocolVersion: CASE_AGENT_EVALUATION_PROTOCOL_VERSION,
       evaluationFixtureSetSha256: CASE_AGENT_EVALUATION_FIXTURE_SET_SHA256,
+      baselineReviewArtifactSha256,
       evaluationApprovalIdentity: live && automatedChecksPassed ? caseAgentEvaluationApprovalIdentity(env) : null,
       spendControl,
       ranAt: report.ranAt,

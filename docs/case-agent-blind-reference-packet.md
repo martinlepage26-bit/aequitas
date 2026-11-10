@@ -4,12 +4,12 @@
 
 ## Evaluation identity
 
-- Protocol: `case-agent-evaluation-2026-11-09.4`
+- Protocol: `case-agent-evaluation-2026-11-09.5`
 - Fixture digest: `555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 - Provider: Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76`
 - Model: `@cf/google/gemma-4-26b-a4b-it`
 - Exact identity:
-  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
+  `workers-ai:1713c51cc6fbcf8d7143526b93495b76:@cf/google/gemma-4-26b-a4b-it:remedies:6b83dd78fd524a099a7b0b58fcd58beca7ec33128a53e37dace642982e677744:program:4105d12b3eacb81c8d12018e0da7d63956a59bfac84a756931c439f14a46b3e9:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.5:fixtures:555baa9b27487cd9028cdadb9fa975aaf53ec14c187f92110b0951589dc5ab5c`
 
 The reviewer labels A–G are for this packet only; they are not sent to the model. The evaluator sends the case description, CAD amount, both party positions, evidence text, and party locales shown below. All seven complete fixture records, including the expected workflow disposition, are covered by the fixture digest.
 

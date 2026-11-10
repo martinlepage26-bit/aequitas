@@ -7,7 +7,7 @@ const NORTH_AMERICAN_PHONE = /\b(?:\+?1[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[
 const CANADIAN_POSTAL_CODE = /\b[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b/gi;
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 const MAX_REVIEW_TEXT_CHARACTERS = 4000;
-export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v7";
+export const CASE_AGENT_REVIEW_REPORT_SCHEMA_VERSION = "aequitas.case-agent-human-review.v8";
 
 const EXPECTED_FIXTURES = {
   "routine-en": { disposition: "issued", providerCalls: 1 },
@@ -158,6 +158,9 @@ export function evaluationReviewBlockers(report: unknown, expectedIdentity: stri
   if (report.syntheticOnly !== true) blockers.push("Report is not marked synthetic-only.");
   if (report.automatedChecksPassed !== true) blockers.push("Automated evaluation checks did not all pass.");
   if (report.status !== "human_review_complete") blockers.push("Report status must be set to human_review_complete after review.");
+  if (typeof report.baselineReviewArtifactSha256 !== "string" || !/^[a-f0-9]{64}$/.test(report.baselineReviewArtifactSha256)) {
+    blockers.push("Report must retain the SHA-256 of the validated pre-model baseline review artifact.");
+  }
   if (!expectedIdentity) blockers.push("The current provider, account/project, model, or workflow-policy identity is unavailable.");
   if (typeof expectedIdentity === "string") {
     const parts = expectedIdentityParts(expectedIdentity);

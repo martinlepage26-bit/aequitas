@@ -19,7 +19,7 @@ const programPolicy: CaseAgentProgramPolicyIdentityRecord = {
   processingNoticeHash: "b".repeat(64),
 };
 const programPolicySha256 = caseAgentProgramPolicySha256FromRecord(programPolicy);
-const approvalIdentity = `${providerIdentity}:remedies:${allowedRemediesSha256}:program:${programPolicySha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:${fixtureSetSha256}`;
+const approvalIdentity = `${providerIdentity}:remedies:${allowedRemediesSha256}:program:${programPolicySha256}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.5:fixtures:${fixtureSetSha256}`;
 
 function completeReviewReport() {
   const names = [
@@ -37,13 +37,14 @@ function completeReviewReport() {
     provider: "workers-ai",
     model: "@cf/google/gemma-4-26b-a4b-it",
     promptVersion: "case-agent-2026-11-09.1",
-    evaluationProtocolVersion: "case-agent-evaluation-2026-11-09.4",
+    evaluationProtocolVersion: "case-agent-evaluation-2026-11-09.5",
     allowedRemedies,
     allowedRemediesSha256,
     programPolicy,
     programPolicySha256,
     evaluationFixtureSetSha256: fixtureSetSha256,
     evaluationApprovalIdentity: approvalIdentity,
+    baselineReviewArtifactSha256: "c".repeat(64),
     syntheticOnly: true,
     automatedChecksPassed: true,
     status: "human_review_complete",
@@ -83,7 +84,7 @@ function completeReviewReport() {
 describe("case-agent manual evaluation report", () => {
   it("uses a new approval identity for the reference rubric", async () => {
     const { CASE_AGENT_EVALUATION_PROTOCOL_VERSION } = await import("../../src/domain/caseAgent/evaluationApproval");
-    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-09.4");
+    expect(CASE_AGENT_EVALUATION_PROTOCOL_VERSION).toBe("case-agent-evaluation-2026-11-09.5");
   });
 
   it("detects a seeded contact marker despite common formatting changes", () => {
@@ -129,6 +130,14 @@ describe("case-agent manual evaluation report", () => {
     expect(evaluationReviewBlockers(completeReviewReport(), approvalIdentity)).toEqual([]);
   });
 
+  it("requires the report to preserve the validated pre-model baseline artifact hash", () => {
+    const report = completeReviewReport();
+    Object.assign(report, { baselineReviewArtifactSha256: null });
+    expect(evaluationReviewBlockers(report, approvalIdentity)).toContain(
+      "Report must retain the SHA-256 of the validated pre-model baseline review artifact.",
+    );
+  });
+
   it("rejects a legal fixture that called the provider instead of taking the local handoff", () => {
     const report = completeReviewReport();
     const legalFixture = report.fixtures.find((fixture) => fixture.fixture === "needs-legal-interpretation");
@@ -154,7 +163,7 @@ describe("case-agent manual evaluation report", () => {
   it("accepts the supported Vertex AI identity format", () => {
     const vertexProviderIdentity = "vertex-ai:synthetic-project:northamerica-northeast1:gemini-3.5-flash";
     const vertexPolicy = { ...programPolicy, providerIdentity: vertexProviderIdentity };
-    const vertexIdentity = `${vertexProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(vertexPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:${fixtureSetSha256}`;
+    const vertexIdentity = `${vertexProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(vertexPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.5:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "vertex-ai",
@@ -169,7 +178,7 @@ describe("case-agent manual evaluation report", () => {
   it("accepts the supported Gemini identity format", () => {
     const geminiProviderIdentity = "gemini:synthetic-project:gemini-3.5-flash";
     const geminiPolicy = { ...programPolicy, providerIdentity: geminiProviderIdentity };
-    const geminiIdentity = `${geminiProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(geminiPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.4:fixtures:${fixtureSetSha256}`;
+    const geminiIdentity = `${geminiProviderIdentity}:remedies:${allowedRemediesSha256}:program:${caseAgentProgramPolicySha256FromRecord(geminiPolicy)}:prompt:case-agent-2026-11-09.1:evaluation:case-agent-evaluation-2026-11-09.5:fixtures:${fixtureSetSha256}`;
     const report = completeReviewReport();
     Object.assign(report, {
       provider: "gemini",

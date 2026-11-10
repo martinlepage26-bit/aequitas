@@ -232,7 +232,7 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Respondent withdrawal.** Allowed on agent-managed cases only when `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW=true` (`respondent_withdraw` transition). Human-managed cases keep the complainant-only rule; changing that is an owner decision.
 - **Queue.** Escalations with no assigned manager notify every case manager with a passkey. `caseReadAccess` makes such a case claimable, and `POST /api/cases/[id]/claim` assigns it with a no-conflict declaration.
 - **Timeouts.** Respondent not joining, a missing submission or position, or an unanswered proposal past the configured period goes to a person.
-- **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Live mode needs operator approval (`AEQUITAS_CASE_AGENT_EVAL_APPROVED`) and a configured provider; neither was available, so live quality is untested.
+- **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Protocol `.5` requires a private, identity-bound JSON baseline file with all seven dated program reviews, both counsel reviews, and all five Québec French reviews. Live spend approval is a one-command `--authorize-single-live-synthetic-run=0.11` flag, never a persistent environment variable. The evaluator checks all offline gates before resolving a provider or connecting to the `_test` database; live quality remains untested until the independent reviews and account checks are complete.
 
 ## Autonomous routine-case product direction (2026-11-07)
 
