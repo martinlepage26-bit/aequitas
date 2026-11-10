@@ -2,7 +2,18 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
-## Current status (checked 2026-11-10 07:03 UTC)
+## Current status (checked 2026-11-10 07:39 UTC)
+
+This section supersedes the earlier snapshots below where newer evidence is available.
+
+- **Candidate and CI:** PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, unmerged and mergeable into `ct920-standup` at docs-only head `aec5e8673b763f32fba87760a3e9b4ba2b3042c1`. Exact-head CI [run 42773496629](https://github.com/martinlepage26-bit/aequitas/actions/runs/42773496629) passed: 41 steps succeeded and two retry steps were skipped after their first attempts passed. PR [#13](https://github.com/martinlepage26-bit/aequitas/pull/13) remains open, draft and unmerged, targeting `main`. Neither PR was merged and no candidate deployment occurred.
+- **Routine autonomy:** the code-bearing case-agent path handles eligible retail cases through invitation, intake, evidence-grounded proposals, party choices, closure or human escalation. CI exercises this on synthetic data with a stub model. Live-model quality, live email/passkey flows and real-case handling remain unverified.
+- **Production check, around 07:39 UTC from this Mac client:** the clean CT920 production checkout remains on `ship/aequitas-pr5-d74ed34` at `d74ed342693a96a6dc75d8907d288131c0148385`. The healthy app container uses image `sha256:971cffe92b59038470452575c9ee60e9a5f18c7746dd586172f77589c116991d`; loopback and public health returned that release. The checked `aeq-prod` container list contained the app, PostgreSQL 18 and ClamAV, but no parser or scheduled worker. This check did not inspect timers, cron, case data, mail, passkeys or backups, and made no host changes. PR #14 is not deployed.
+- **Synthetic evaluation:** Martin selected Cloudflare Workers AI account `1713c51cc6fbcf8d7143526b93495b76` and a US$0.11 ceiling for seven synthetic fixtures using `@cf/google/gemma-4-26b-a4b-it`. The local request-bound estimate is about US$0.10241281; this is not an account-wide or provider-enforced billing cap. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are absent from this Mac shell. The blind reference worksheet is blank; account plan, quota, daily use, logging/caching, terms and one-run approval are unverified. No live model request or charge occurred.
+- **Latest reviewed image report:** CI run 427734, job 129686514702, reported 179 runtime-image rows (58 High, 0 Critical, 58 Medium, 14 Low, 49 Negligible); all 58 High rows are marked “won't fix.” The parser report had 181 rows (0 High/Critical, 163 Medium, 13 Low, 5 Negligible). These are candidate CI images, not production images. The full findings still need independent security disposition; passing automated gates is not security approval. See the [candidate vulnerability review](candidate-container-vulnerability-review.md).
+- **Remaining gates:** required human pre-model references and provider account checks; security disposition; program and privacy decisions; retention/deletion design and approval; production operational acceptance; organization isolation; and validated buyer, budget, pricing, contract and software rights. No real-data or commercial-readiness claim is supported yet.
+
+## Previous status snapshot (checked 2026-11-10 07:03 UTC; superseded)
 
 This section supersedes older snapshots below where newer evidence is available.
 
@@ -18,7 +29,7 @@ This section supersedes older snapshots below where newer evidence is available.
   ```
 
 - **Human gate:** the [blind reference packet](case-agent-blind-reference-packet.md) gives reviewers complete inputs without exposing expected dispositions. The program case reviewer must assess all seven records, counsel both legal-handoff fixtures, and a Québec French reviewer all five `fr-CA` fixtures before any model output. The operator must also verify account terms and settings and set the identity-bound one-run approval. No role-specific review is recorded. The benchmark profile is not a buyer's operating policy.
-- **Candidate image security:** detailed finding counts reviewed in run 42762607933 are 58 High and 0 Critical rows in the app image, and 0 High/Critical rows in the parser image. Automated image gates also passed in runs 42767585135 and 42769288076, but their detailed reports have not been re-tabulated in the human review. The reviewed findings still need independent security disposition; passing automated gates is not security approval. See the [candidate vulnerability review](candidate-container-vulnerability-review.md).
+- **Candidate image security:** the latest detailed counts from run 42773496629 are 58 High and 0 Critical rows in the app image, and 0 High/Critical rows in the parser image. The complete row counts and parser finding lead are recorded in the [candidate vulnerability review](candidate-container-vulnerability-review.md). Findings still need independent security disposition; passing automated gates is not security approval.
 - **Commercial and legal readiness:** no buyer interview, observed customer baseline, budget authority, approved price, contract, rights/distribution review, retention/deletion policy, privacy approval or production operational acceptance is recorded. The buyer and paid-pilot offer remain hypotheses, not validated demand or an approved release.
 ## Verification snapshot (public routes and copy rechecked 2026-11-09 03:03 UTC; PR/CI rechecked 04:52 UTC; CT920 runtime and scheduling rechecked 03:40 UTC)
 
