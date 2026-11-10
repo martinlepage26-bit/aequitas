@@ -1,6 +1,7 @@
 # Dedicated runtime for parsing untrusted PDFs and raster evidence.
 # It contains only Node, Poppler, Tesseract, and the compiled parser service.
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-trixie-slim@sha256:be1e2a3dc2c4fd68cdfadad2a696a280e0d2749098bee509230174d72fb768c6
+ARG PARSER_RUNTIME_IMAGE=ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
 ARG NPM_VERSION=11.21.2
 
 FROM ${NODE_IMAGE} AS node-base
@@ -24,32 +25,24 @@ COPY scripts/evidence-parser-entry.ts ./scripts/evidence-parser-entry.ts
 COPY src/lib/evidenceParserCore.ts src/lib/evidenceExtractionShared.ts ./src/lib/
 RUN ./node_modules/.bin/tsc --project tsconfig.evidence-parser.json --pretty false
 
-FROM node-base AS runtime
-LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
+FROM ${PARSER_RUNTIME_IMAGE} AS runtime
+ARG PARSER_RUNTIME_IMAGE
+LABEL org.opencontainers.image.base.name="${PARSER_RUNTIME_IMAGE}"
 ENV NODE_ENV=production \
     AEQUITAS_EVIDENCE_PARSER_SOCKET=/run/aeq-parser/evidence.sock \
     AEQUITAS_OCR_LANGUAGES=eng+fra \
     HOME=/tmp \
     TMPDIR=/tmp
-# npm is needed to build the parser, but the isolated service runs directly
-# under Node and does not need a package manager in its runtime image.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
- && test ! -e /usr/local/lib/node_modules/npm \
- && test ! -e /usr/local/bin/npm \
- && test ! -e /usr/local/bin/npx
-# Trixie's libpoppler147 depends on libgpgmepp6t64 -> libgpgme11t64, which
-# needs "gnupg | gpg". Purging gpg therefore removes poppler-utils. Naming the
-# minimal gpg alternative keeps apt from pulling the full gnupg suite
-# (dirmngr, gpg-agent, gpgsm, pinentry); only gpg and gpgconf remain.
+COPY --from=node-base /usr/local/bin/node /usr/local/bin/node
+# Use the maintained Ubuntu LTS parser package set. Node is copied from the
+# pinned Node 22 build stage; npm and the rest of that stage stay out of the
+# isolated runtime image.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra gpg \
- && echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/trixie-backports.list \
- && apt-get update \
- && apt-get install -y --no-install-recommends -t trixie-backports libcurl4t64 libcurl3t64-gnutls \
- && rm -f /etc/apt/sources.list.d/trixie-backports.list \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
  && rm -rf /var/lib/apt/lists/* \
- && groupadd --system --gid 2000 aeq-parser \
- && useradd --system --uid 10001 --gid 2000 --no-create-home --home-dir /tmp aeq-parser \
+ && printf 'aeq-parser:x:10001:2000:Evidence parser:/tmp:/bin/false\n' >> /etc/passwd \
+ && printf 'aeq-parser:x:2000:\n' >> /etc/group \
  && mkdir -p /run/aeq-parser /tmp \
  && chown 10001:2000 /run/aeq-parser /tmp \
  && chmod 0730 /run/aeq-parser \

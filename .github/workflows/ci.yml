@@ -106,24 +106,38 @@ jobs:
           docker build --file Dockerfile.evidence-parser --tag aequitas-ci-evidence-parser .
           docker run --rm --entrypoint /bin/sh aequitas-ci-evidence-parser -eu -c '
             for binary in pdfinfo pdftotext pdfimages pdftoppm tesseract; do command -v "$binary"; done
+            for binary in npm npx; do
+              if command -v "$binary" >/dev/null 2>&1; then
+                echo "build-time package manager unexpectedly exists in parser image: $binary" >&2
+                exit 1
+              fi
+            done
+            node --version | grep -E "^v22\."
+            . /etc/os-release
+            test "$ID" = ubuntu
+            test "$VERSION_ID" = 26.04
             tesseract --list-langs 2>/dev/null | grep -Fx eng
             tesseract --list-langs 2>/dev/null | grep -Fx fra
             for package in libcurl4t64 libcurl3t64-gnutls; do
               version="$(dpkg-query -W -f="\${Version}" "$package")"
-              if ! dpkg --compare-versions "$version" ge "8.21.0-2~bpo13+1"; then
-                echo "outdated vulnerable libcurl package: $package ($version)" >&2
+              if ! dpkg --compare-versions "$version" ge "8.18.0-1ubuntu2.8"; then
+                echo "libcurl package is older than the Ubuntu security-fixed baseline: $package ($version)" >&2
                 exit 1
               fi
             done
-            # gpg and gpgconf stay: libgpgme (a libpoppler dependency) requires gpg.
+            xml_version="$(dpkg-query -W -f="\${Version}" libxml2-16)"
+            if ! dpkg --compare-versions "$xml_version" ge "2.15.2+dfsg-0.1ubuntu0.3"; then
+              echo "libxml2-16 is older than the Ubuntu security-fixed baseline: $xml_version" >&2
+              exit 1
+            fi
             for binary in dirmngr gpg-agent gpgsm pinentry tiffcrop; do
               if command -v "$binary" >/dev/null 2>&1; then
                 echo "unexpected unused or vulnerable parser utility is installed: $binary" >&2
                 exit 1
               fi
             done
-            # dpkg-query -W also succeeds for purged ("pn") entries, which the
-            # Node base image leaves behind, so check the recorded state.
+            # dpkg-query -W also succeeds for purged ("pn") entries, so check
+            # the recorded state rather than relying on command presence.
             for package in dirmngr gnupg gnupg-l10n gpg-agent gpgsm pinentry-curses; do
               rc=0
               state="$(dpkg-query -W -f="\${db:Status-Status}" "$package" 2>/dev/null)" || rc=$?
@@ -428,6 +442,15 @@ jobs:
           only-fixed: false
           output-format: table
 
+      - name: Fail on any critical production image vulnerability
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
+        with:
+          image: aequitas-ci-runtime
+          fail-build: true
+          severity-cutoff: critical
+          only-fixed: false
+          output-format: table
+
       # `only-fixed: true` makes Grype ignore not-fixed, won't-fix, and unknown
       # matches for this blocking check. A pass means no fixable high/critical
       # finding remains; it does not clear the full report above or approve the
@@ -447,6 +470,15 @@ jobs:
           image: aequitas-ci-evidence-parser
           fail-build: false
           severity-cutoff: high
+          only-fixed: false
+          output-format: table
+
+      - name: Fail on any critical evidence parser vulnerability
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2, signed immutable release
+        with:
+          image: aequitas-ci-evidence-parser
+          fail-build: true
+          severity-cutoff: critical
           only-fixed: false
           output-format: table
 
