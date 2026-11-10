@@ -37,9 +37,12 @@ COPY --from=node-base /usr/local/bin/node /usr/local/bin/node
 # Use the maintained Ubuntu LTS parser package set. Node is copied from the
 # pinned Node 22 build stage; npm and the rest of that stage stay out of the
 # isolated runtime image.
+# libpoppler depends on libgpgmepp -> libgpgme, which needs "gnupg | gpg".
+# Naming the minimal gpg alternative keeps apt from pulling the full gnupg
+# suite (dirmngr, gpg-agent, gpgsm, pinentry); only gpg and gpgconf remain.
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
- && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra \
+ && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra gpg \
  && rm -rf /var/lib/apt/lists/* \
  && printf 'aeq-parser:x:10001:2000:Evidence parser:/tmp:/bin/false\n' >> /etc/passwd \
  && printf 'aeq-parser:x:2000:\n' >> /etc/group \
