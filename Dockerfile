@@ -6,6 +6,7 @@
 # Pin the multi-architecture OCI index digest so CI and deployments use the
 # same tested Node base on linux/amd64 and linux/arm64.
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:22-trixie-slim@sha256:be1e2a3dc2c4fd68cdfadad2a696a280e0d2749098bee509230174d72fb768c6
+ARG APP_RUNTIME_IMAGE=ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
 ARG NPM_VERSION=11.21.2
 
 FROM ${NODE_IMAGE} AS node-base
@@ -47,23 +48,29 @@ COPY prisma ./prisma
 # out of the customer-facing app and scheduler image.
 RUN npm ci --omit=dev --no-audit --no-fund
 
-FROM node-base AS runtime
-LABEL org.opencontainers.image.base.name="${NODE_IMAGE}"
+FROM ${APP_RUNTIME_IMAGE} AS runtime
+ARG APP_RUNTIME_IMAGE
+LABEL org.opencontainers.image.base.name="${APP_RUNTIME_IMAGE}"
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-# npm is used in the build stages only; the app and scheduler launch Node
-# entrypoints directly. Remove npm from the shipped runtime image.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
- && test ! -e /usr/local/lib/node_modules/npm \
- && test ! -e /usr/local/bin/npm \
- && test ! -e /usr/local/bin/npx
-COPY --from=build --chown=node:node /app ./
-COPY --from=production-deps --chown=node:node /app/node_modules ./node_modules
-RUN mkdir -p /data/evidence && chown -R node:node /data
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 HOME=/home/node
+# The production runtime uses a minimal, digest-pinned Ubuntu base. Copy only
+# the Node executable from the build image; npm and its dependency tree stay
+# out of the shipped app and scheduler image.
+COPY --from=node-base /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && apt-get install -y --no-install-recommends ca-certificates libatomic1 libgcc-s1 libstdc++6 openssl \
+ && rm -rf /var/lib/apt/lists/* \
+ && printf 'node:x:1000:1000:Node runtime:/home/node:/usr/sbin/nologin\n' >> /etc/passwd \
+ && printf 'node:x:1000:\n' >> /etc/group \
+ && mkdir -p /data/evidence /home/node \
+ && chown -R 1000:1000 /data /home/node
+COPY --from=build --chown=1000:1000 /app ./
+COPY --from=production-deps --chown=1000:1000 /app/node_modules ./node_modules
 # Deploy-set release: the deploy script passes `git rev-parse HEAD`.
 ARG RELEASE_SHA=""
 ENV RELEASE_SHA=${RELEASE_SHA}
-USER node
+USER 1000:1000
 EXPOSE 3000
 # scripts/start.mjs runs `next start` directly (no npm), so SIGTERM from
 # `docker stop` is a clean exit 0 (PR #6 behaviour).

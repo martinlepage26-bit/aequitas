@@ -80,12 +80,18 @@ jobs:
       - run: npm run test
       - run: npm run build
 
-      # The app image must not carry native parsers. Build the separate parser
-      # image and verify that only it contains Poppler/Tesseract.
+      # The app image must use the pinned Ubuntu runtime, carry no package
+      # manager or native parsers, and keep the scheduler/runtime files. Build
+      # the separate parser image and verify that only it contains parsers.
       - name: Build and verify application runtime image
         run: |
           docker build --build-arg RELEASE_SHA="$GITHUB_SHA" --tag aequitas-ci-runtime .
           docker run --rm --entrypoint /bin/sh aequitas-ci-runtime -eu -c '
+            . /etc/os-release
+            test "$ID" = ubuntu
+            test "$VERSION_ID" = 26.04
+            test "$(id -u)" = 1000
+            node --version | grep -E "^v22\."
             # npm/npx are build-only; the shipped runtime image must not carry them.
             for binary in npm npx; do
               if command -v "$binary" >/dev/null 2>&1; then
