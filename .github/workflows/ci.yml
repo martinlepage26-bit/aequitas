@@ -143,7 +143,8 @@ jobs:
               echo "libxml2-16 is older than the Ubuntu security-fixed baseline: $xml_version" >&2
               exit 1
             fi
-            for binary in dirmngr gpg-agent gpgsm pinentry tiffcrop; do
+            # The parser does not decode TIFF evidence; keep the TIFF conversion tools absent.
+            for binary in dirmngr gpg-agent gpgsm pinentry tiff2pdf tiffcrop; do
               if command -v "$binary" >/dev/null 2>&1; then
                 echo "unexpected unused or vulnerable parser utility is installed: $binary" >&2
                 exit 1
@@ -151,7 +152,7 @@ jobs:
             done
             # dpkg-query -W also succeeds for purged ("pn") entries, so check
             # the recorded state rather than relying on command presence.
-            for package in dirmngr gnupg gnupg-l10n gpg-agent gpgsm pinentry-curses; do
+            for package in dirmngr gnupg gnupg-l10n gpg-agent gpgsm pinentry-curses libtiff-tools; do
               rc=0
               state="$(dpkg-query -W -f="\${db:Status-Status}" "$package" 2>/dev/null)" || rc=$?
               # 1 = unknown to dpkg; any other failure must not pass silently.
@@ -160,7 +161,7 @@ jobs:
                 exit 1
               fi
               if [ "$rc" -eq 0 ] && [ "$state" != "not-installed" ]; then
-                echo "unexpected GnuPG runtime package is installed: $package ($state)" >&2
+                echo "unexpected excluded runtime package is installed: $package ($state)" >&2
                 exit 1
               fi
             done
