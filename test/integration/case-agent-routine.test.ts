@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createServer } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -520,6 +521,56 @@ describe("exceptions stop the agent and reach the case-manager queue", () => {
     const model = stub(() => "{}");
     expect(await runCaseAgent({ caseId: u.caseId, model, env: ENV })).toEqual({ status: "escalated", reason: "evidence_extraction_failed" });
     expect(model.calls).toBe(0);
+  }, 15_000);
+
+  it("hands TIFF evidence to staff without sending it to the parser or model", async () => {
+    const r = await submittedCase();
+    const { cId } = await toPositions(r);
+    await positions(r);
+    await prisma.evidenceItem.update({ where: { id: cId }, data: { mimeType: "image/tiff" } });
+
+    const parserDirectory = await mkdtemp(path.join(tmpdir(), "aeq-tiff-parser-"));
+    const parserSocket = path.join(parserDirectory, "evidence.sock");
+    const previousParserSocket = process.env.AEQUITAS_EVIDENCE_PARSER_SOCKET;
+    let parserRequests = 0;
+    const parserResponse = JSON.stringify({
+      status: "extracted", method: "tesseract", text: "Synthetic TIFF evidence.", note: "synthetic parser response",
+    });
+    const parserServer = createServer((request, response) => {
+      parserRequests += 1;
+      request.resume();
+      response.writeHead(200, {
+        "content-type": "application/json",
+        "content-length": String(Buffer.byteLength(parserResponse)),
+      });
+      response.end(parserResponse);
+    });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        parserServer.once("error", reject);
+        parserServer.listen(parserSocket, resolve);
+      });
+      process.env.AEQUITAS_EVIDENCE_PARSER_SOCKET = parserSocket;
+
+      const model = stub(() => "{}");
+      expect(await runCaseAgent({ caseId: r.caseId, model, env: ENV })).toEqual({
+        status: "escalated", reason: "evidence_extraction_failed",
+      });
+      expect(parserRequests).toBe(0);
+      expect(model.calls).toBe(0);
+      expect(await prisma.case.findUniqueOrThrow({ where: { id: r.caseId } }))
+        .toMatchObject({ agentEscalationReason: "evidence_extraction_failed" });
+    } finally {
+      if (previousParserSocket === undefined) delete process.env.AEQUITAS_EVIDENCE_PARSER_SOCKET;
+      else process.env.AEQUITAS_EVIDENCE_PARSER_SOCKET = previousParserSocket;
+      if (parserServer.listening) {
+        await new Promise<void>((resolve, reject) => {
+          parserServer.close((error) => error ? reject(error) : resolve());
+        });
+      }
+      await rm(parserDirectory, { recursive: true, force: true });
+    }
   }, 15_000);
 
   it("evidence replaced after the model call makes the result stale", async () => {
