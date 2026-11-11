@@ -2,7 +2,18 @@
 
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
-## Status snapshot checked 2026-11-11 04:08 UTC
+## Status snapshot checked 2026-11-11 05:38 UTC
+
+This section supersedes the older snapshots below where newer evidence is available.
+
+- **Candidate and CI:** PR [#14](https://github.com/martinlepage26-bit/aequitas/pull/14) is open, non-draft, unmerged and mergeable into `ct920-standup` at head `46e2955cb91d6fa7801448ef8bcec5ef18b61271`. Exact-head [CI run 42964824818](https://github.com/martinlepage26-bit/aequitas/actions/runs/42964824818) passed the required steps: service-backed Vitest, lint, typecheck, localization, production build and image, isolated-parser network/socket checks, SBOMs, both Playwright suites, stub-only agent evaluation, and configured vulnerability gates. Local lint, typecheck and `git diff --check` passed. This Mac checkout has no test database, so the integration suite was verified in GitHub CI.
+- **Privacy minimization:** new `CASE_CREATED` events have empty payloads; new chronology-submission events contain only the chronology-row ID. The source rows and sealed exports retain the content. Historical events were not changed. This does not satisfy the full retention/deletion gate; other event writers still store free text.
+- **Candidate image security:** the exact-head scan still finds four Medium `libtiff6` `4.7.0-3ubuntu5` matches in the candidate images: CVE-2026-12912, CVE-2026-18495, CVE-2026-36849 and CVE-2026-4775. The parser-image guard confirms `tiff2pdf` and `libtiff-tools` are absent. Configured critical/fixable-high gates passed; independent security disposition remains open. These scans are not scans of production images.
+- **Production public endpoints, checked from the Mac client around 05:38 UTC:** `/api/health` returned `status: ok` for release `d74ed342693a96a6dc75d8907d288131c0148385`; `/`, `/fr-CA`, and `/en-CA` returned 200; `/fr-CA/demo` and `/en-CA/demo` returned 404. PR #14 is not deployed. These public observations do not establish scheduler, email, passkey, retention or full operational readiness; no production writes were made.
+- **Routine autonomy and live evaluation:** the candidate case agent remains off by default and CI uses a stub model. This update made no live Workers AI request or charge and used no production case data. The selected seven-fixture live evaluation remains gated on independent program, privacy-counsel and Québec French reference review, account-specific settings/terms verification and a scoped local token.
+- **Remaining release and commercial gates:** approve a retention schedule and deletion design, resolve privacy/legal and candidate-image security review, verify host identity/email/scheduler/restore operations, retain the one-program-per-deployment limit or implement organization isolation, and validate buyer, budget, price, contract and software rights. No real-data or commercial-readiness claim is supported.
+
+## Previous status snapshot checked 2026-11-11 04:08 UTC
 
 This section supersedes the older snapshots below where newer evidence is available.
 
