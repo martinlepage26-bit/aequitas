@@ -323,13 +323,9 @@ export async function createCase(input: CreateCaseInput): Promise<MutationOutcom
         eventPayloads: [
           {
             type: "CASE_CREATED",
-            payload: {
-              referenceNumber: created.referenceNumber,
-              simulated: created.simulated,
-              category: created.category,
-              disputeDescription: created.disputeDescription,
-              amountAtStakeCents: created.amountAtStakeCents,
-            },
+            // The case row is the source of truth. Keep the reference number
+            // and substantive intake details out of the immutable event payload.
+            payload: {},
           },
         ],
       };
@@ -697,7 +693,9 @@ export async function submitChronology(input: SubmitChronologyInput): Promise<Mu
       const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [{
         type: "CHRONOLOGY_ENTRY_SUBMITTED",
-        payload: { chronologyEntryId: entry.id, ...parsed.data },
+        // The append-only chronology row retains the report. The event only
+        // needs an opaque reference and must not duplicate party text.
+        payload: { chronologyEntryId: entry.id },
       }, ...readinessEvents] };
     },
   });

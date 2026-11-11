@@ -51,10 +51,12 @@ describe("mutation pipeline: createCase", () => {
     const caseRow = await prisma.case.findUnique({ where: { id: result.data.caseId } });
     expect(caseRow?.state).toBe("DRAFT");
     expect(caseRow?.referenceNumber).toBe(referenceNumber);
+    expect(caseRow?.disputeDescription).toBe("The other party did not do what we agreed.");
 
     const events = await prisma.event.findMany({ where: { caseId: result.data.caseId }, orderBy: { seq: "asc" } });
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("CASE_CREATED");
+    expect(events[0].payload).toEqual({});
     expect(events[0].seq).toBe(1);
     expect(events[0].prevHash).toMatch(/^0{64}$/);
   });

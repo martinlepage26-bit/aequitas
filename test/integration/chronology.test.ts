@@ -40,11 +40,15 @@ describe("chronology on isolated PostgreSQL", () => {
     expect((await submitChronology({ ...entry(caseId), actorId: respondentId, actorRole: "RESPONDENT", occurredOn: "2025-12-30", description: "I sent the invoice earlier." })).ok).toBe(true);
     const rows = await prisma.chronologyEntry.findMany({ where: { caseId }, orderBy: { occurredOn: "asc" } });
     expect(rows.map(r => r.submittedById)).toEqual([respondentId, complainantId]);
+    expect(rows[0].description).toBe("I sent the invoice earlier.");
     expect(rows[1].occurredOn.toISOString()).toBe("2026-01-01T00:00:00.000Z");
     expect(rows[1].createdAt.getTime()).toBeGreaterThan(rows[1].occurredOn.getTime());
     const events = await prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } });
     expect(events.slice(-2).map(e => e.type)).toEqual(["CHRONOLOGY_ENTRY_SUBMITTED", "CHRONOLOGY_ENTRY_SUBMITTED"]);
-    expect(events.at(-1)?.payload).toMatchObject({ chronologyEntryId: rows[0].id, occurredOn: "2025-12-30", description: "I sent the invoice earlier." });
+    const chronologyPayloads = events.slice(-2).map(e => e.payload as Record<string, unknown>);
+    expect(chronologyPayloads.every(payload => Object.keys(payload).length === 1)).toBe(true);
+    expect(new Set(chronologyPayloads.map(payload => payload.chronologyEntryId))).toEqual(new Set(rows.map(row => row.id)));
+    expect(events.at(-1)?.payload).toEqual({ chronologyEntryId: rows[0].id });
     for (const event of events) expect(computeEventHash({ prevHash: event.prevHash, payload: event.payload, actorId: event.actorId, seq: event.seq, createdAtIso: event.createdAt.toISOString() })).toBe(event.hash);
     expect(replayCaseState(events)).toBe("EVIDENCE_INTAKE");
   });
