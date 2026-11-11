@@ -49,35 +49,6 @@ function webpHeader(width: number, height: number) {
   return buffer;
 }
 
-type TiffInlineEntry = { type: number; count: number; value: number };
-
-function tiffHeaderWithSamples(width: number, height: number, samples: TiffInlineEntry[], hasNextPage = false) {
-  const entries = [
-    { tag: 256, type: 4, count: 1, value: width },
-    { tag: 257, type: 4, count: 1, value: height },
-    ...samples.map((sample) => ({ tag: 277, ...sample })),
-  ];
-  const buffer = Buffer.alloc(8 + 2 + entries.length * 12 + 4);
-  buffer.write("II", 0, "ascii");
-  buffer.writeUInt16LE(42, 2);
-  buffer.writeUInt32LE(8, 4);
-  buffer.writeUInt16LE(entries.length, 8);
-  entries.forEach((entry, index) => {
-    const offset = 10 + index * 12;
-    buffer.writeUInt16LE(entry.tag, offset);
-    buffer.writeUInt16LE(entry.type, offset + 2);
-    buffer.writeUInt32LE(entry.count, offset + 4);
-    if (entry.type === 3) buffer.writeUInt16LE(entry.value, offset + 8);
-    else buffer.writeUInt32LE(entry.value, offset + 8);
-  });
-  buffer.writeUInt32LE(hasNextPage ? 8 : 0, buffer.length - 4);
-  return buffer;
-}
-
-function tiffHeader(width: number, height: number, hasNextPage = false) {
-  return tiffHeaderWithSamples(width, height, [], hasNextPage);
-}
-
 describe("source text extraction", () => {
   it("recognizes UTF-8 text without trusting a client MIME declaration", async () => {
     expect(await detectEvidenceMime(Buffer.from("Équité et révision\nPolicy record"))).toBe("text/plain");
@@ -91,14 +62,15 @@ describe("source text extraction", () => {
     expect(bounded.status).toBe("bounded");
     expect(bounded.text).toHaveLength(MAX_EXTRACTED_CHARACTERS);
   });
-  it("never fabricates extracted text for unsupported files", async () => {
-    expect(await extractEvidenceText(Buffer.from("unused"), "application/zip")).toMatchObject({ status: "unsupported", text: "" });
+  it.each(["application/zip", "image/tiff"])("never fabricates extracted text for %s", async (mime) => {
+    const result = await extractEvidenceText(Buffer.from("synthetic evidence"), mime);
+    expect(result).toMatchObject({ status: "unsupported", method: "none", text: "" });
+    if (mime === "image/tiff") expect(result.note).toContain("staff must review");
   });
   it.each([
     ["PNG", "image/png", pngHeader, MAX_IMAGE_PIXELS + 1, 1],
     ["JPEG", "image/jpeg", jpegHeader, 4000, 4000],
     ["WebP", "image/webp", webpHeader, MAX_IMAGE_PIXELS + 1, 1],
-    ["TIFF", "image/tiff", tiffHeader, MAX_IMAGE_PIXELS + 1, 1],
   ])("rejects %s rasters over the decoded-pixel limit before OCR", async (_name, mime, makeHeader, width, height) => {
     const result = await extractEvidenceText(makeHeader(width, height), mime);
     expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
@@ -107,42 +79,6 @@ describe("source text extraction", () => {
   it("rejects a raster with one axis beyond the OCR dimension limit", async () => {
     const result = await extractEvidenceText(pngHeader(MAX_IMAGE_DIMENSION + 1, 1), "image/png");
     expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
-  });
-  it("accepts the TIFF default and supported SamplesPerPixel values before OCR", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "aequitas-tiff-samples-test-"));
-    const tesseract = join(dir, "tesseract");
-    await writeFile(tesseract, "#!/bin/sh\nprintf 'synthetic OCR\\n'\n", { mode: 0o700 });
-    vi.stubEnv("AEQUITAS_TESSERACT_PATH", tesseract);
-    try {
-      const supported = [
-        tiffHeader(100, 100),
-        ...[1, 2, 3, 4].map((value) => tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value }])),
-      ];
-      for (const body of supported) {
-        const result = await extractEvidenceText(body, "image/tiff");
-        expect(result).toMatchObject({ status: "extracted", method: "tesseract" });
-        expect(result.text).toContain("synthetic OCR");
-      }
-    } finally {
-      vi.unstubAllEnvs();
-      await rm(dir, { recursive: true, force: true });
-    }
-  });
-  it("routes malformed, duplicate, and out-of-range TIFF SamplesPerPixel tags to staff before OCR", async () => {
-    const invalid = [
-      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value: 0 }]),
-      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 1, value: 5 }]),
-      tiffHeaderWithSamples(100, 100, [{ type: 4, count: 1, value: 3 }]),
-      tiffHeaderWithSamples(100, 100, [{ type: 3, count: 2, value: 3 }]),
-      tiffHeaderWithSamples(100, 100, [
-        { type: 3, count: 1, value: 1 },
-        { type: 3, count: 1, value: 2 },
-      ]),
-    ];
-    for (const body of invalid) {
-      const result = await extractEvidenceText(body, "image/tiff");
-      expect(result).toMatchObject({ status: "unavailable", method: "none", text: "" });
-    }
   });
   it("refuses malformed raster headers without starting OCR", async () => {
     const result = await extractEvidenceText(Buffer.alloc(24), "image/png");
@@ -173,7 +109,7 @@ describe("source text extraction", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
-  it("routes animated PNG, animated WebP and multipage TIFF to staff", async () => {
+  it("routes animated PNG and WebP to staff", async () => {
     const png = pngHeader(100, 100);
     const animationControl = Buffer.alloc(20);
     animationControl.writeUInt32BE(8, 0);
@@ -185,7 +121,6 @@ describe("source text extraction", () => {
     for (const [mime, body] of [
       ["image/png", animatedPng],
       ["image/webp", animatedWebp],
-      ["image/tiff", tiffHeader(100, 100, true)],
     ] as const) {
       expect(await extractEvidenceText(body, mime)).toMatchObject({ status: "unavailable", method: "none", text: "" });
     }

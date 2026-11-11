@@ -16,12 +16,11 @@ import { ensureDevRoute, startNextDev, type DevServer } from "../helpers/nextDev
  *     and stored as application/x-msdownload;
  *   - 10 random bytes starting 0xFF 0xFE are sniffed as audio/mpeg and also
  *     stored CLEAN.
- * The supported formats are the ones the extraction pipeline actually
- * handles (docs/aequitas-core-backend.md: "UTF-8 text, PDF text
- * (pdftotext) and image OCR (tesseract) are supported"; src/lib/
- * evidenceText.ts extractEvidenceText): text/plain, application/pdf, and
- * image/png, image/jpeg, image/tiff, image/webp. Anything else must be a
- * 400 with nothing stored — no EvidenceItem row and no storage object.
+ * The upload allowlist stores text/plain, application/pdf, image/png,
+ * image/jpeg, image/tiff and image/webp. TIFF remains available to staff but
+ * is no longer sent to automatic extraction. Anything outside the upload
+ * allowlist must be a 400 with nothing stored — no EvidenceItem row and no
+ * storage object.
  *
  * These tests protect the allowlist on both upload paths. The control test
  * also checks that supported formats still upload successfully.

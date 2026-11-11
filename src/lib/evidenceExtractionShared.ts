@@ -12,6 +12,15 @@ export const SUPPORTED_EVIDENCE_MIME_TYPES = [
 
 export type SupportedEvidenceMime = typeof SUPPORTED_EVIDENCE_MIME_TYPES[number];
 
+// TIFF remains a valid stored evidence type, but the isolated native parser
+// must not decode it while the candidate image contains undispositioned
+// libtiff findings. Unsupported TIFF extraction hands the case to staff.
+export const AUTOMATICALLY_EXTRACTABLE_EVIDENCE_MIME_TYPES = [
+  "application/pdf", "image/png", "image/jpeg", "image/webp",
+] as const;
+
+export type AutomaticallyExtractableEvidenceMime = typeof AUTOMATICALLY_EXTRACTABLE_EVIDENCE_MIME_TYPES[number];
+
 export type EvidenceExtraction = {
   status: "extracted" | "bounded" | "empty" | "unsupported" | "unavailable";
   method: "utf8" | "pdftotext" | "tesseract" | "none";
@@ -29,6 +38,10 @@ export function decodePlainText(buffer: Buffer): string | null {
 
 export function isSupportedEvidenceMime(mime: string): mime is SupportedEvidenceMime {
   return (SUPPORTED_EVIDENCE_MIME_TYPES as readonly string[]).includes(mime);
+}
+
+export function isAutomaticallyExtractableEvidenceMime(mime: string): mime is AutomaticallyExtractableEvidenceMime {
+  return (AUTOMATICALLY_EXTRACTABLE_EVIDENCE_MIME_TYPES as readonly string[]).includes(mime);
 }
 
 export function finishEvidenceText(text: string, method: EvidenceExtraction["method"], bounded = false): EvidenceExtraction {

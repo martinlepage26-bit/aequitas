@@ -4,6 +4,7 @@ import { downloadBuffer } from "./storage";
 import {
   decodePlainText,
   extractPlainTextEvidence,
+  isAutomaticallyExtractableEvidenceMime,
   isSupportedEvidenceMime,
   MAX_EVIDENCE_BYTES,
   unsupportedEvidence,
@@ -36,6 +37,9 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
   if (mime === "text/plain") return extractPlainTextEvidence(buffer);
   if (!isSupportedEvidenceMime(mime)) {
     return unsupportedEvidence("This file format has no configured text extractor; metadata only.");
+  }
+  if (!isAutomaticallyExtractableEvidenceMime(mime)) {
+    return unsupportedEvidence("Automatic text extraction is disabled for TIFF evidence; staff must review the original file.");
   }
   return requestEvidenceExtraction(buffer, mime);
 }

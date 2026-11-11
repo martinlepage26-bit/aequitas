@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import {
   decodePlainText,
   finishEvidenceText,
-  isSupportedEvidenceMime,
+  isAutomaticallyExtractableEvidenceMime,
   MAX_EVIDENCE_BYTES,
   MAX_IMAGE_DIMENSION,
   MAX_IMAGE_PIXELS,
@@ -126,50 +126,6 @@ function rasterDimensions(buffer: Buffer, mime: string): RasterDimensions | null
     return null;
   }
 
-  if (mime === "image/tiff") {
-    if (buffer.length < 8) return null;
-    const littleEndian = buffer.toString("ascii", 0, 2) === "II";
-    if (!littleEndian && buffer.toString("ascii", 0, 2) !== "MM") return null;
-    const read16 = (offset: number) => littleEndian ? buffer.readUInt16LE(offset) : buffer.readUInt16BE(offset);
-    const read32 = (offset: number) => littleEndian ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
-    if (read16(2) !== 42) return null; // BigTIFF and unknown variants are sent to a person.
-    const directory = read32(4);
-    if (directory < 8 || directory + 2 > buffer.length) return null;
-    const entries = read16(directory);
-    if (entries > 4096 || directory + 2 + entries * 12 + 4 > buffer.length) return null;
-    // Multi-page TIFF processing is not bounded by this single-image pixel
-    // budget. Route it to staff rather than letting Tesseract walk every IFD.
-    if (read32(directory + 2 + entries * 12) !== 0) return null;
-    let width: number | null = null;
-    let height: number | null = null;
-    let samplesPerPixelSeen = false;
-    for (let index = 0; index < entries; index++) {
-      const entry = directory + 2 + index * 12;
-      const tag = read16(entry);
-      if (tag !== 256 && tag !== 257 && tag !== 277) continue;
-      const type = read16(entry + 2);
-      const count = read32(entry + 4);
-
-      // TIFF 6.0 defaults this tag to one sample. Bound an explicit channel
-      // count before Tesseract/libtiff sees attacker-controlled image data;
-      // grayscale, RGB, RGBA and CMYK evidence fit this limit. Unusual
-      // multispectral files are routed to staff instead of OCR.
-      if (tag === 277) {
-        if (samplesPerPixelSeen || type !== 3 || count !== 1) return null;
-        const samplesPerPixel = read16(entry + 8);
-        if (samplesPerPixel < 1 || samplesPerPixel > 4) return null;
-        samplesPerPixelSeen = true;
-        continue;
-      }
-
-      if (count !== 1 || (type !== 3 && type !== 4)) return null;
-      const value = type === 3 ? read16(entry + 8) : read32(entry + 8);
-      if (tag === 256) width = value;
-      else height = value;
-    }
-    return width !== null && height !== null ? { width, height } : null;
-  }
-
   return null;
 }
 
@@ -250,7 +206,7 @@ export async function extractEvidenceTextLocally(buffer: Buffer, mime: string): 
       : finishEvidenceText(decoded, "utf8");
   }
   const pdf = mime === "application/pdf";
-  const image = isSupportedEvidenceMime(mime) && mime.startsWith("image/");
+  const image = isAutomaticallyExtractableEvidenceMime(mime) && mime.startsWith("image/");
   if (!pdf && !image) return { status: "unsupported", method: "none", text: "", note: "This file format has no configured text extractor; metadata only." };
   if (image && !rasterWithinOcrBounds(rasterDimensions(buffer, mime))) {
     return { status: "unavailable", method: "none", text: "", note: "Image dimensions could not be safely processed within the OCR limit; metadata only." };

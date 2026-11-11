@@ -2,7 +2,7 @@ import { createServer, request, type Server } from "node:http";
 import { chmod, lstat, mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
-  isSupportedEvidenceMime,
+  isAutomaticallyExtractableEvidenceMime,
   MAX_EVIDENCE_BYTES,
   type EvidenceExtraction,
 } from "../src/lib/evidenceExtractionShared";
@@ -25,7 +25,7 @@ function respond(res: import("node:http").ServerResponse, status: number, body: 
 }
 
 function isParserMime(value: string | string[] | undefined): value is string {
-  return typeof value === "string" && value !== "text/plain" && isSupportedEvidenceMime(value);
+  return typeof value === "string" && isAutomaticallyExtractableEvidenceMime(value);
 }
 
 export async function startEvidenceParserService(socketPath = SOCKET_PATH): Promise<Server> {
