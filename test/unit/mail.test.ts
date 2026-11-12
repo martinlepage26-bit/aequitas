@@ -1,4 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+// Durable admission is exercised against PostgreSQL in case-operation-fencing.test.ts.
+vi.mock("../../src/lib/caseOperation", () => ({
+  CaseUnavailableError: class extends Error {},
+  withCaseOperation: (_caseId: string, _kind: string, fn: () => Promise<unknown>) => fn(),
+  caseOperationExternalIO: (_caseId: string, fn: () => Promise<unknown>) => fn(),
+}));
 
 const db = vi.hoisted(() => ({
   notification: { findMany: vi.fn(), update: vi.fn() },

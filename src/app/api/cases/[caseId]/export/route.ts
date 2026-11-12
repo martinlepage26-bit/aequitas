@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
@@ -14,9 +15,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
 
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
-  if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
+  if (!caseRow || caseRow.deletionStartedAt !== null) return Response.json({ message: "Case not found." }, { status: 404 });
 
   const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
   const isAssignedManager = session.globalRole === "CASE_MANAGER" && session.userId === caseRow.caseManagerId;
@@ -44,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     });
   }
 
-  const buffer = await downloadBuffer(bundle.storageKey);
+  const buffer = await caseOperationExternalIO(caseId, () => downloadBuffer(bundle.storageKey));
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/zip",
@@ -53,4 +55,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
       "Cache-Control": "private, no-store",
     },
   });
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }

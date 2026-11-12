@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../../lib/caseOperation";
 import type { AssumptionOrigin, ClaimType, GlobalRole, PipelineStageName, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
 import { caseReadAccess, type CaseReadAccess } from "../caseAccess";
@@ -248,6 +249,7 @@ async function completionFor(injected?: TextCompletion): Promise<{ ok: true; mod
 }
 
 export async function runAssumptionExtraction(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runAssumptionExtraction", async () => {
   const model = await completionFor(injected);
   if (!model.ok) return model.ok === false && model.reason === PIPELINE_OFF_REASON ? off() : guard(model.reason);
   const auth = await authorize(input);
@@ -256,7 +258,7 @@ export async function runAssumptionExtraction(input: ActorInput, injected?: Text
   if (!description) return guard("The case has no framing text to read.");
   let raw: string;
   try {
-    raw = await model.model.complete(assumptionPrompt(description));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(assumptionPrompt(description)));
   } catch (error) {
     console.error("Assumption extraction failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -301,9 +303,12 @@ export async function runAssumptionExtraction(input: ActorInput, injected?: Text
     return created;
   });
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export async function runClaimDecomposition(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runClaimDecomposition", async () => {
   if (!pipelineEnabled()) return off();
   const auth = await authorize(input);
   if (!auth.ok) return auth;
@@ -320,7 +325,7 @@ export async function runClaimDecomposition(input: ActorInput, injected?: TextCo
   if (!model.ok) return guard(model.reason);
   let raw: string;
   try {
-    raw = await model.model.complete(claimPrompt(withBody));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(claimPrompt(withBody)));
   } catch (error) {
     console.error("Claim decomposition failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -339,6 +344,8 @@ export async function runClaimDecomposition(input: ActorInput, injected?: TextCo
   }
   const ids = await storeClaimProposals(input, parsed.claims, model.model.model);
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function storeClaimProposals(input: ActorInput, claims: ProposedClaim[], modelId: string): Promise<string[]> {
@@ -473,6 +480,7 @@ export async function rejectProposal(input: ActorInput & { proposalId: string })
 }
 
 export async function runContextMapping(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runContextMapping", async () => {
   if (!pipelineEnabled()) return off();
   const auth = await authorize(input);
   if (!auth.ok) return auth;
@@ -490,7 +498,7 @@ export async function runContextMapping(input: ActorInput, injected?: TextComple
   if (!model.ok) return guard(model.reason);
   let raw: string;
   try {
-    raw = await model.model.complete(contextPrompt(claims, evidenceIds));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(contextPrompt(claims, evidenceIds)));
   } catch (error) {
     console.error("Context mapping failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -507,6 +515,8 @@ export async function runContextMapping(input: ActorInput, injected?: TextComple
   }
   const ids = await storeContextProposals(input, parsed.factors, model.model.model);
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function storeContextProposals(input: ActorInput, factors: ProposedContextFactor[], modelId: string): Promise<string[]> {
@@ -717,6 +727,8 @@ function proposalText(kind: string, payload: unknown): { text: string; excerpt: 
 }
 
 export async function readPipeline(caseId: string, session: { userId: string; globalRole: GlobalRole; isApprover?: boolean }): Promise<PipelineView | null> {
+  try { return await withCaseOperation(caseId, "readPipeline", async () => {
+
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
   const access: CaseReadAccess | null = caseReadAccess(caseRow, session);
@@ -774,4 +786,6 @@ export async function readPipeline(caseId: string, session: { userId: string; gl
     canAuthor: permission.ok,
   };
   return view;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }

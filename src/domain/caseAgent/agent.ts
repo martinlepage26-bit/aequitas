@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../../lib/caseOperation";
 import { createHash, randomUUID } from "node:crypto";
 import type { GlobalRole, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
@@ -406,6 +407,7 @@ function materialDigest(m: Material, evidenceSources: ReadonlyMap<string, AgentE
  * the result ("stale") for the next pass.
  */
 export async function runCaseAgent(input: { caseId: string; model: TextCompletion | null; env?: Env; now?: Date }): Promise<AgentRunResult> {
+  try { return await withCaseOperation(input.caseId, "runCaseAgent", async () => {
   const env = input.env ?? process.env;
   const now = input.now ?? new Date();
   const config = caseAgentProgram(env);
@@ -595,9 +597,9 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
   let raw: string;
   try {
     if (input.model.completeWithJsonSchema) {
-      raw = (await input.model.completeWithJsonSchema(prompt.userContent, outputSchema, prompt.systemInstruction)).text;
+      raw = (await caseOperationExternalIO(input.caseId, () => input.model!.completeWithJsonSchema!(prompt.userContent, outputSchema, prompt.systemInstruction))).text;
     } else {
-      raw = await input.model.complete(prompt.userContent, prompt.systemInstruction);
+      raw = await caseOperationExternalIO(input.caseId, () => input.model!.complete(prompt.userContent, prompt.systemInstruction));
     }
   } catch {
     if (await handoffWasRecorded()) return { status: "skipped", reason: "escalated" };
@@ -741,6 +743,8 @@ export async function runCaseAgent(input: { caseId: string; model: TextCompletio
     if (error instanceof StaleAgentWrite) return { status: "stale" };
     throw error;
   }
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { status: "skipped", reason: "case_missing" }; } throw error; }
 }
 
 async function loadMaterialIn(tx: Prisma.TransactionClient, caseId: string): Promise<Material> {

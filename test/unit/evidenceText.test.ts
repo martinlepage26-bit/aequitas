@@ -5,6 +5,11 @@ import { basename, join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 const download = vi.hoisted(() => vi.fn());
 vi.mock("../../src/lib/storage", () => ({ downloadBuffer: download }));
+// This suite isolates extraction/integrity; DB-backed fencing has its own concurrency tests.
+vi.mock("../../src/lib/caseOperation", () => ({
+  withCaseOperation: (_caseId: string, _kind: string, fn: () => Promise<unknown>) => fn(),
+  caseOperationExternalIO: (_caseId: string, fn: () => Promise<unknown>) => fn(),
+}));
 import {
   decodePlainText,
   detectEvidenceMime,
@@ -169,7 +174,7 @@ describe("source text extraction", () => {
   it("verifies byte size and intake hash before parsing", async () => {
     const body = Buffer.from("Authentic source text.");
     download.mockResolvedValue(body);
-    const item = { storageKey: "simulated/test/file", byteSize: body.length, sha256: createHash("sha256").update(body).digest("hex"), mimeType: "text/plain" };
+    const item = { caseId: "test-case", storageKey: "simulated/test/file", byteSize: body.length, sha256: createHash("sha256").update(body).digest("hex"), mimeType: "text/plain" };
     expect((await extractStoredEvidence(item)).text).toBe(body.toString());
     await expect(extractStoredEvidence({ ...item, sha256: "0".repeat(64) })).rejects.toThrow("integrity check failed");
     await expect(extractStoredEvidence({ ...item, byteSize: 1 })).rejects.toThrow("integrity check failed");

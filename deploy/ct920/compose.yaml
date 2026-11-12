@@ -54,6 +54,8 @@ services:
     env_file: .env
     environment:
       RELEASE_SHA: ${RELEASE_SHA:-}
+      RETENTION_ENFORCEMENT_ENABLED: ${RETENTION_ENFORCEMENT_ENABLED:-false}
+      RETENTION_LEDGER_PATH: /retention/ledger.json
       STORAGE_LOCAL_DIR: /data/evidence
       CLAMAV_HOST: aeq-prod-clamav
       CLAMAV_PORT: "3310"
@@ -66,6 +68,7 @@ services:
     ports: ["127.0.0.1:18310:3000"]
     volumes:
       - aeq-prod-evidence:/data
+      - aeq-prod-retention-ledger:/retention:ro
       - type: volume
         source: aeq-prod-parser-socket
         target: /run/aeq-parser
@@ -90,6 +93,8 @@ services:
     working_dir: /app
     environment:
       NODE_ENV: production
+      RETENTION_ENFORCEMENT_ENABLED: ${RETENTION_ENFORCEMENT_ENABLED:-false}
+      RETENTION_LEDGER_PATH: /retention/ledger.json
       DATABASE_URL: ${DATABASE_URL:-}
       HASH_CHAIN_GENESIS: ${HASH_CHAIN_GENESIS:-0000000000000000000000000000000000000000000000000000000000000000}
       STORAGE_LOCAL_DIR: /data/evidence
@@ -134,6 +139,7 @@ services:
     group_add: ["2000"]
     volumes:
       - aeq-prod-evidence:/data
+      - aeq-prod-retention-ledger:/retention:ro
       - type: volume
         source: aeq-prod-parser-socket
         target: /run/aeq-parser
@@ -191,6 +197,9 @@ services:
 volumes:
   aeq-prod-pgdata: { name: aeq-prod-pgdata }
   aeq-prod-evidence: { name: aeq-prod-evidence }
+  # Never restore this together with the database/evidence backup. The
+  # operator separately replicates its current ledger before enabling erasure.
+  aeq-prod-retention-ledger: { name: aeq-prod-retention-ledger }
   aeq-prod-clamav-db: { name: aeq-prod-clamav-db }
   aeq-prod-parser-socket:
     name: aeq-prod-parser-socket

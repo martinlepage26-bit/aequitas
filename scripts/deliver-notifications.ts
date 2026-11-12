@@ -1,4 +1,5 @@
 import "../src/lib/loadEnv";
+import { assertRetentionRestoreSafe } from "../src/domain/retentionLedger";
 import { deliverPendingNotifications, deliverPendingTokenEmails, emailConfigured, notificationBacklog } from "../src/lib/mail";
 import { prisma } from "../src/lib/prisma";
 
@@ -10,6 +11,7 @@ import { prisma } from "../src/lib/prisma";
  * MAX_DELIVERY_ATTEMPTS times in total.
  */
 async function main() {
+  await assertRetentionRestoreSafe();
   const batches = Math.min(Math.max(Number(process.argv[2] ?? 5) || 5, 1), 50);
   if (!emailConfigured()) {
     await deliverPendingTokenEmails(); // Clears expired encrypted links even while delivery is unconfigured.

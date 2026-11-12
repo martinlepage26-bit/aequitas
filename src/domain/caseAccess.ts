@@ -24,9 +24,10 @@ import type { CaseState, GlobalRole } from "../generated/prisma";
 export type CaseReadAccess = "party" | "assigned-manager" | "claimable" | "approver" | "admin";
 
 export function caseReadAccess(
-  caseRow: { complainantId: string; respondentId: string; caseManagerId: string | null; state: CaseState; agentEscalatedAt?: Date | null },
+  caseRow: { deletionStartedAt: Date | null; complainantId: string; respondentId: string; caseManagerId: string | null; state: CaseState; agentEscalatedAt?: Date | null },
   viewer: { userId: string; globalRole: GlobalRole; isApprover?: boolean }
 ): CaseReadAccess | null {
+  if (caseRow.deletionStartedAt !== null) return null;
   if (viewer.userId === caseRow.complainantId || viewer.userId === caseRow.respondentId) return "party";
   if (viewer.globalRole === "CASE_MANAGER") {
     if (caseRow.caseManagerId === viewer.userId) return "assigned-manager";

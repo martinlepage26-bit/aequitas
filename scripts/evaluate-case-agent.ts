@@ -1,3 +1,4 @@
+import { withCaseOperation } from "../src/lib/caseOperation";
 import "../src/lib/loadEnv";
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -260,8 +261,10 @@ async function main() {
     for (const [party, text] of [[c.id, f.complainantText], [r.id, f.respondentText]] as const) {
       const id = randomUUID();
       partyEvidenceIds.get(party)?.add(id);
-      const stored = await uploadEvidence({ caseId, evidenceId: id, simulated: true, buffer: Buffer.from(text), mimeType: "text/plain" });
-      await prisma.evidenceItem.create({ data: { id, caseId, submittedById: party, kind: "DOCUMENT", title: "Synthetic", ...stored, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true } });
+      await withCaseOperation(caseId, "evaluation-evidence", async () => {
+        const stored = await uploadEvidence({ caseId, evidenceId: id, simulated: true, buffer: Buffer.from(text), mimeType: "text/plain" });
+        await prisma.evidenceItem.create({ data: { id, caseId, submittedById: party, kind: "DOCUMENT", title: "Synthetic", ...stored, mimeType: "text/plain", scanStatus: "CLEAN", simulated: true } });
+      });
     }
     await setPartyIntakeReady({ actorId: c.id, actorRole: "COMPLAINANT", caseId, ready: true });
     await setPartyIntakeReady({ actorId: r.id, actorRole: "RESPONDENT", caseId, ready: true });

@@ -1,4 +1,5 @@
 import "../src/lib/loadEnv";
+import { assertRetentionRestoreSafe } from "../src/domain/retentionLedger";
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import { prisma } from "../src/lib/prisma";
@@ -210,7 +211,10 @@ if (process.argv.includes("--print-plan")) {
 } else {
   process.on("SIGTERM", () => stop("SIGTERM"));
   process.on("SIGINT", () => stop("SIGINT"));
-  stallWatchTimer = setInterval(() => { void checkForStalledChildren(); }, STALL_WATCH_INTERVAL_MS);
-  stallWatchTimer.unref();
-  for (const operation of operations) schedule(operation, 0);
+  assertRetentionRestoreSafe().then(() => {
+    if (stopping) return;
+    stallWatchTimer = setInterval(() => { void checkForStalledChildren(); }, STALL_WATCH_INTERVAL_MS);
+    stallWatchTimer.unref();
+    for (const operation of operations) schedule(operation, 0);
+  }).catch(async () => { console.error("RETENTION_RESTORE_CHECK_FAILED"); process.exitCode = 1; await prisma.$disconnect(); });
 }

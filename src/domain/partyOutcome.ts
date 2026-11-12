@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../lib/caseOperation";
 import { z } from "zod";
 import type { CaseState, GlobalRole, PartyOutcomeStatus, Prisma } from "../generated/prisma";
 import { CASE_REOPENED_KIND, OUTCOME_NEEDS_ANSWER_KIND, deliverPendingNotifications } from "../lib/mail";
@@ -116,6 +117,8 @@ export async function readPartyOutcomes(
   caseId: string,
   viewer: { userId: string; globalRole: GlobalRole; isApprover?: boolean },
 ): Promise<PartyOutcomeView | null> {
+  try { return await withCaseOperation(caseId, "readPartyOutcomes", async () => {
+
   const caseRow = await prisma.case.findUnique({
     where: { id: caseId },
     include: {
@@ -155,6 +158,8 @@ export async function readPartyOutcomes(
       };
     }),
   };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }
 
 async function authorizeWrite(

@@ -1,3 +1,4 @@
+import { withCaseOperation, caseOperationExternalIO } from "./caseOperation";
 import { createHash } from "node:crypto";
 import { fileTypeFromBuffer } from "file-type";
 import { downloadBuffer } from "./storage";
@@ -44,11 +45,14 @@ export async function extractEvidenceText(buffer: Buffer, mime: string): Promise
   return requestEvidenceExtraction(buffer, mime);
 }
 
-export async function extractStoredEvidence(item: { storageKey: string; sha256: string; byteSize: number; mimeType: string }): Promise<EvidenceExtraction> {
+export async function extractStoredEvidence(item: { caseId: string; storageKey: string; sha256: string; byteSize: number; mimeType: string }): Promise<EvidenceExtraction> {
+  return withCaseOperation(item.caseId, "extractStoredEvidence", async () => {
   if (item.byteSize > MAX_EVIDENCE_BYTES) throw new Error("Evidence exceeds the extraction size limit.");
-  const buffer = await downloadBuffer(item.storageKey);
+  const buffer = await caseOperationExternalIO(item.caseId, () => downloadBuffer(item.storageKey));
   if (buffer.length !== item.byteSize || createHash("sha256").update(buffer).digest("hex") !== item.sha256) {
     throw new Error("Evidence integrity check failed. The stored file does not match its intake record.");
   }
-  return extractEvidenceText(buffer, item.mimeType);
+  return caseOperationExternalIO(item.caseId, () => extractEvidenceText(buffer, item.mimeType));
+
+  });
 }

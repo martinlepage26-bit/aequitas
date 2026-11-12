@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../lib/caseOperation";
 import { createHash } from "node:crypto";
 import type { GlobalRole } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -67,6 +68,7 @@ export async function downloadCleanEvidence(input: {
   caseId: string;
   evidenceId: string;
 }): Promise<EvidenceDownload> {
+  try { return await withCaseOperation(input.caseId, "downloadCleanEvidence", async () => {
   const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!caseRow) return { ok: false, status: 404 };
   const access = caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole });
@@ -82,7 +84,7 @@ export async function downloadCleanEvidence(input: {
 
   let body: Buffer;
   try {
-    body = await downloadBuffer(item.storageKey);
+    body = await caseOperationExternalIO(input.caseId, () => downloadBuffer(item.storageKey));
   } catch {
     console.error("Evidence download failed.");
     return { ok: false, status: 500 };
@@ -114,4 +116,6 @@ export async function downloadCleanEvidence(input: {
     mimeType: evidenceContentType(item.mimeType),
     contentDisposition: attachmentContentDisposition(evidenceDownloadFilename(item.title, item.mimeType)),
   };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, status: 404 }; } throw error; }
 }

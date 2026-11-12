@@ -75,6 +75,7 @@ if ! app_image="$(docker inspect --format '{{.Config.Image}}' aeq-prod-app 2>/de
   refuse 'the stopped production app image could not be identified safely.'
 fi
 docker volume inspect aeq-prod-evidence >/dev/null 2>&1 || refuse 'the production evidence volume is unavailable.'
+docker volume inspect aeq-prod-retention-ledger >/dev/null 2>&1 || refuse 'the independent retention ledger volume is unavailable; do not restore it from the case backup.'
 
 if [[ ! -t 0 && ! -t 1 && ! -t 2 ]]; then
   refuse 'an interactive terminal is required for the production replacement confirmation.'
@@ -104,7 +105,7 @@ fi
 [[ -n "$database_url" && "$database_url" != *$'\n'* && "$database_url" != *$'\r'* ]] || refuse 'the production database connection setting is missing or malformed.'
 umask 077
 verify_env="$(mktemp "${TMPDIR:-/tmp}/aequitas-restore-verify.XXXXXX")"
-printf 'DATABASE_URL=%s\nSTORAGE_LOCAL_DIR=/data/evidence\n' "$database_url" > "$verify_env"
+printf 'DATABASE_URL=%s\nSTORAGE_LOCAL_DIR=/data/evidence\nRETENTION_ENFORCEMENT_ENABLED=true\nRETENTION_LEDGER_PATH=/retention/ledger.json\n' "$database_url" > "$verify_env"
 unset database_url
 trap 'rm -f -- "$verify_env"' EXIT
 
@@ -119,6 +120,7 @@ fi
 run_verifier() {
   docker run --rm --network aeq-prod-net --env-file "$verify_env" \
     --mount type=volume,source=aeq-prod-evidence,target=/data,readonly \
+    --mount type=volume,source=aeq-prod-retention-ledger,target=/retention,readonly \
     --entrypoint "$1" "$app_image" "${@:2}"
 }
 
@@ -130,4 +132,6 @@ printf '%s\n' '== verify:events (one-off verifier; production app remains stoppe
 run_verifier node node_modules/tsx/dist/cli.mjs scripts/verify-events.ts
 printf '%s\n' '== evidence hashes (read-only volume; production app remains stopped)'
 run_verifier node node_modules/tsx/dist/cli.mjs scripts/verify-evidence-files.ts
+printf '%s\n' '== independent deletion ledger (replay/quarantine is required before restart)'
+run_verifier node node_modules/tsx/dist/cli.mjs scripts/retention-restore.ts verify
 printf '%s\n' 'Restore verification complete. The production app and scheduler remain stopped.'

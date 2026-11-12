@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// Durable admission is exercised against PostgreSQL in case-operation-fencing.test.ts.
+vi.mock("../../src/lib/caseOperation", () => ({
+  CaseUnavailableError: class extends Error {},
+  withCaseOperation: (_caseId: string, _kind: string, fn: () => Promise<unknown>) => fn(),
+  caseOperationExternalIO: (_caseId: string, fn: () => Promise<unknown>) => fn(),
+}));
 const mocks = vi.hoisted(() => ({ session: vi.fn(), caseFind: vi.fn(), entries: vi.fn(), submit: vi.fn(), staffAccess: vi.fn(), evidence: vi.fn(), positions: vi.fn() }));
 vi.mock("../../src/domain/staffAccess", () => ({ recordStaffAccess: mocks.staffAccess }));
 vi.mock("../../src/lib/session", () => ({ requireSession: mocks.session }));
@@ -11,7 +17,7 @@ const input = { occurredOn: "2026-01-01", title: "Message", description: "I rece
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.session.mockResolvedValue({ session: { userId: "party1", globalRole: "COMPLAINANT" } });
-  mocks.caseFind.mockResolvedValue({ id: "case1", state: "EVIDENCE_INTAKE", caseManagerId: "manager", complainantId: "party1", respondentId: "party2" });
+  mocks.caseFind.mockResolvedValue({ id: "case1", deletionStartedAt: null, state: "EVIDENCE_INTAKE", caseManagerId: "manager", complainantId: "party1", respondentId: "party2" });
   mocks.entries.mockResolvedValue([]);
   mocks.evidence.mockResolvedValue([]);
   mocks.positions.mockResolvedValue([]);

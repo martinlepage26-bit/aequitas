@@ -187,7 +187,7 @@ Evidence: backup and off-box receipts, checksum output, isolated drill exit stat
 
 ## 9. Retention and deletion
 
-No retention schedule or case-deletion service exists at this head; see [retention and deletion design](retention-deletion-design.md). Until Martin and the privacy or legal reviewers approve the written policy, this section records the gate as open and the synthetic records created above as awaiting that decision. Once a deletion release ships, replace this section with its acceptance gates from that document: a deletion request against the synthetic case, per-store receipts, retained minimal receipt only, and a backup restore that does not resurrect the deleted content.
+The candidate implements the reviewed lifecycle in [retention and deletion](retention-deletion-design.md). Before enabling it on the target host, verify the separate runtime/purger roles, current independent ledger and replication, writer drain, local/S3 ownership and external-copy inventory. Run the synthetic request → hold review → approval → freeze → inventory → object erasure → database purge sequence, prove a hold and a failed store block progress, and verify every retained receipt contains only allowed metadata. Restore a pre-erasure backup in isolated resources with the current independent ledger; startup must refuse until replay quarantines restored records. Also restore an older object archive beside a post-purge database: verification must refuse until separately reviewed residual-object reconciliation. Keep real records out of this test and leave model processing disabled unless its own activation gates are satisfied.
 
 Evidence: the case ID and test user ID from sections 5 and 6, flagged for cleanup.
 

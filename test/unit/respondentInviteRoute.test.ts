@@ -52,7 +52,7 @@ beforeEach(() => {
   mocks.transaction.mockImplementation(async (work: (client: typeof tx) => Promise<unknown>) => work(tx));
   mocks.session.mockResolvedValue({ session: { userId: "complainant-1", globalRole: "COMPLAINANT" } });
   mocks.caseFind.mockResolvedValue({
-    id: "case-1", state: "OPEN", complainantId: "complainant-1", respondentId: "respondent-1",
+    id: "case-1", deletionStartedAt: null, state: "OPEN", complainantId: "complainant-1", respondentId: "respondent-1",
     respondent: { email: "respondent@example.org", locale: "fr-CA", _count: { credentials: 0 } },
   });
   mocks.invitationFindFirst.mockResolvedValue(null);

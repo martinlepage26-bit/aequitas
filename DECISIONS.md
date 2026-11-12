@@ -258,3 +258,10 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Enrollment.** Persist the canonical remedy list in the versioned `AGENT_ENROLLED` policy snapshot. The current configured list must continue to match the enrolled list exactly; a change hands active cases to staff, so an evaluation for one list cannot authorize another. Policy version 1 lacks this list and therefore fails closed to staff.
 - **Evaluation.** Include the canonical remedy-list SHA-256 digest in both pre-model and post-model review identities. Changing the list invalidates prior evaluation approvals.
 - **Current state.** Martin selected the Workers AI account and synthetic-only spend cap, but has not selected a program remedy list. The live evaluation identity is pending; no live model call is authorized by this decision.
+
+
+## 2026-11-12 — reviewed deletion and tagged export completion
+
+Martin's “decide with measure” direction selects first-anniversary closure review with explicit per-case authorization, persistent non-expiring holds and no automatic erasure. This supersedes the original seven-year automatic anonymization design. Whole-case erasure removes historical event/chronology content only through a separate purger procedure; ordinary writes remain append-only. Shared accounts and minimal linkable disposal receipts remain separately controlled. External-copy evidence and an independently retained restore ledger are required; completion concerns the controlled scope, not recipients' independent copies. See `docs/retention-deletion-design.md`.
+
+The earlier M5 untagged-PDF limitation is superseded by `src/lib/taggedPdf.ts`: real Document/H1/H2/P/Span structure, MCIDs, ParentTree, explicit language runs and page-spanning reading order. Automated structural and Poppler extraction checks cover sealed and party views. This is not a claim of PDF/UA certification or human screen-reader testing.

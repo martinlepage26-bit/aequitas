@@ -286,6 +286,8 @@ model Case {
   draftRequestedAt        DateTime?
   createdAt               DateTime  @default(now())
   closedAt                DateTime?
+  // Irreversible processing barrier until the controlled deletion completes.
+  deletionStartedAt       DateTime?
 
   complainant    User @relation("CaseComplainant", fields: [complainantId], references: [id])
   respondent     User @relation("CaseRespondent", fields: [respondentId], references: [id])
@@ -949,4 +951,110 @@ model CaseAgentDailyUsage {
   modelCalls Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum CaseOperationStatus {
+  ACTIVE
+  SUCCEEDED
+  UNCERTAIN
+  RESOLVED
+}
+
+// Deliberately independent of Case: a crashed operation's object intents must
+// survive until erasure is verified. ACTIVE operations never expire by time.
+model CaseOperation {
+  id                       String @id @default(uuid())
+  caseId                   String
+  kind                     String
+  storageKeys              String[] @default([])
+  status                   CaseOperationStatus @default(ACTIVE)
+  startedAt                DateTime @default(now())
+  finishedAt               DateTime?
+  resolutionEvidenceDigest String?
+  @@index([caseId, status])
+}
+
+enum CaseDeletionStatus {
+  REQUESTED
+  APPROVED
+  FROZEN
+  ERASING
+  LOCAL_PURGED
+  COMPLETED
+}
+
+enum RetentionHoldState {
+  UNKNOWN
+  CLEAR
+  HELD
+}
+
+enum DeletionCopyStatus {
+  PENDING
+  VERIFIED_DELETED
+  VERIFIED_ABSENT
+  OUTSIDE_CONTROL
+}
+
+// Restricted operational ledger and restore tombstone, not anonymous data.
+// No case/party narrative, names, evidence contents or email addresses here.
+// No Case FK: receipts survive the authorized whole-case erasure.
+model CaseDeletion {
+  id                  String @id @default(uuid())
+  caseId              String @unique
+  policyVersion       String
+  eligibleAt          DateTime
+  status              CaseDeletionStatus @default(REQUESTED)
+  holdState           RetentionHoldState @default(UNKNOWN)
+  holdEvidenceDigest  String?
+  requestedById       String
+  requestedAt         DateTime @default(now())
+  approvedById        String?
+  approvedAt          DateTime?
+  approvalDigest      String?
+  frozenAt            DateTime?
+  inventoryAt         DateTime?
+  localPurgedAt       DateTime?
+  completedAt         DateTime?
+  erasedObjectCount   Int @default(0)
+  restoredObjectsPending Boolean @default(false)
+  objects             CaseDeletionObject[]
+  copies              CaseDeletionCopy[]
+  decisions           CaseDeletionDecision[]
+}
+
+model CaseDeletionObject {
+  id              String @id @default(uuid())
+  deletionId      String
+  storageKey      String
+  erasedAt        DateTime?
+  backend         String?
+  deletedVersions Int?
+  deletion        CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@unique([deletionId, storageKey])
+}
+
+// Evidence digests refer to separately access-controlled disposal records.
+// An operator attestation is recorded as an assertion, never a provider proof.
+model CaseDeletionCopy {
+  id              String @id @default(uuid())
+  deletionId      String
+  store           String
+  status          DeletionCopyStatus @default(PENDING)
+  evidenceDigest  String?
+  attestedById    String?
+  attestedAt      DateTime?
+  deletion        CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@unique([deletionId, store])
+}
+
+model CaseDeletionDecision {
+  id             String @id @default(uuid())
+  deletionId     String
+  actorId        String
+  action         String
+  evidenceDigest String
+  createdAt      DateTime @default(now())
+  deletion       CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@index([deletionId, createdAt])
 }

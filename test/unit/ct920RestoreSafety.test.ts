@@ -43,6 +43,7 @@ function runRestore(args: string[], options: RestoreOptions = {}) {
     "  'inspect --format {{.Config.Image}} aeq-prod-app') printf '%s\\n' aeq-prod-app:synthetic ;;",
     "  'inspect --format {{range .Config.Env}}{{println .}}{{end}} aeq-prod-app') printf '%s\\n' 'DATABASE_URL=postgresql://aequitas:synthetic@aeq-prod-postgres:5432/aequitas' ;;",
     "  'volume inspect aeq-prod-evidence') exit 0 ;;",
+    "  'volume inspect aeq-prod-retention-ledger') exit 0 ;;",
     "  'run --rm -i --network none --entrypoint pg_restore public.ecr.aws/docker/library/postgres:18 --list')",
     "    if [ \"$RESTORE_TEST_INVALID_DUMP\" = true ]; then exit 1; fi",
     "    ;;",

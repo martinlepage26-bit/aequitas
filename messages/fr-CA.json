@@ -1037,10 +1037,22 @@
     },
     "workflowTitle": "La suite du parcours",
     "steps": {
-      "intake": { "title": "Ouverture et invitation", "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation." },
-      "evidence": { "title": "Preuves et positions", "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel." },
-      "proposal": { "title": "Une proposition avec citations", "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions." },
-      "choice": { "title": "Chaque personne choisit", "description": "Les deux parties peuvent consentir. Selon les règles standard, le dossier se ferme seulement après leur consentement et l'approbation distincte. Le programme ne peut omettre l'approbation qu'en activant explicitement le règlement par consentement seulement. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel." }
+      "intake": {
+        "title": "Ouverture et invitation",
+        "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation."
+      },
+      "evidence": {
+        "title": "Preuves et positions",
+        "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel."
+      },
+      "proposal": {
+        "title": "Une proposition avec citations",
+        "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions."
+      },
+      "choice": {
+        "title": "Chaque personne choisit",
+        "description": "Les deux parties peuvent consentir. Selon les règles standard, le dossier se ferme seulement après leur consentement et l'approbation distincte. Le programme ne peut omettre l'approbation qu'en activant explicitement le règlement par consentement seulement. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel."
+      }
     },
     "handoffTitle": "Quand une personne doit examiner le dossier",
     "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
@@ -1187,5 +1199,27 @@
     "healthFailed": "Échec",
     "healthInterrupted": "Interrompue",
     "healthUnknown": "Inconnu"
+  },
+  "deletionRequest": {
+    "title": "Demande de suppression",
+    "intro": "Demandez un examen de la conservation de ce dossier fermé. Le dépôt de la demande n’efface pas immédiatement les documents.",
+    "request": "Demander un examen de suppression",
+    "busy": "Envoi…",
+    "error": "La demande n’a pas pu être envoyée. Veuillez réessayer.",
+    "statusLink": "Voir la demande de suppression",
+    "back": "Retour aux dossiers",
+    "received": "Votre demande est enregistrée.",
+    "reviewDate": "Date prévue de l’examen",
+    "requested": "En attente d’examen",
+    "approved": "Examen approuvé",
+    "frozen": "Les documents sont inaccessibles pendant l’examen ou le traitement de la suppression.",
+    "erasing": "La suppression est en cours.",
+    "localPurged": "Les documents de l’application ont été supprimés. Les copies restantes font l’objet d’une vérification.",
+    "completed": "La suppression dans le périmètre contrôlé est terminée.",
+    "hold": "La suppression est suspendue dans l’attente d’un examen de conservation.",
+    "outside": "Des copies détenues indépendamment par des destinataires ou des sources externes peuvent subsister.",
+    "account": "Votre compte partagé et les documents d’autres dossiers sont traités séparément.",
+    "listTitle": "Vos demandes de suppression",
+    "requestedOn": "Date de la demande"
   }
 }

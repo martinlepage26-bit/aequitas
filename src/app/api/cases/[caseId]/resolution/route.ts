@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../../lib/caseOperation";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
 import { readResolutionView } from "../../../../../domain/resolution";
@@ -9,6 +10,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
   const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
+
   const [caseRow, user] = await Promise.all([
     prisma.case.findUnique({ where: { id: caseId } }),
     prisma.user.findUnique({ where: { id: auth.session.userId }, select: { isApprover: true } }),
@@ -17,4 +20,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
   if (!caseRow || !caseReadAccess(caseRow, viewer)) return Response.json({ message: "Case not found." }, { status: 404 });
   const view = await readResolutionView(caseId, viewer);
   return Response.json(view, { headers: { "Cache-Control": "private, no-store" } });
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }

@@ -1037,10 +1037,22 @@
     },
     "workflowTitle": "What happens next",
     "steps": {
-      "intake": { "title": "Intake and invitation", "description": "Program rules check the case, then the respondent is invited." },
-      "evidence": { "title": "Evidence and positions", "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff." },
-      "proposal": { "title": "A cited proposal", "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list." },
-      "choice": { "title": "Each person chooses", "description": "Both parties may consent. Under the standard rules, the case closes only after their consent and separate approver sign-off. A program can skip sign-off only by explicitly enabling consent-only resolution. Declines, requests for a person and uncertainty return the case to program staff." }
+      "intake": {
+        "title": "Intake and invitation",
+        "description": "Program rules check the case, then the respondent is invited."
+      },
+      "evidence": {
+        "title": "Evidence and positions",
+        "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff."
+      },
+      "proposal": {
+        "title": "A cited proposal",
+        "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list."
+      },
+      "choice": {
+        "title": "Each person chooses",
+        "description": "Both parties may consent. Under the standard rules, the case closes only after their consent and separate approver sign-off. A program can skip sign-off only by explicitly enabling consent-only resolution. Declines, requests for a person and uncertainty return the case to program staff."
+      }
     },
     "handoffTitle": "When a person needs to review",
     "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",
@@ -1187,5 +1199,27 @@
     "healthFailed": "Failed",
     "healthInterrupted": "Interrupted",
     "healthUnknown": "Unknown"
+  },
+  "deletionRequest": {
+    "title": "Deletion request",
+    "intro": "Ask for a review of this closed case’s retention. Submitting a request does not immediately erase the records.",
+    "request": "Request deletion review",
+    "busy": "Submitting…",
+    "error": "The request could not be submitted. Please try again.",
+    "statusLink": "View deletion request",
+    "back": "Back to cases",
+    "received": "Your request is recorded.",
+    "reviewDate": "Scheduled review date",
+    "requested": "Awaiting review",
+    "approved": "Review approved",
+    "frozen": "Records are unavailable while deletion is reviewed or processed.",
+    "erasing": "Deletion is in progress.",
+    "localPurged": "Application records have been deleted. Remaining copies are being reconciled.",
+    "completed": "Deletion within the controlled scope is complete.",
+    "hold": "Deletion is paused pending a retention review.",
+    "outside": "Copies held independently by recipients or external sources may remain.",
+    "account": "Your shared account and records belonging to other cases are handled separately.",
+    "listTitle": "Your deletion requests",
+    "requestedOn": "Requested on"
   }
 }

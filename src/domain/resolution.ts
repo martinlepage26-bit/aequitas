@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../lib/caseOperation";
 import { z } from "zod";
 import type { CaseState, ContestationStatus, ContestationTarget, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -200,9 +201,12 @@ export interface ResolutionView {
 }
 
 export async function readResolutionView(caseId: string, viewer: { userId: string; globalRole: GlobalRole; isApprover: boolean }): Promise<ResolutionView | null> {
+  try { return await withCaseOperation(caseId, "readResolutionView", async () => {
+
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
   const access = caseReadAccess(caseRow, viewer);
+  if (!access) return null;
   const [rows, approvalRow, recommendation, synthesis, blockers] = await Promise.all([
     prisma.contestation.findMany({
       where: { caseId },
@@ -261,6 +265,8 @@ export async function readResolutionView(caseId: string, viewer: { userId: strin
     },
   };
   return view;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }
 
 // --- writes --------------------------------------------------------------

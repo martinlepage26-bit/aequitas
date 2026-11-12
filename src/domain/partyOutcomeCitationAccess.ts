@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../lib/caseOperation";
 import { createHash } from "node:crypto";
 import type { GlobalRole } from "../generated/prisma";
 import { extractStoredEvidence } from "../lib/evidenceText";
@@ -17,6 +18,7 @@ export async function readPartyOutcomeCitation(input: {
   outcomeId: string;
   citationId: string;
 }): Promise<PartyOutcomeCitationRead> {
+  try { return await withCaseOperation(input.caseId, "readPartyOutcomeCitation", async () => {
   const [caseRow, actor] = await Promise.all([
     prisma.case.findUnique({ where: { id: input.caseId } }),
     prisma.user.findUnique({ where: { id: input.actorId }, select: { isApprover: true } }),
@@ -71,4 +73,6 @@ export async function readPartyOutcomeCitation(input: {
     return { ok: false, status: 409 };
   }
   return { ok: true, excerpt: codePoints.slice(citation.startChar, citation.endChar).join("") };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, status: 404 }; } throw error; }
 }

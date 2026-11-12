@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSession } from "../../../../../lib/session";
@@ -10,6 +11,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
+
 
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
@@ -43,4 +46,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     })),
     { headers: { "Cache-Control": "private, no-store" } },
   );
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }

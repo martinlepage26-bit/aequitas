@@ -1,5 +1,7 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../domain/staffAccess";
 import { signInPath } from "../../../../lib/authPaths";
+import DeletionRequestForm from "./DeletionRequestForm";
 import ReviewDraftForm from "./ReviewDraftForm";
 import ConflictKnowledgeView from "./ConflictKnowledgeView";
 import { notFound, redirect } from "next/navigation";
@@ -57,8 +59,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const session = await getSession();
   if (!session) redirect(signInPath(locale, `/${locale}/cases/${caseId}`));
 
+
+  try { return await withCaseOperation(caseId, "CaseWorkspacePage", async () => {
   const caseRow = await prisma.case.findUnique({
-    where: { id: caseId },
+    where: { id: caseId, deletionStartedAt: null },
     include: {
       complainant: { select: { id: true, displayName: true } },
       respondent: { select: { id: true, displayName: true, email: true } },
@@ -605,6 +609,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         </p>
       )}
 
+      {caseRow.state === "CLOSED" && (isParty || session.globalRole === "ADMIN") && <DeletionRequestForm caseId={caseId} locale={locale} />}
+
       <CaseActivity locale={locale} events={visibleEvents.map((event) => ({
         id: event.id,
         type: event.type,
@@ -614,4 +620,6 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       }))} />
     </main>
   );
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { notFound(); } throw error; }
 }

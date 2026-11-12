@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const prepared = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${caseId} FOR UPDATE`;
     const row = await tx.case.findUnique({ where: { id: caseId }, include: { respondent: { include: { _count: { select: { credentials: true } } } } } });
-    if (!row || row.complainantId !== auth.session.userId) return { kind: "error" as const, message: "Dossier not found.", status: 404 as const };
+    if (!row || row.deletionStartedAt !== null || row.complainantId !== auth.session.userId) return { kind: "error" as const, message: "Dossier not found.", status: 404 as const };
     if (row.state !== "OPEN" && row.state !== "EVIDENCE_INTAKE") return { kind: "error" as const, message: "Submit the dossier before inviting the respondent.", status: 409 as const };
     if (!confirmedEmail || confirmedEmail !== row.respondent.email.toLowerCase()) return { kind: "error" as const, message: "The respondent address changed. Reload and confirm the current address.", status: 409 as const };
     if (row.respondent._count.credentials > 0) return { kind: "error" as const, message: "The respondent already has an active passkey.", status: 409 as const };

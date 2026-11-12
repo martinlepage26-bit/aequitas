@@ -84,6 +84,29 @@ jobs:
       # point — the append-only trigger makes cleanup impossible by design),
       # so running it after would make this step fail on every CI run.
       - run: npm run verify:events
+      - name: Provision isolated retention operator roles
+        run: |
+          docker exec -i aequitas-postgres psql -v ON_ERROR_STOP=1 -U aequitas -d aequitas_test <<'SQL'
+          CREATE ROLE aequitas_web LOGIN PASSWORD 'ci-only-runtime';
+          CREATE ROLE aequitas_purger LOGIN PASSWORD 'ci-only-purger';
+          GRANT USAGE ON SCHEMA public TO aequitas_web;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO aequitas_web;
+          SQL
+          docker exec -i aequitas-postgres psql -v ON_ERROR_STOP=1 -U aequitas -d aequitas_test -v runtime_role=aequitas_web -v purger_role=aequitas_purger < deploy/retention/provision-purger.sql
+      - name: Verify retention under separate runtime and purger logins
+        env:
+          DATABASE_URL: postgresql://aequitas_web:ci-only-runtime@localhost:5433/aequitas_test
+          TEST_DATABASE_URL: postgresql://aequitas_web:ci-only-runtime@localhost:5433/aequitas_test
+          RETENTION_PURGER_DATABASE_URL: postgresql://aequitas_purger:ci-only-purger@localhost:5433/aequitas_test
+        run: npm run test:retention
+      - name: Restore a pre-erasure backup behind the independent deletion ledger
+        env:
+          RETENTION_DRILL_ALLOWED: "true"
+          RETENTION_TEST_OWNER_DATABASE_URL: postgresql://aequitas:aequitas_dev@localhost:5433/postgres
+          DATABASE_URL: postgresql://aequitas_web:ci-only-runtime@localhost:5433/aequitas_test
+          RETENTION_PURGER_DATABASE_URL: postgresql://aequitas_purger:ci-only-purger@localhost:5433/aequitas_test
+          RETENTION_DRILL_PG_CONTAINER: aequitas-postgres
+        run: npx tsx scripts/retention-restore-drill.ts
       - run: npm run test
       - run: npm run build
 

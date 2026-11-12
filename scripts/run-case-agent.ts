@@ -1,4 +1,5 @@
 import "../src/lib/loadEnv";
+import { assertRetentionRestoreSafe } from "../src/domain/retentionLedger";
 import { prisma } from "../src/lib/prisma";
 import { resolveCaseAgentModel, runCaseAgent } from "../src/domain/caseAgent/agent";
 import { caseAgentProgram } from "../src/domain/caseAgent/config";
@@ -11,6 +12,7 @@ import { recordScheduledOperationProgress } from "../src/lib/scheduledOperationP
  * counts only. Model calls are billed to the deployment's provider account.
  */
 async function main() {
+  await assertRetentionRestoreSafe();
   const program = caseAgentProgram();
   const resolved = resolveCaseAgentModel();
   const mayTakeNewCases = program.ok && resolved.ok;

@@ -1,5 +1,11 @@
 # Paid pilot readiness (updated 2026-11-11)
 
+## Candidate implementation update — 2026-11-12
+
+The candidate now includes persistent reviewed retention/deletion, holds, a separate purger role, full relational and versioned-object erasure, durable operation fencing, independent restore tombstones, authenticated party request/receipt pages, and genuinely tagged bilingual PDFs. The original seven-year automatic anonymization rule is superseded by the owner's measured first-anniversary review with per-case authorization. See [the lifecycle runbook](retention-deletion-design.md) and the current PR checks for the exact tested revision.
+
+Local evidence includes restricted-role deletion of all 23 case-content tables, storage failure/retry and hold races, actual PostgreSQL backup plus object-snapshot recovery, and structural/read-order PDF tests. Production role layout, ledger replication, external-copy disposal, target-host journeys and the remaining parser vulnerability disposition are separate release checks. Model activation/evaluation and commercial buyer/pricing work remain separate from human-operated synthetic acceptance. No new production deployment, provider request, real deletion or reviewer contact is claimed. Dated entries below preserve their historical scope and are superseded where they describe missing candidate deletion/tagging.
+
 Status: **release candidate for review. Not approved for real pilot data.** This page records hypotheses, what the code supports, and the gates that remain. It is not market validation, legal advice, privacy approval or a production-readiness claim.
 
 ## Status snapshot checked 2026-11-11 05:38 UTC

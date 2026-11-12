@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../../lib/caseOperation";
 import { reviewDraft, mutationFailureResponse } from "../../../../../domain/mutate";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
@@ -11,6 +12,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
+
 
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
@@ -33,6 +36,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     modelId: recommendation.modelId,
     promptVersion: recommendation.promptVersion,
   }, { headers: { "Cache-Control": "private, no-store" } });
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }
 
 /** Submit a complete correction with the base version, preserving an attributable history. */

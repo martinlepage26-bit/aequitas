@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../lib/caseOperation";
 import { z } from "zod";
 import type { GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -477,6 +478,8 @@ export async function readClaimGraph(
   caseId: string,
   viewer: { userId: string; globalRole: GlobalRole; isApprover?: boolean },
 ): Promise<ClaimGraph | null> {
+  try { return await withCaseOperation(caseId, "readClaimGraph", async () => {
+
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
   const access = caseReadAccess(caseRow, viewer);
@@ -610,4 +613,6 @@ export async function readClaimGraph(
       .map((item) => ({ id: item.id, title: item.title })),
   };
   return graph;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }

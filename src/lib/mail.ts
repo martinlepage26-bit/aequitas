@@ -1,3 +1,4 @@
+import { withCaseOperation } from "./caseOperation";
 import type { DisputeCategory } from "../generated/prisma";
 import { resolveCategoryLabel } from "../i18n/categoryGlossary";
 import { prisma } from "./prisma";
@@ -346,7 +347,7 @@ export const MAX_DELIVERY_ATTEMPTS = 8;
 export async function deliverPendingNotifications(caseId?: string) {
   if (!emailConfigured()) return { accepted: 0, pending: true };
   const pending = await prisma.notification.findMany({
-    where: { sentAt: null, attempts: { lt: MAX_DELIVERY_ATTEMPTS }, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) },
+    where: { case: { deletionStartedAt: null }, sentAt: null, attempts: { lt: MAX_DELIVERY_ATTEMPTS }, user: { credentials: { some: {} } }, ...(caseId ? { caseId } : {}) },
     include: { user: { select: { email: true } }, case: { select: { referenceNumber: true, category: true } } },
     orderBy: [{ lastAttemptAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 20,
@@ -354,6 +355,7 @@ export async function deliverPendingNotifications(caseId?: string) {
   let accepted = 0;
   for (const notification of pending) {
     try {
+      await withCaseOperation(notification.caseId, "notification-send", async () => {
       const copy = notificationEmail({
         kind: notification.kind,
         locale: notification.locale,
@@ -370,6 +372,7 @@ export async function deliverPendingNotifications(caseId?: string) {
       }, `notification/${notification.id}`);
       await prisma.notification.update({ where: { id: notification.id }, data: { sentAt: new Date(), attempts: { increment: 1 }, lastAttemptAt: new Date() } });
       accepted++;
+      });
     } catch {
       // Keep recipient addresses, case contents and provider errors out of logs.
       console.error("Case notification delivery failed; retained for retry.");

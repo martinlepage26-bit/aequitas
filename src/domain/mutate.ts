@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../lib/caseOperation";
 import { caseReadAccess } from "./caseAccess";
 import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceText";
 import { chronologyInputSchema } from "./chronology";
@@ -181,7 +182,7 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
         // resurrecting a withdrawn case or appending events out of order.
         const locked = await tx.$queryRaw<Array<{ id: string }>>`
           SELECT "id" FROM "Case"
-          WHERE "id" = ${input.caseId} AND "state" = ${input.fromState}::"CaseState"
+          WHERE "id" = ${input.caseId} AND "state" = ${input.fromState}::"CaseState" AND "deletionStartedAt" IS NULL
           FOR UPDATE
         `;
         if (locked.length !== 1) throw new StaleCaseError();
@@ -485,6 +486,7 @@ export interface SubmitEvidenceInput extends EvidenceFields {
 }
 
 export async function submitEvidence(input: SubmitEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "submitEvidence", async () => {
   if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
     return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
   }
@@ -497,7 +499,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
-  const scanAttempt = await safeScan(input.buffer);
+  const scanAttempt = await caseOperationExternalIO(input.caseId, () => safeScan(input.buffer));
   if (!scanAttempt.ok) return scanAttempt.outcome;
   const scan = scanAttempt.scan;
 
@@ -559,6 +561,8 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
       };
     },
   }));
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export interface SupersedeEvidenceInput extends EvidenceFields {
@@ -569,6 +573,7 @@ export interface SupersedeEvidenceInput extends EvidenceFields {
 }
 
 export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "supersedeEvidence", async () => {
   if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
     return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
   }
@@ -586,7 +591,7 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
-  const scanAttempt = await safeScan(input.buffer);
+  const scanAttempt = await caseOperationExternalIO(input.caseId, () => safeScan(input.buffer));
   if (!scanAttempt.ok) return scanAttempt.outcome;
   const scan = scanAttempt.scan;
 
@@ -652,6 +657,8 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
       };
     },
   }));
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export interface SubmitChronologyInput {
@@ -949,6 +956,7 @@ export interface CompleteDraftInput {
 }
 
 export async function completeDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "completeDraft", async () => {
   const row = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!row) return { ok: false, step: "not-found", reason: "Case not found." };
   const draftRequestId = input.draftRequestId ?? row.draftRequestId ?? undefined;
@@ -964,6 +972,8 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
     }); } catch { console.error("Draft recovery could not be persisted; retained for retry.", { caseId: row.id }); }
   }
   return outcome;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
@@ -1022,7 +1032,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
     // Fetched exactly once, here — see the comment on DraftPromptInput.legalResearch
     // for why this must never happen inside buildKnowledgeSources itself.
     const domainLabel = routePromptContext(caseRow.category).domainLabel;
-    const legalResearch = await fetchLegalResearch(`Québec, Canada law applicable to a ${domainLabel}: rights, obligations, and remedies`);
+    const legalResearch = await caseOperationExternalIO(input.caseId, () => fetchLegalResearch(`Québec, Canada law applicable to a ${domainLabel}: rights, obligations, and remedies`));
     promptInput = {
       locale: caseRow.complainant.locale,
       category: caseRow.category,
@@ -1037,7 +1047,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
         submittedByRole: entry.submittedById === caseRow.complainantId ? "complainant" as const : "respondent" as const,
       })),
     };
-    draftResult = await draftRecommendation(promptInput);
+    draftResult = await caseOperationExternalIO(input.caseId, () => draftRecommendation(promptInput!));
   }
 
   let schemaValidationError = draftResult.ok ? validateExplanationRecord(draftResult.explanation) : draftResult.reason;

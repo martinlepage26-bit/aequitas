@@ -34,6 +34,7 @@ export async function findEligibleAgentCases(input: { now?: Date; limit?: number
   return prisma.case.findMany({
     where: {
       ...(input.caseIds ? { id: { in: input.caseIds } } : {}),
+      deletionStartedAt: null,
       agentEscalatedAt: null,
       OR: eligible,
       AND: [
@@ -80,6 +81,7 @@ export async function claimAgentCase(candidate: AgentScheduleCandidate, now = ne
     where: {
       id: candidate.id,
       ...workflow,
+      deletionStartedAt: null,
       agentEscalatedAt: null,
       agentLastAttemptAt: candidate.agentLastAttemptAt,
       agentNextRunAt: candidate.agentNextRunAt,
@@ -103,7 +105,7 @@ export async function claimAgentCase(candidate: AgentScheduleCandidate, now = ne
 /** Expired leases recover after a process crash; an old worker cannot clear a newer lease. */
 export async function releaseAgentCase(lease: AgentScheduleLease): Promise<void> {
   await prisma.case.updateMany({
-    where: { id: lease.caseId, agentLeaseToken: lease.token },
+    where: { id: lease.caseId, agentLeaseToken: lease.token, deletionStartedAt: null },
     data: { agentLeaseUntil: null, agentLeaseToken: null },
   });
 }
