@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { saveCaseDetails } from "../../src/domain/caseDetails";
 import { appendEvent } from "../../src/domain/events";
+import { digestCaseDetailsRevision } from "../../src/domain/caseDetailsRevision";
 import { prisma } from "../../src/lib/prisma";
 
 let complainantId: string;
@@ -40,8 +41,19 @@ describe("editing initial dossier details", () => {
     expect((await prisma.user.findUniqueOrThrow({ where: { id: originalId } })).email).not.toBe(correctedEmail);
     const event = await prisma.event.findUniqueOrThrow({ where: { id: saved.revision! } });
     expect(event.type).toBe("CASE_DETAILS_UPDATED");
-    expect(event.payload).toMatchObject({ before: { respondentId: originalId }, after: { respondentId: row.respondentId } });
+    const revision = await prisma.caseDetailsRevision.findFirstOrThrow({ where: { caseId } });
+    expect(revision).toMatchObject({
+      actorId: complainantId,
+      before: { respondentId: originalId, respondentName: "Original respondent", disputeDescription: "Initial account" },
+      after: { respondentId: row.respondentId, respondentEmail: correctedEmail, respondentName: "Corrected respondent", disputeDescription: "Corrected account" },
+    });
+    expect(event.payload).toEqual({ revisionId: revision.id, revisionDigest: digestCaseDetailsRevision(revision) });
+    const payload = JSON.stringify(event.payload);
+    for (const text of [correctedEmail, "Original respondent", "Corrected respondent", "Initial account", "Corrected account", revision.nonce]) expect(payload).not.toContain(text);
     expect(await saveCaseDetails(input())).toMatchObject({ ok: false, status: 409 });
+    expect(await saveCaseDetails({ ...input(), expectedRevision: saved.revision })).toMatchObject({ ok: true, changed: false, revision: saved.revision });
+    expect(await prisma.caseDetailsRevision.count({ where: { caseId } })).toBe(1);
+    expect(await prisma.event.count({ where: { caseId, type: "CASE_DETAILS_UPDATED" } })).toBe(1);
   });
 
   it("does not replace an activated respondent", async () => {
@@ -53,6 +65,7 @@ describe("editing initial dossier details", () => {
     expect(result).toMatchObject({ ok: false, status: 409 });
     expect((await prisma.case.findUniqueOrThrow({ where: { id: row.id } })).respondentId).toBe(activated.id);
     expect(await prisma.event.count({ where: { caseId: row.id, type: "CASE_DETAILS_UPDATED" } })).toBe(0);
+    expect(await prisma.caseDetailsRevision.count({ where: { caseId: row.id } })).toBe(0);
   });
 
   it("does not change the recipient while an invitation is active", async () => {

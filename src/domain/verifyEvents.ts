@@ -1,6 +1,7 @@
 import type { PrismaClient } from "../generated/prisma";
 import { computeEventHash, GENESIS_HASH } from "./events";
 import { digestPartyOutcomeCitations } from "./partyOutcomeCitations";
+import { verifyCaseDetailsRevisions } from "./caseDetailsRevision";
 import { replayCaseState } from "./replay";
 
 export interface VerifyIssue {
@@ -48,6 +49,12 @@ export async function verifyCase(
 
     expectedPrevHash = event.hash;
     expectedSeq += 1;
+  }
+
+  const detailsRevisions = events.some((event) => event.type === "CASE_DETAILS_UPDATED")
+    ? await prisma.caseDetailsRevision.findMany({ where: { caseId: caseRow.id } }) : [];
+  for (const message of verifyCaseDetailsRevisions(events, detailsRevisions).issues) {
+    issues.push({ referenceNumber: caseRow.referenceNumber, message });
   }
 
   const citationEvents = events.flatMap((event) => {

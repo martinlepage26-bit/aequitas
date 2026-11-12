@@ -294,6 +294,7 @@ model Case {
   evidenceItems       EvidenceItem[]
   positionStatements  PositionStatement[]
   chronologyEntries   ChronologyEntry[]
+  detailsRevisions    CaseDetailsRevision[]
   recommendations     Recommendation[]
   consentRecords      ConsentRecord[]
   coiDeclarations     CoiDeclaration[]
@@ -484,6 +485,22 @@ model CoiDeclaration {
 
   case        Case @relation(fields: [caseId], references: [id])
   caseManager User @relation(fields: [caseManagerId], references: [id])
+}
+
+// Source records for future dossier edits. Event stores only a reference and
+// salted digest; historical Event payloads are deliberately not rewritten.
+model CaseDetailsRevision {
+  id        String   @id @default(uuid())
+  caseId    String
+  actorId   String
+  before    Json
+  after     Json
+  nonce     String
+  createdAt DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
 }
 
 model Event {

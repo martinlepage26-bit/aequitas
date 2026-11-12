@@ -6,8 +6,10 @@ import { randomUUID } from "node:crypto";
 import { ZipArchive } from "archiver";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { prisma } from "../lib/prisma";
+import type { Prisma } from "../generated/prisma";
 import { rollbackBuffer, uploadBuffer } from "../lib/storage";
 import { canonicalJson } from "./events";
+import { caseDetailsRevisionRecord, verifyCaseDetailsRevisions } from "./caseDetailsRevision";
 import type { ExplanationRecord } from "./explanationRecord";
 import { partySeesOutcomeEvent, projectPartyTimelineEvent } from "./eventTimeline";
 import { filterExplanationForParty, type HiddenSubmissionIds } from "./submissionVisibility";
@@ -96,7 +98,21 @@ export async function buildPartyExportArchive(caseId: string, viewerId: string):
 }
 
 export async function buildExportRecord(caseId: string) {
-  const caseRow = await prisma.case.findUniqueOrThrow({
+  // Case, events, source revisions and relation/actor reads must describe
+  // one point in time, even when another connection commits a correction.
+  // Rendering and storage happen after this bounded read transaction ends.
+  return prisma.$transaction(async tx => {
+    await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    return readExportRecord(tx, caseId);
+  }, {
+    isolationLevel: "RepeatableRead",
+    maxWait: 5_000,
+    timeout: 30_000,
+  });
+}
+
+async function readExportRecord(tx: Prisma.TransactionClient, caseId: string) {
+  const caseRow = await tx.case.findUniqueOrThrow({
     where: { id: caseId },
     include: {
       complainant: { select: { id: true, displayName: true, email: true, locale: true } },
@@ -105,26 +121,32 @@ export async function buildExportRecord(caseId: string) {
     },
   });
 
-  const [events, evidenceItems, positionStatements, recommendations, consentRecords, chronologyEntries, partyOutcomes] = await Promise.all([
-    prisma.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } }),
-    prisma.evidenceItem.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } }),
-    prisma.positionStatement.findMany({ where: { caseId }, include: { party: { select: { displayName: true } } }, orderBy: [{ partyId: "asc" }, { version: "asc" }] }),
-    prisma.recommendation.findMany({ where: { caseId }, include: { issuedBy: { select: { displayName: true } } }, orderBy: { version: "asc" } }),
-    prisma.consentRecord.findMany({ where: { caseId }, include: { party: { select: { displayName: true } }, statementVersion: true }, orderBy: { createdAt: "asc" } }),
-    prisma.chronologyEntry.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }] }),
-    prisma.partyOutcome.findMany({
-      where: { caseId },
-      include: {
-        party: { select: { displayName: true } },
-        authoredBy: { select: { displayName: true } },
-        citations: { include: { evidenceItem: { select: { title: true } } }, orderBy: { evidenceItemId: "asc" } },
-      },
-      orderBy: [{ partyId: "asc" }, { version: "asc" }],
-    }),
-  ]);
+  // The transaction uses one connection; read sequentially rather than
+  // queue concurrent queries on the pg driver.
+  const events = await tx.event.findMany({ where: { caseId }, orderBy: { seq: "asc" } });
+  const evidenceItems = await tx.evidenceItem.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: { createdAt: "asc" } });
+  const positionStatements = await tx.positionStatement.findMany({ where: { caseId }, include: { party: { select: { displayName: true } } }, orderBy: [{ partyId: "asc" }, { version: "asc" }] });
+  const recommendations = await tx.recommendation.findMany({ where: { caseId }, include: { issuedBy: { select: { displayName: true } } }, orderBy: { version: "asc" } });
+  const consentRecords = await tx.consentRecord.findMany({ where: { caseId }, include: { party: { select: { displayName: true } }, statementVersion: true }, orderBy: { createdAt: "asc" } });
+  const chronologyEntries = await tx.chronologyEntry.findMany({ where: { caseId }, include: { submittedBy: { select: { displayName: true } } }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }] });
+  const partyOutcomes = await tx.partyOutcome.findMany({
+    where: { caseId },
+    include: {
+      party: { select: { displayName: true } },
+      authoredBy: { select: { displayName: true } },
+      citations: { include: { evidenceItem: { select: { title: true } } }, orderBy: { evidenceItemId: "asc" } },
+    },
+    orderBy: [{ partyId: "asc" }, { version: "asc" }],
+  });
+  const detailsRevisions = await tx.caseDetailsRevision.findMany({ where: { caseId } });
+
+  const verifiedDetails = verifyCaseDetailsRevisions(events, detailsRevisions);
+  if (verifiedDetails.issues.length > 0) {
+    throw new Error(`Cannot export unverified case details: ${verifiedDetails.issues.join(" ")}`);
+  }
 
   const actorIds = [...new Set(events.map((e) => e.actorId))];
-  const actors = await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, displayName: true } });
+  const actors = await tx.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, displayName: true } });
   const actorNameById = new Map(actors.map((a) => [a.id, a.displayName]));
 
   const record = {
@@ -149,6 +171,7 @@ export async function buildExportRecord(caseId: string) {
     },
     // Unfiltered — the sealed record is the full audit trail, not the
     // role-filtered projection Section 313 requires for the live workspace.
+    caseDetailsRevisions: verifiedDetails.revisions.map(caseDetailsRevisionRecord),
     timeline: events.map((e) => ({
       seq: e.seq,
       type: e.type,
@@ -299,6 +322,7 @@ function filterPartyExportRecord<T extends {
   positions: { id: string; partyId: string }[];
   chronology?: { id: string; submittedById: string }[];
   timeline: { type: string; payload: unknown; actorId?: string }[];
+  caseDetailsRevisions?: { id: string }[];
   recommendations: { status: string; version: number; explanation: Parameters<typeof filterExplanationForParty>[0] }[];
   partyOutcomes?: {
     partyId: string;
@@ -328,16 +352,22 @@ function filterPartyExportRecord<T extends {
       .filter((citation) => ownEvidenceIds.has(citation.evidenceItemId))
       .map((citation) => ({ ...citation, relevance: "" })),
   }));
+  const timeline = record.timeline.flatMap((event) => {
+    if (!partyCanSeeTimelineEvent(event, hidden, ownContestationIds, viewerId)) return [];
+    const projected = projectPartyTimelineEvent(event, viewerId);
+    return projected ? [projected] : [];
+  });
+  const visibleRevisionIds = new Set(timeline.flatMap((event) => {
+    const revisionId = payloadObject(event.payload).revisionId;
+    return event.type === "CASE_DETAILS_UPDATED" && typeof revisionId === "string" ? [revisionId] : [];
+  }));
   return {
     ...record,
     evidence: record.evidence.filter((item) => item.submittedById === viewerId),
     positions: record.positions.filter((item) => item.partyId === viewerId),
     chronology: (record.chronology ?? []).filter((entry) => entry.submittedById === viewerId),
-    timeline: record.timeline.flatMap((event) => {
-      if (!partyCanSeeTimelineEvent(event, hidden, ownContestationIds, viewerId)) return [];
-      const projected = projectPartyTimelineEvent(event, viewerId);
-      return projected ? [projected] : [];
-    }),
+    timeline,
+    caseDetailsRevisions: (record.caseDetailsRevisions ?? []).filter((revision) => visibleRevisionIds.has(revision.id)),
     partyOutcomes: ownOutcomes,
     ...(record.consent
       ? {
@@ -411,6 +441,19 @@ hachage selon la formule ci-dessus. Si chaque hachage recalculé correspond
 à la valeur "hash" enregistrée, et que chaque "prevHash" correspond au
 hachage de l'événement précédent, la chronologie n'a pas été modifiée ni
 réordonnée depuis son enregistrement.
+
+For each CASE_DETAILS_UPDATED payload containing revisionId and revisionDigest,
+find the matching id in caseDetailsRevisions and recompute
+SHA256(canonicalJson(revision)), over the entire exported revision object.
+It must equal revisionDigest; caseId and actorId must match the event's case
+and actor. The source includes its random nonce. Missing or altered source
+records fail verification. Older events keep their original before/after
+payloads and continue to use the event hash formula above.
+
+Pour chaque correction avec revisionId et revisionDigest, recalculez le
+SHA-256 du JSON canonique de la révision complète dans caseDetailsRevisions.
+Le résultat doit correspondre à revisionDigest, avec le même dossier et
+acteur. Une révision absente ou modifiée invalide la vérification.
 
 2. Evidence integrity / Intégrité des pièces
 ------------------------------------------------
@@ -534,9 +577,10 @@ function paragraph(cursor: PdfCursor, text: string): PdfCursor {
 }
 
 type FullExportRecord = Awaited<ReturnType<typeof buildExportRecord>>["record"];
-type ExportRecord = Omit<FullExportRecord, "chronology" | "partyOutcomes"> & {
+type ExportRecord = Omit<FullExportRecord, "chronology" | "partyOutcomes" | "caseDetailsRevisions"> & {
   chronology?: FullExportRecord["chronology"];
   partyOutcomes?: FullExportRecord["partyOutcomes"];
+  caseDetailsRevisions?: FullExportRecord["caseDetailsRevisions"];
 };
 
 export async function buildExportPdf(record: ExportRecord, options?: { partyView?: boolean }): Promise<Buffer> {
@@ -591,6 +635,15 @@ export async function buildExportPdf(record: ExportRecord, options?: { partyView
   cursor = subheading(cursor, "Case activity / Activité du dossier");
   for (const e of record.timeline) {
     cursor = paragraph(cursor, `#${e.seq}  ${e.createdAt}  ${e.type}  — ${e.actorName ?? e.actorId}`);
+  }
+
+  if (record.caseDetailsRevisions?.length) {
+    cursor = subheading(cursor, "Dossier corrections / Corrections au dossier");
+    for (const revision of record.caseDetailsRevisions) {
+      cursor = paragraph(cursor, `${revision.createdAt} — ${revision.actorId} — ${revision.id}`);
+      cursor = paragraph(cursor, `Before / Avant: ${canonicalJson(revision.before)}`);
+      cursor = paragraph(cursor, `After / Après: ${canonicalJson(revision.after)}`);
+    }
   }
 
   cursor = subheading(cursor, "Dispute chronology / Chronologie du différend");

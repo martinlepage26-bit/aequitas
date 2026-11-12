@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate CT920 deployment configuration
         run: |
-          bash -n deploy/ct920/deploy.sh deploy/ct920/backup.sh deploy/ct920/backup-offbox.sh deploy/ct920/verify-restore.sh
+          bash -n deploy/ct920/deploy.sh deploy/ct920/backup.sh deploy/ct920/backup-offbox.sh deploy/ct920/verify-restore.sh deploy/ct920/verify-restore-isolated.sh
           umask 077
           trap 'rm -f deploy/ct920/.env' EXIT
           printf '%s\n' 'POSTGRES_PASSWORD=ci-syntax-only' > deploy/ct920/.env
@@ -169,6 +169,45 @@ jobs:
             test ! -e /app/src/domain
             test ! -e /app/scripts/scheduled-ops.js
           '
+
+      # The ordinary test DB contains deliberate tampering fixtures. Build a
+      # fresh backup pair in a separate DB and exercise the real runtime image,
+      # PostgreSQL 18 restore, read-only verifiers and ownership-scoped cleanup.
+      - name: Restore a synthetic backup into isolated PostgreSQL 18
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://aequitas:aequitas_dev@localhost:5433/aequitas_restore_test
+        run: |
+          set -euo pipefail
+          umask 077
+          fixture_root="$(mktemp -d "$RUNNER_TEMP/aequitas-restore-smoke.XXXXXXXX")"
+          fixture_database_created=0
+          cleanup() {
+            if [ "$fixture_database_created" = 1 ]; then
+              docker exec aequitas-postgres dropdb --if-exists -U aequitas aequitas_restore_test
+            fi
+            rm -rf -- "$fixture_root"
+          }
+          trap cleanup EXIT
+          docker exec aequitas-postgres createdb -U aequitas aequitas_restore_test
+          fixture_database_created=1
+          npx prisma migrate deploy
+          mkdir -p "$fixture_root/data/evidence"
+          STORAGE_LOCAL_DIR="$fixture_root/data/evidence" node node_modules/tsx/dist/cli.mjs scripts/seed-restore-smoke.ts
+          docker exec aequitas-postgres pg_dump -U aequitas -d aequitas_restore_test -Fc > "$fixture_root/aequitas.dump"
+          docker exec -i aequitas-postgres psql -X -v ON_ERROR_STOP=1 -U aequitas -d aequitas_restore_test -At -F ' ' < deploy/ct920/row-counts.sql | sort > "$fixture_root/source-counts.txt"
+          tar -C "$fixture_root/data" -cf "$fixture_root/evidence.tar" .
+          docker pull public.ecr.aws/docker/library/postgres:18
+          bash deploy/ct920/verify-restore-isolated.sh --app-image aequitas-ci-runtime \
+            "$fixture_root/aequitas.dump" "$fixture_root/evidence.tar" | tee "$RUNNER_TEMP/aequitas-isolated-restore.txt"
+          # Compare the actual restored counts with the source fixture, rather
+          # than interpreting a successful empty-database verification as a pass.
+          awk '/^Restored table row counts / { active=1; next } /^Event chains and projections: passed$/ { active=0 } active' \
+            "$RUNNER_TEMP/aequitas-isolated-restore.txt" > "$fixture_root/restored-counts.txt"
+          diff -u "$fixture_root/source-counts.txt" "$fixture_root/restored-counts.txt"
+          test -z "$(docker container ls -aq --filter label=com.aequitas.restore-drill)"
+          test -z "$(docker volume ls -q --filter label=com.aequitas.restore-drill)"
+          test -z "$(docker network ls -q --filter label=com.aequitas.restore-drill)"
 
       - name: Verify networkless parser container and Unix-socket extraction
         shell: bash
