@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../lib/caseOperation";
 import { caseReadAccess } from "./caseAccess";
 import { extractStoredEvidence, type EvidenceExtraction } from "../lib/evidenceText";
 import { chronologyInputSchema } from "./chronology";
@@ -10,15 +11,16 @@ import { randomUUID } from "node:crypto";
 import type { CaseState, ConsentState, DisputeCategory, EventType, EvidenceKind, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
 import { scanBuffer, type ScanResult } from "../lib/scan";
-import { CASE_AWAITING_MANAGER_KIND, deliverPendingNotifications } from "../lib/mail";
+import { CASE_AWAITING_MANAGER_KIND, RECOMMENDATION_APPROVAL_REQUIRED_KIND, deliverPendingNotifications } from "../lib/mail";
 import { assertStoredIntake, missingIntakeFields } from "./intake";
 import { rollbackBuffer, uploadEvidence } from "../lib/storage";
 import { appendEvent } from "./events";
 import { GUARD_REGISTRY } from "./guards";
 import { coreAiGeneratedFieldsSchema, validateExplanationRecord, type ExplanationRecord } from "./explanationRecord";
 import { draftRecommendation } from "../ai/draftRecommendation";
-import { deriveGiveConsentState } from "./consent";
-import { BLOCKER_REASONS, loadResolutionBlockers, type ResolutionBlocker } from "./resolution";
+import { humanAuthoredIssueCheck } from "./humanAuthored";
+import { consentAnswerCounts, deriveGiveConsentState } from "./consent";
+import { BLOCKER_REASONS, consentAloneResolves, loadResolutionBlockers, partyFacingBlockers, type ShownResolutionBlocker } from "./resolution";
 import {
   NONE,
   SYSTEM,
@@ -72,6 +74,23 @@ export interface NotificationSpec {
   locale: string;
 }
 
+/** Queues sign-off alerts only for designated approvers who can review independently. */
+export async function independentApproverNotifications(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  excludeUserIds: Array<string | null | undefined> = [],
+): Promise<NotificationSpec[]> {
+  const latestSynthesis = await tx.synthesisVersion.findFirst({ where: { caseId }, orderBy: { version: "desc" }, select: { createdById: true } });
+  const excluded = new Set([...excludeUserIds, latestSynthesis?.createdById].filter((id): id is string => Boolean(id)));
+  const approvers = await tx.user.findMany({
+    where: { globalRole: "CASE_MANAGER", isApprover: true, credentials: { some: {} } },
+    select: { id: true, locale: true },
+  });
+  return approvers
+    .filter((approver) => !excluded.has(approver.id))
+    .map((approver) => ({ userId: approver.id, kind: RECOMMENDATION_APPROVAL_REQUIRED_KIND, locale: approver.locale }));
+}
+
 export interface WriteResult {
   caseId: string;
   draftRequestId?: string;
@@ -80,15 +99,18 @@ export interface WriteResult {
   notifications?: NotificationSpec[];
 }
 
-export interface RunMutationInput {
+interface RunMutationBase {
   trigger: Trigger;
   actorId: string;
   actorRole: GlobalRole | typeof SYSTEM;
-  fromState: CaseState | typeof NONE;
   /** Guard name -> the exact context object that guard function expects. */
   guardContexts: Record<string, unknown>;
   write: (tx: Prisma.TransactionClient) => Promise<WriteResult>;
 }
+
+export type RunMutationInput =
+  | (RunMutationBase & { fromState: typeof NONE; caseId?: never })
+  | (RunMutationBase & { fromState: CaseState; caseId: string });
 
 /**
  * ClamAV is a TCP connection this process reaches directly (src/lib/scan.ts) —
@@ -153,6 +175,18 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
 
   try {
     const data = await prisma.$transaction(async (tx) => {
+      if (input.fromState !== NONE) {
+        if (!input.caseId) throw new Error(`Mutation ${input.trigger} requires its caseId.`);
+        // Serialize this mutation for its case and verify the state snapshot
+        // before any domain write. This prevents stale transitions from
+        // resurrecting a withdrawn case or appending events out of order.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "Case"
+          WHERE "id" = ${input.caseId} AND "state" = ${input.fromState}::"CaseState" AND "deletionStartedAt" IS NULL
+          FOR UPDATE
+        `;
+        if (locked.length !== 1) throw new StaleCaseError();
+      }
       const writeResult = await input.write(tx);
 
       for (const event of writeResult.eventPayloads) {
@@ -185,19 +219,55 @@ export async function runMutation(input: RunMutationInput): Promise<MutationOutc
     return { ok: true, data };
   } catch (error) {
     if (error instanceof StaleSubmissionError) return { ok: false, step: "authorize-state", reason: "Evidence intake has closed. Reload the case before submitting." };
+    if (error instanceof StaleEvidenceVersionError) return { ok: false, step: "guard", reason: "This evidence version is no longer current. Reload the case before replacing evidence." };
+    if (error instanceof IntakeNotReadyError) return { ok: false, step: "guard", reason: error.message, code: error.code };
     if (error instanceof StaleDraftError) return { ok: false, step: "guard", reason: "The draft changed. Reload before reviewing or issuing it." };
+    if (error instanceof StaleCaseError) return { ok: false, step: "authorize-state", reason: "The case changed. Reload and try again." };
     if (error instanceof ResolutionBlockedError) return { ok: false, step: "guard", reason: BLOCKER_REASONS[error.blocker], code: error.blocker };
+    if (error instanceof OutcomeNotIssuedError) return { ok: false, step: "guard", reason: "Outcome not yet available to you", code: "OUTCOME_NOT_ISSUED" };
+    if (error instanceof OutcomeSupersededError) return { ok: false, step: "guard", reason: "A new outcome was issued, please review it.", code: "OUTCOME_SUPERSEDED" };
     throw error;
   }
 }
 
-class StaleDraftError extends Error {}
+export class StaleDraftError extends Error {}
+class StaleCaseError extends Error {}
+class StaleEvidenceVersionError extends Error {}
 class ResolutionBlockedError extends Error {
-  constructor(readonly blocker: ResolutionBlocker) {
+  constructor(readonly blocker: ShownResolutionBlocker) {
     super(blocker);
   }
 }
+class OutcomeNotIssuedError extends Error {}
+class OutcomeSupersededError extends Error {}
+
+/**
+ * The party submits the outcome id and version their page displayed.
+ * The transaction stores that pair only when it is still the current issued
+ * outcome. A newer version is a rejection, never a silent rebinding.
+ */
+async function requireDisplayedOutcome(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  partyId: string,
+  outcomeId: string,
+  outcomeVersion: number,
+) {
+  const issued = await tx.partyOutcome.findFirst({
+    where: { caseId, partyId, status: "ISSUED" },
+    orderBy: { version: "desc" },
+    select: { id: true, version: true },
+  });
+  if (!issued) throw new OutcomeNotIssuedError();
+  if (issued.id !== outcomeId || issued.version !== outcomeVersion) throw new OutcomeSupersededError();
+  return { id: outcomeId, version: outcomeVersion };
+}
 class StaleSubmissionError extends Error {}
+class IntakeNotReadyError extends Error {
+  constructor(readonly code: "INTAKE_EVIDENCE_PENDING_OR_REJECTED" | "INTAKE_CLEAN_EVIDENCE_REQUIRED", message: string) {
+    super(message);
+  }
+}
 
 // --- create_case: the first concrete mutation built on the pipeline,
 // used by M1's integration test to prove atomicity end to end. -----------
@@ -254,13 +324,9 @@ export async function createCase(input: CreateCaseInput): Promise<MutationOutcom
         eventPayloads: [
           {
             type: "CASE_CREATED",
-            payload: {
-              referenceNumber: created.referenceNumber,
-              simulated: created.simulated,
-              category: created.category,
-              disputeDescription: created.disputeDescription,
-              amountAtStakeCents: created.amountAtStakeCents,
-            },
+            // The case row is the source of truth. Keep the reference number
+            // and substantive intake details out of the immutable event payload.
+            payload: {},
           },
         ],
       };
@@ -288,6 +354,7 @@ export async function submitCase(input: SubmitCaseInput): Promise<MutationOutcom
     trigger: "submit_case",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
@@ -334,16 +401,20 @@ export async function openIntake(input: OpenIntakeInput): Promise<MutationOutcom
     trigger: "open_intake",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManagerOrUnclaimed: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
       coiDeclarationOnFile: { declared: true, hasConflict: input.hasConflict },
     },
     write: async (tx) => {
-      await tx.case.update({
-        where: { id: input.caseId },
+      // Conditional on what the guards saw: still OPEN, still unassigned (or
+      // assigned to this manager), and not taken by the case agent meanwhile.
+      const taken = await tx.case.updateMany({
+        where: { id: input.caseId, state: "OPEN", caseManagerId: caseRow.caseManagerId, agentManaged: false },
         data: { state: "EVIDENCE_INTAKE", caseManagerId: caseRow.caseManagerId ?? input.actorId },
       });
+      if (taken.count !== 1) throw new StaleCaseError();
       await tx.coiDeclaration.create({
         data: {
           caseId: input.caseId,
@@ -387,6 +458,27 @@ interface EvidenceFields {
   mimeType: string;
 }
 
+async function clearPartyIntakeReady(
+  tx: Prisma.TransactionClient,
+  caseId: string,
+  partyId: string,
+  complainantId: string,
+  respondentId: string,
+): Promise<WriteResult["eventPayloads"]> {
+  const readiness = await tx.case.findUniqueOrThrow({
+    where: { id: caseId },
+    select: { complainantIntakeReadyAt: true, respondentIntakeReadyAt: true },
+  });
+  if (partyId === complainantId && readiness.complainantIntakeReadyAt) {
+    await tx.case.update({ where: { id: caseId }, data: { complainantIntakeReadyAt: null } });
+  } else if (partyId === respondentId && readiness.respondentIntakeReadyAt) {
+    await tx.case.update({ where: { id: caseId }, data: { respondentIntakeReadyAt: null } });
+  } else {
+    return [];
+  }
+  return [{ type: "PARTY_INTAKE_READY_CLEARED", payload: { partyId, reason: "new_submission" } }];
+}
+
 export interface SubmitEvidenceInput extends EvidenceFields {
   actorId: string;
   actorRole: GlobalRole;
@@ -394,6 +486,7 @@ export interface SubmitEvidenceInput extends EvidenceFields {
 }
 
 export async function submitEvidence(input: SubmitEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "submitEvidence", async () => {
   if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
     return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
   }
@@ -406,7 +499,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
-  const scanAttempt = await safeScan(input.buffer);
+  const scanAttempt = await caseOperationExternalIO(input.caseId, () => safeScan(input.buffer));
   if (!scanAttempt.ok) return scanAttempt.outcome;
   const scan = scanAttempt.scan;
 
@@ -423,13 +516,17 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
     trigger: "submit_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
       evidenceVisibilityRequiresCleanScan: {},
     },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", simulated: caseRow.simulated, OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
@@ -447,6 +544,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
           simulated: caseRow.simulated,
         },
       });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return {
         caseId: input.caseId,
         toState: caseRow.state,
@@ -455,6 +553,7 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
             type: "EVIDENCE_SUBMITTED",
             payload: { evidenceItemId: item.id, kind: item.kind, scanStatus: item.scanStatus, signature: scan.signature },
           },
+          ...readinessEvents,
         ],
         notifications: scan.clean
           ? []
@@ -462,6 +561,8 @@ export async function submitEvidence(input: SubmitEvidenceInput): Promise<Mutati
       };
     },
   }));
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export interface SupersedeEvidenceInput extends EvidenceFields {
@@ -472,6 +573,7 @@ export interface SupersedeEvidenceInput extends EvidenceFields {
 }
 
 export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "supersedeEvidence", async () => {
   if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
     return { ok: false, step: "authorize-role", reason: "Only case parties may submit evidence." };
   }
@@ -480,17 +582,16 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
   if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
   const priorItem = await prisma.evidenceItem.findUnique({ where: { id: input.priorEvidenceItemId } });
-  if (!priorItem || priorItem.caseId !== input.caseId) {
-    return { ok: false, step: "not-found", reason: "Prior evidence item not found in this case." };
+  if (!priorItem || priorItem.caseId !== input.caseId || priorItem.submittedById !== input.actorId) {
+    return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   }
   if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
     return { ok: false, step: "not-found", reason: "Case not found." };
   }
   if (caseRow.state !== "EVIDENCE_INTAKE") return { ok: false, step: "authorize-state", reason: "Evidence intake is not open." };
-  if (priorItem.submittedById !== input.actorId) return { ok: false, step: "not-found", reason: "Prior evidence item not found." };
   const actor = await prisma.user.findUnique({ where: { id: input.actorId }, select: { locale: true } });
 
-  const scanAttempt = await safeScan(input.buffer);
+  const scanAttempt = await caseOperationExternalIO(input.caseId, () => safeScan(input.buffer));
   if (!scanAttempt.ok) return scanAttempt.outcome;
   const scan = scanAttempt.scan;
 
@@ -507,13 +608,22 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
     trigger: "supersede_evidence",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
       supersedesOwnItem: { actorId: input.actorId, priorItemSubmittedById: priorItem.submittedById },
     },
     write: async (tx) => {
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const existingSuccessor = await tx.evidenceItem.findFirst({
+        where: { caseId: input.caseId, supersedesId: priorItem.id },
+        select: { id: true },
+      });
+      if (existingSuccessor) throw new StaleEvidenceVersionError();
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", simulated: caseRow.simulated, OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const item = await tx.evidenceItem.create({
         data: {
@@ -533,11 +643,13 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
           supersedesId: priorItem.id,
         },
       });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return {
         caseId: input.caseId,
         toState: caseRow.state,
         eventPayloads: [
           { type: "EVIDENCE_SUPERSEDED", payload: { newEvidenceItemId: item.id, priorEvidenceItemId: priorItem.id } },
+          ...readinessEvents,
         ],
         notifications: scan.clean
           ? []
@@ -545,6 +657,8 @@ export async function supersedeEvidence(input: SupersedeEvidenceInput): Promise<
       };
     },
   }));
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export interface SubmitChronologyInput {
@@ -569,20 +683,108 @@ export async function submitChronology(input: SubmitChronologyInput): Promise<Mu
   if (!parsed.success) return { ok: false, step: "guard", reason: "A valid date, title, description and locale are required." };
   return runMutation({
     trigger: "submit_chronology", actorId: input.actorId, actorRole: input.actorRole, fromState: caseRow.state,
+    caseId: input.caseId,
     guardContexts: { isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId } },
     write: async (tx) => {
       // Serialize submissions and reject a manager closing intake after the
       // precheck. Holding the case row lock also serializes the event chain.
-      const locked = await tx.case.updateMany({ where: { id: input.caseId, state: "EVIDENCE_INTAKE" }, data: { state: "EVIDENCE_INTAKE" } });
+      const locked = await tx.case.updateMany({
+        where: { id: input.caseId, state: "EVIDENCE_INTAKE", OR: [{ complainantId: input.actorId }, { respondentId: input.actorId }] },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
       if (locked.count !== 1) throw new StaleSubmissionError();
       const entry = await tx.chronologyEntry.create({ data: {
         caseId: input.caseId, submittedById: input.actorId, ...parsed.data,
         occurredOn: new Date(`${parsed.data.occurredOn}T00:00:00.000Z`),
       } });
+      const readinessEvents = await clearPartyIntakeReady(tx, input.caseId, input.actorId, caseRow.complainantId, caseRow.respondentId);
       return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [{
         type: "CHRONOLOGY_ENTRY_SUBMITTED",
-        payload: { chronologyEntryId: entry.id, ...parsed.data },
-      }] };
+        // The append-only chronology row retains the report. The event only
+        // needs an opaque reference and must not duplicate party text.
+        payload: { chronologyEntryId: entry.id },
+      }, ...readinessEvents] };
+    },
+  });
+}
+
+export interface SetPartyIntakeReadyInput {
+  actorId: string;
+  actorRole: GlobalRole;
+  caseId: string;
+  ready: boolean;
+}
+
+/** A party may finish or reopen their own intake while an opted-in case is active. */
+export async function setPartyIntakeReady(input: SetPartyIntakeReadyInput): Promise<MutationOutcome<WriteResult>> {
+  if (input.actorRole !== "COMPLAINANT" && input.actorRole !== "RESPONDENT") {
+    return { ok: false, step: "authorize-role", reason: "Only a case party may change intake readiness." };
+  }
+  const caseRow = await prisma.case.findUnique({ where: { id: input.caseId } });
+  if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
+  if (input.actorId !== caseRow.complainantId && input.actorId !== caseRow.respondentId) {
+    return { ok: false, step: "not-found", reason: "Case not found." };
+  }
+
+  const isComplainant = input.actorId === caseRow.complainantId;
+  return runMutation({
+    trigger: "mark_intake_ready",
+    actorId: input.actorId,
+    actorRole: input.actorRole,
+    caseId: input.caseId,
+    fromState: caseRow.state,
+    guardContexts: {
+      isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
+      agentCaseIsActive: { agentManaged: caseRow.agentManaged, escalated: Boolean(caseRow.agentEscalatedAt) },
+    },
+    write: async (tx) => {
+      const locked = await tx.case.updateMany({
+        where: {
+          id: input.caseId,
+          state: "EVIDENCE_INTAKE",
+          agentManaged: true,
+          agentEscalatedAt: null,
+          ...(isComplainant ? { complainantId: input.actorId } : { respondentId: input.actorId }),
+        },
+        data: { state: "EVIDENCE_INTAKE" },
+      });
+      if (locked.count !== 1) throw new StaleSubmissionError();
+
+      const latest = await tx.case.findUniqueOrThrow({
+        where: { id: input.caseId },
+        select: { complainantIntakeReadyAt: true, respondentIntakeReadyAt: true },
+      });
+      const alreadyReady = isComplainant ? latest.complainantIntakeReadyAt : latest.respondentIntakeReadyAt;
+      if (Boolean(alreadyReady) === input.ready) {
+        return { caseId: input.caseId, toState: "EVIDENCE_INTAKE", eventPayloads: [] };
+      }
+
+      if (input.ready) {
+        const allItems = await tx.evidenceItem.findMany({ where: { caseId: input.caseId } });
+        const superseded = new Set(allItems.map((item) => item.supersedesId).filter((id): id is string => Boolean(id)));
+        const currentOwnItems = allItems.filter((item) => item.submittedById === input.actorId && !superseded.has(item.id));
+        if (currentOwnItems.some((item) => item.scanStatus === "PENDING" || item.scanStatus === "REJECTED")) {
+          throw new IntakeNotReadyError("INTAKE_EVIDENCE_PENDING_OR_REJECTED", "Resolve or replace each pending or rejected file before marking your intake complete.");
+        }
+        if (!currentOwnItems.some((item) => item.scanStatus === "CLEAN")) {
+          throw new IntakeNotReadyError("INTAKE_CLEAN_EVIDENCE_REQUIRED", "Submit at least one clean evidence item before marking your intake complete.");
+        }
+      }
+
+      const now = input.ready ? new Date() : null;
+      await tx.case.update({
+        where: { id: input.caseId },
+        data: isComplainant ? { complainantIntakeReadyAt: now } : { respondentIntakeReadyAt: now },
+      });
+      return {
+        caseId: input.caseId,
+        toState: "EVIDENCE_INTAKE",
+        eventPayloads: [{
+          type: input.ready ? "PARTY_INTAKE_READY_MARKED" : "PARTY_INTAKE_READY_CLEARED",
+          payload: { partyId: input.actorId, reason: "party_action" },
+        }],
+      };
     },
   });
 }
@@ -617,6 +819,7 @@ export async function closeIntake(input: CloseIntakeInput): Promise<MutationOutc
     trigger: "close_intake",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -652,22 +855,22 @@ export async function submitPosition(input: SubmitPositionInput): Promise<Mutati
   if (!caseRow) return { ok: false, step: "not-found", reason: "Case not found." };
   if (!caseReadAccess(caseRow, { userId: input.actorId, globalRole: input.actorRole })) return { ok: false, step: "not-found", reason: "Case not found." };
 
-  const priorMax = await prisma.positionStatement.aggregate({
-    where: { caseId: input.caseId, partyId: input.actorId },
-    _max: { version: true },
-  });
-  const nextVersion = (priorMax._max.version ?? 0) + 1;
-
   return runMutation({
     trigger: "submit_position",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
       oneCurrentVersionPerParty: {},
     },
     write: async (tx) => {
+      const priorMax = await tx.positionStatement.aggregate({
+        where: { caseId: input.caseId, partyId: input.actorId },
+        _max: { version: true },
+      });
+      const nextVersion = (priorMax._max.version ?? 0) + 1;
       const position = await tx.positionStatement.create({
         data: {
           caseId: input.caseId,
@@ -713,6 +916,7 @@ export async function requestDraft(input: RequestDraftInput): Promise<MutationOu
     trigger: "request_draft",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -752,6 +956,7 @@ export interface CompleteDraftInput {
 }
 
 export async function completeDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
+  try { return await withCaseOperation(input.caseId, "completeDraft", async () => {
   const row = await prisma.case.findUnique({ where: { id: input.caseId } });
   if (!row) return { ok: false, step: "not-found", reason: "Case not found." };
   const draftRequestId = input.draftRequestId ?? row.draftRequestId ?? undefined;
@@ -767,6 +972,8 @@ export async function completeDraft(input: CompleteDraftInput): Promise<Mutation
     }); } catch { console.error("Draft recovery could not be persisted; retained for retry.", { caseId: row.id }); }
   }
   return outcome;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<WriteResult>> {
@@ -825,7 +1032,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
     // Fetched exactly once, here — see the comment on DraftPromptInput.legalResearch
     // for why this must never happen inside buildKnowledgeSources itself.
     const domainLabel = routePromptContext(caseRow.category).domainLabel;
-    const legalResearch = await fetchLegalResearch(`Québec, Canada law applicable to a ${domainLabel}: rights, obligations, and remedies`);
+    const legalResearch = await caseOperationExternalIO(input.caseId, () => fetchLegalResearch(`Québec, Canada law applicable to a ${domainLabel}: rights, obligations, and remedies`));
     promptInput = {
       locale: caseRow.complainant.locale,
       category: caseRow.category,
@@ -840,7 +1047,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
         submittedByRole: entry.submittedById === caseRow.complainantId ? "complainant" as const : "respondent" as const,
       })),
     };
-    draftResult = await draftRecommendation(promptInput);
+    draftResult = await caseOperationExternalIO(input.caseId, () => draftRecommendation(promptInput!));
   }
 
   let schemaValidationError = draftResult.ok ? validateExplanationRecord(draftResult.explanation) : draftResult.reason;
@@ -858,6 +1065,7 @@ async function buildDraft(input: CompleteDraftInput): Promise<MutationOutcome<Wr
     trigger: "draft_completed",
     actorId: SYSTEM_ACTOR_ID,
     actorRole: SYSTEM,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       explanationRecordValidatesAgainstSchema: { schemaValidationError },
@@ -929,7 +1137,12 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
 
   const explanation = recommendation.explanation as unknown as ExplanationRecord;
   let schemaValidationError = validateExplanationRecord(explanation);
-  if (!schemaValidationError && (explanation.conflict_knowledge || recommendation.promptVersion >= "2026-09-20.1")) {
+  // A manager-authored draft has no model output, so no conflict map to
+  // check; it must instead cite clean evidence. The waiver needs every
+  // human-origin marker to agree (row and stored record).
+  const origin = humanAuthoredIssueCheck(recommendation, explanation);
+  if (!schemaValidationError && origin.error) schemaValidationError = origin.error;
+  if (!schemaValidationError && (explanation.conflict_knowledge || (recommendation.promptVersion >= "2026-09-20.1" && !origin.humanAuthored))) {
     schemaValidationError = validateConflictKnowledgeMap(explanation.conflict_knowledge, explanation.knowledge_sources ?? []);
   }
 
@@ -944,6 +1157,7 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
     trigger: "issue_recommendation",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -972,6 +1186,9 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
         },
       });
       await tx.case.update({ where: { id: input.caseId }, data: { state: "ISSUED" } });
+      const approvalNotifications = consentAloneResolves(caseRow)
+        ? []
+        : await independentApproverNotifications(tx, caseRow.id, [caseRow.caseManagerId, input.actorId]);
       return {
         caseId: input.caseId,
         toState: "ISSUED",
@@ -979,6 +1196,7 @@ export async function issueRecommendation(input: IssueRecommendationInput): Prom
         notifications: [
           { userId: caseRow.complainantId, kind: "recommendation_issued", locale: caseRow.complainant.locale },
           { userId: caseRow.respondentId, kind: "recommendation_issued", locale: caseRow.respondent.locale },
+          ...approvalNotifications,
         ],
       };
     },
@@ -1004,6 +1222,9 @@ export interface ConsentActionInput {
   currentStatementVersionId: string | null;
   /** The recommendation id the party saw and is acting on — echoed back so a version issued after page load is caught, not assumed. */
   recommendationId: string;
+  /** The party-facing outcome id and version the page displayed. Not the latest row on the server. */
+  outcomeId: string;
+  outcomeVersion: number;
   /** Section 7: session id, auth method, salted IP hash — built by the route, opaque here. */
   authContext: Prisma.InputJsonValue;
 }
@@ -1020,12 +1241,14 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
   }
   const recommendationId = caseRow.currentRecommendationId;
   const actorLocale = input.actorId === caseRow.complainantId ? caseRow.complainant.locale : caseRow.respondent.locale;
-  const blockers = await loadResolutionBlockers(prisma, input.caseId);
+  const otherPartyOpen = await prisma.contestation.count({ where: { caseId: input.caseId, status: "OPEN", openedById: { not: input.actorId } } });
+  const blockers = partyFacingBlockers(await loadResolutionBlockers(prisma, input.caseId), otherPartyOpen);
 
   return runMutation({
     trigger: "give_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
@@ -1041,16 +1264,24 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
     },
     write: async (tx) => {
       // Re-check under the case row lock: a contestation opened between the
-      // guard and this transaction must still block the consent.
+      // guard and this transaction must still block the consent. Consent is
+      // also refused until this party has an issued outcome.
       await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
-      const lockedBlockers = await loadResolutionBlockers(tx, input.caseId);
+      const actorOutcome = await requireDisplayedOutcome(tx, input.caseId, input.actorId, input.outcomeId, input.outcomeVersion);
+      const lockedOtherOpen = await tx.contestation.count({ where: { caseId: input.caseId, status: "OPEN", openedById: { not: input.actorId } } });
+      const lockedBlockers = partyFacingBlockers(await loadResolutionBlockers(tx, input.caseId), lockedOtherOpen);
       if (lockedBlockers.length > 0) throw new ResolutionBlockedError(lockedBlockers[0]);
       const givenAt = new Date();
+      const answerBinding = { partyOutcomeId: actorOutcome.id, partyOutcomeVersion: actorOutcome.version, revokedReason: null };
       const existing = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: input.actorId } });
+      if (existing?.state === "GIVEN" && existing.partyOutcomeId === actorOutcome.id && existing.partyOutcomeVersion === actorOutcome.version) {
+        const locked = await tx.case.findUniqueOrThrow({ where: { id: input.caseId }, select: { state: true } });
+        return { caseId: input.caseId, toState: locked.state, eventPayloads: [], notifications: [] };
+      }
       if (existing) {
         await tx.consentRecord.update({
           where: { id: existing.id },
-          data: { state: "GIVEN", givenAt, declinedAt: null, revokedAt: null, authContext: input.authContext, statementVersionId: input.statementVersionId },
+          data: { state: "GIVEN", givenAt, declinedAt: null, revokedAt: null, authContext: input.authContext, statementVersionId: input.statementVersionId, ...answerBinding },
         });
       } else {
         await tx.consentRecord.create({
@@ -1063,14 +1294,17 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
             locale: actorLocale,
             authContext: input.authContext,
             givenAt,
+            ...answerBinding,
           },
         });
       }
 
       const otherPartyId = input.actorId === caseRow.complainantId ? caseRow.respondentId : caseRow.complainantId;
       const otherRecord = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: otherPartyId } });
-      const complainantState: ConsentState = input.actorId === caseRow.complainantId ? "GIVEN" : otherRecord?.state ?? "NOT_GIVEN";
-      const respondentState: ConsentState = input.actorId === caseRow.respondentId ? "GIVEN" : otherRecord?.state ?? "NOT_GIVEN";
+      const otherOutcome = await tx.partyOutcome.findFirst({ where: { caseId: input.caseId, partyId: otherPartyId, status: "ISSUED" }, orderBy: { version: "desc" }, select: { id: true, version: true } });
+      const otherState = consentAnswerCounts(otherRecord, otherOutcome);
+      const complainantState: ConsentState = input.actorId === caseRow.complainantId ? "GIVEN" : otherState;
+      const respondentState: ConsentState = input.actorId === caseRow.respondentId ? "GIVEN" : otherState;
       const toState = deriveGiveConsentState(complainantState, respondentState);
 
       await tx.case.update({ where: { id: input.caseId }, data: { state: toState } });
@@ -1079,7 +1313,7 @@ export async function giveConsent(input: ConsentActionInput): Promise<MutationOu
         caseId: input.caseId,
         toState,
         eventPayloads: [
-          { type: "CONSENT_GIVEN", payload: { recommendationId, partyId: input.actorId } },
+          { type: "CONSENT_GIVEN", payload: { recommendationId, partyId: input.actorId, outcomeId: actorOutcome.id, outcomeVersion: actorOutcome.version } },
           ...(toState === "RESOLVED_CONSENT" ? [{ type: "CASE_RESOLVED" as EventType, payload: {} }] : []),
         ],
         notifications: [
@@ -1108,17 +1342,25 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
     trigger: "decline_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseParty: { actorId: input.actorId, complainantId: caseRow.complainantId, respondentId: caseRow.respondentId },
     },
     write: async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
+      const actorOutcome = await requireDisplayedOutcome(tx, input.caseId, input.actorId, input.outcomeId, input.outcomeVersion);
       const declinedAt = new Date();
+      const answerBinding = { partyOutcomeId: actorOutcome.id, partyOutcomeVersion: actorOutcome.version, revokedReason: null };
       const existing = await tx.consentRecord.findFirst({ where: { recommendationId, partyId: input.actorId } });
+      if (existing?.state === "DECLINED" && existing.partyOutcomeId === actorOutcome.id && existing.partyOutcomeVersion === actorOutcome.version) {
+        const locked = await tx.case.findUniqueOrThrow({ where: { id: input.caseId }, select: { state: true } });
+        return { caseId: input.caseId, toState: locked.state, eventPayloads: [], notifications: [] };
+      }
       if (existing) {
         await tx.consentRecord.update({
           where: { id: existing.id },
-          data: { state: "DECLINED", declinedAt, authContext: input.authContext, statementVersionId: input.statementVersionId },
+          data: { state: "DECLINED", declinedAt, authContext: input.authContext, statementVersionId: input.statementVersionId, ...answerBinding },
         });
       } else {
         await tx.consentRecord.create({
@@ -1131,6 +1373,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
             locale: actorLocale,
             authContext: input.authContext,
             declinedAt,
+            ...answerBinding,
           },
         });
       }
@@ -1141,7 +1384,7 @@ export async function declineConsent(input: ConsentActionInput): Promise<Mutatio
         caseId: input.caseId,
         toState: "RESOLVED_DECLINED",
         eventPayloads: [
-          { type: "CONSENT_DECLINED", payload: { recommendationId, partyId: input.actorId } },
+          { type: "CONSENT_DECLINED", payload: { recommendationId, partyId: input.actorId, outcomeId: actorOutcome.id, outcomeVersion: actorOutcome.version } },
           { type: "CASE_RESOLVED_DECLINED", payload: {} },
         ],
         notifications: [
@@ -1182,6 +1425,7 @@ export async function revokeConsent(input: RevokeConsentInput): Promise<Mutation
     trigger: "revoke_consent",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isConsentingParty: { actorId: input.actorId, consentPartyId: existing.partyId },
@@ -1233,6 +1477,7 @@ export async function requestNewVersion(input: RequestNewVersionInput): Promise<
     trigger: "request_new_version",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1279,12 +1524,17 @@ export async function withdrawCase(input: WithdrawCaseInput): Promise<MutationOu
     trigger: "withdraw",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       isCaseOwner: { actorId: input.actorId, complainantId: caseRow.complainantId },
     },
     write: async (tx) => {
-      await tx.case.update({ where: { id: input.caseId }, data: { state: "WITHDRAWN" } });
+      const changed = await tx.case.updateMany({
+        where: { id: input.caseId, state: caseRow.state },
+        data: { state: "WITHDRAWN" },
+      });
+      if (changed.count !== 1) throw new StaleCaseError();
       return {
         caseId: input.caseId,
         toState: "WITHDRAWN",
@@ -1314,6 +1564,7 @@ export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<
     trigger: "close_case",
     actorId: input.actorId,
     actorRole: input.actorRole,
+    caseId: input.caseId,
     fromState: caseRow.state,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: caseRow.caseManagerId },
@@ -1321,7 +1572,11 @@ export async function closeCase(input: CloseCaseInput): Promise<MutationOutcome<
     },
     write: async (tx) => {
       const closedAt = new Date();
-      await tx.case.update({ where: { id: input.caseId }, data: { state: "CLOSED", closedAt } });
+      const changed = await tx.case.updateMany({
+        where: { id: input.caseId, state: caseRow.state },
+        data: { state: "CLOSED", closedAt },
+      });
+      if (changed.count !== 1) throw new StaleCaseError();
       return {
         caseId: input.caseId,
         toState: "CLOSED",
@@ -1360,6 +1615,7 @@ export async function reviewDraft(input: {
   }
   return runMutation({
     trigger: "review_draft", actorId: input.actorId, actorRole: input.actorRole, fromState: row.state,
+    caseId: row.id,
     guardContexts: {
       caseAssignedToManager: { actorId: input.actorId, caseManagerId: row.caseManagerId },
       explanationRecordValid: { schemaValidationError },

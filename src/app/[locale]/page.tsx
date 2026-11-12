@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { EvenLine, Wordmark } from "../../components/icons";
+import { pilotContactUrl } from "../../lib/pilotContact";
 import styles from "./landing.module.css";
 
 /**
@@ -13,6 +14,7 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations("landing");
   const steps = ["evidence", "review", "consent"] as const;
+  const pilotContact = pilotContactUrl();
 
   return (
     <div className={styles.page} lang={locale}>
@@ -27,10 +29,19 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
               <Link className={styles.primaryAction} href={`/${locale}/auth/sign-in`}>
                 {t("signIn")}<span aria-hidden="true">→</span>
               </Link>
-              <Link className={styles.secondaryAction} href={`/${locale}/cases`}>
-                {t("myCases")}<span aria-hidden="true">↗</span>
+              <Link className={styles.secondaryAction} href={`/${locale}/demo`}>
+                {t("demoLink")}<span aria-hidden="true">↗</span>
               </Link>
             </div>
+            {pilotContact && (
+              <aside className={styles.pilot} aria-labelledby="landing-pilot-title">
+                <h2 id="landing-pilot-title">{t("pilot.title")}</h2>
+                <p>{t("pilot.body")}</p>
+                <a className={styles.secondaryAction} href={pilotContact} rel="noopener">
+                  {t("pilot.action")}<span aria-hidden="true">→</span>
+                </a>
+              </aside>
+            )}
           </div>
 
           <figure className={styles.heroVisual}>

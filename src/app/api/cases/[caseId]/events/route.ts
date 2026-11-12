@@ -1,7 +1,8 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { prisma } from "../../../../../lib/prisma";
 import { requireSession } from "../../../../../lib/session";
-import { filterEventsForRole } from "../../../../../domain/eventTimeline";
+import { visibleCaseEvents } from "../../../../../domain/eventTimeline";
 import { caseReadAccess } from "../../../../../domain/caseAccess";
 
 // Section 16: "GET /api/cases/[id]/events — timeline (role-filtered)".
@@ -10,6 +11,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
+
 
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
@@ -30,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   const actors = await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, displayName: true } });
   const actorNameById = new Map(actors.map((a) => [a.id, a.displayName]));
 
-  const visible = filterEventsForRole(events, session.globalRole, access === "assigned-manager");
+  const visible = visibleCaseEvents(events, { globalRole: session.globalRole, userId: session.userId, access });
 
   return Response.json(
     visible.map((e) => ({
@@ -40,6 +43,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
       actorId: e.actorId,
       actorName: actorNameById.get(e.actorId) ?? null,
       createdAt: e.createdAt,
-    }))
+    })),
+    { headers: { "Cache-Control": "private, no-store" } },
   );
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }

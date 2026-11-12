@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// Durable admission is exercised against PostgreSQL in case-operation-fencing.test.ts.
+vi.mock("../../src/lib/caseOperation", () => ({
+  CaseUnavailableError: class extends Error {},
+  withCaseOperation: (_caseId: string, _kind: string, fn: () => Promise<unknown>) => fn(),
+  caseOperationExternalIO: (_caseId: string, fn: () => Promise<unknown>) => fn(),
+}));
 import { validMap, sources } from "../fixtures/conflictKnowledge";
 const mocks = vi.hoisted(() => ({
   caseFind: vi.fn(), evidenceFind: vi.fn(), positionFind: vi.fn(), recommendationFind: vi.fn(), chronologyFind: vi.fn(),
@@ -20,7 +26,7 @@ function explanation() {
 const reviewInput = () => ({ actorId: managerId, actorRole: "CASE_MANAGER" as const, caseId: "case1", recommendationId: "rec1", fields: explanation(), reason: "Preserve the unresolved causal question." });
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.caseFind.mockResolvedValue({ id: "case1", state: "DRAFTING", category: "EMPLOYMENT", caseManagerId: managerId, currentRecommendationId: "rec1", complainantId: "party1", respondentId: "party2", complainant: { locale: "fr-CA" }, respondent: { locale: "en-CA" } });
+  mocks.caseFind.mockResolvedValue({ id: "case1", deletionStartedAt: null, state: "DRAFTING", category: "EMPLOYMENT", caseManagerId: managerId, currentRecommendationId: "rec1", complainantId: "party1", respondentId: "party2", complainant: { locale: "fr-CA" }, respondent: { locale: "en-CA" } });
   mocks.evidenceFind.mockResolvedValue([]);
   mocks.chronologyFind.mockResolvedValue([]);
   mocks.positionFind.mockImplementation(({ where }) => {
@@ -32,7 +38,8 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "rec2", version: 2 });
   mocks.lock.mockResolvedValue({ count: 1 });
   mocks.transaction.mockImplementation(async fn => fn({
-    $queryRaw: vi.fn().mockResolvedValue([]),
+    // runMutation locks the case row and expects exactly that row back.
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "case1", deletionStartedAt: null }]),
     case: { update: vi.fn(), updateMany: mocks.lock },
     recommendation: { count: vi.fn().mockResolvedValue(1), findFirst: vi.fn().mockResolvedValue({ version: 1 }), create: mocks.create, update: mocks.update, updateMany: vi.fn() },
     event: { findFirst: vi.fn().mockResolvedValue(null), create: mocks.eventCreate },

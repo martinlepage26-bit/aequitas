@@ -1,5 +1,7 @@
 import type { PrismaClient } from "../generated/prisma";
 import { computeEventHash, GENESIS_HASH } from "./events";
+import { digestPartyOutcomeCitations } from "./partyOutcomeCitations";
+import { verifyCaseDetailsRevisions } from "./caseDetailsRevision";
 import { replayCaseState } from "./replay";
 
 export interface VerifyIssue {
@@ -47,6 +49,35 @@ export async function verifyCase(
 
     expectedPrevHash = event.hash;
     expectedSeq += 1;
+  }
+
+  const detailsRevisions = events.some((event) => event.type === "CASE_DETAILS_UPDATED")
+    ? await prisma.caseDetailsRevision.findMany({ where: { caseId: caseRow.id } }) : [];
+  for (const message of verifyCaseDetailsRevisions(events, detailsRevisions).issues) {
+    issues.push({ referenceNumber: caseRow.referenceNumber, message });
+  }
+
+  const citationEvents = events.flatMap((event) => {
+    if (event.type !== "PARTY_OUTCOME_ISSUED" || !event.payload || typeof event.payload !== "object" || Array.isArray(event.payload)) return [];
+    const payload = event.payload as Record<string, unknown>;
+    return typeof payload.outcomeId === "string" && typeof payload.citationDigest === "string"
+      ? [{ event, outcomeId: payload.outcomeId, digest: payload.citationDigest }]
+      : [];
+  });
+  if (citationEvents.length > 0) {
+    const outcomes = await prisma.partyOutcome.findMany({
+      where: { id: { in: citationEvents.map((item) => item.outcomeId) } },
+      include: { citations: true },
+    });
+    const byId = new Map(outcomes.map((outcome) => [outcome.id, outcome]));
+    for (const item of citationEvents) {
+      const outcome = byId.get(item.outcomeId);
+      if (!outcome) {
+        issues.push({ referenceNumber: caseRow.referenceNumber, message: `seq ${item.event.seq}: issued party outcome is missing.` });
+      } else if (digestPartyOutcomeCitations(outcome.citations) !== item.digest) {
+        issues.push({ referenceNumber: caseRow.referenceNumber, message: `seq ${item.event.seq}: party outcome citation digest mismatch.` });
+      }
+    }
   }
 
   const replayedState = replayCaseState(events);

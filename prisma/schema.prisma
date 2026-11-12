@@ -28,6 +28,15 @@ enum GlobalRole {
   RESPONDENT
   CASE_MANAGER
   ADMIN
+  // Service account for the prototype case agent. Never signs in.
+  CASE_AGENT
+}
+
+enum ScheduledOperationOutcome {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  INTERRUPTED
 }
 
 enum CaseState {
@@ -70,6 +79,11 @@ enum RecommendationStatus {
   SUPERSEDED
 }
 
+enum PartyOutcomeStatus {
+  DRAFT
+  ISSUED
+}
+
 enum EventType {
   CASE_CREATED
   CASE_DETAILS_UPDATED
@@ -81,6 +95,8 @@ enum EventType {
   EVIDENCE_ACCESSED
   EVIDENCE_SUPERSEDED
   EVIDENCE_INTAKE_CLOSED
+  PARTY_INTAKE_READY_MARKED
+  PARTY_INTAKE_READY_CLEARED
   POSITION_SUBMITTED
   CHRONOLOGY_ENTRY_SUBMITTED
   RECOMMENDATION_DRAFT_REQUESTED
@@ -124,6 +140,11 @@ enum EventType {
   CONTESTATION_OVERRULED
   CONTESTATION_WITHDRAWN
   RESOLUTION_APPROVED
+  PARTY_OUTCOME_EDITED
+  PARTY_OUTCOME_ISSUED
+  AGENT_ENROLLED
+  AGENT_ESCALATED
+  AGENT_PROCESSING_ACCEPTED
 }
 
 model User {
@@ -167,6 +188,8 @@ model User {
   contestationsOpened       Contestation[]      @relation("ContestationOpenedBy")
   contestationsResponded    Contestation[]      @relation("ContestationRespondedBy")
   contestationsOverruled    Contestation[]      @relation("ContestationOverruledBy")
+  partyOutcomesReceived     PartyOutcome[]      @relation("PartyOutcomeParty")
+  partyOutcomesAuthored     PartyOutcome[]      @relation("PartyOutcomeAuthor")
 }
 
 model WebAuthnCredential {
@@ -190,10 +213,18 @@ model Invitation {
   revokedAt   DateTime?
   claimedAt   DateTime?
   emailedAt   DateTime?
+  deliveryPayloadCiphertext Bytes?
+  deliveryPayloadNonce      Bytes?
+  deliveryPayloadTag        Bytes?
+  deliveryAttempts          Int       @default(0)
+  deliveryLastAttemptAt     DateTime?
+  deliveryLeaseUntil        DateTime?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([emailedAt, deliveryAttempts, deliveryLeaseUntil])
+  @@index([expiresAt, emailedAt])
 }
 
 model AccountRecovery {
@@ -204,10 +235,18 @@ model AccountRecovery {
   usedAt    DateTime?
   revokedAt DateTime?
   emailedAt DateTime?
+  deliveryPayloadCiphertext Bytes?
+  deliveryPayloadNonce      Bytes?
+  deliveryPayloadTag        Bytes?
+  deliveryAttempts          Int       @default(0)
+  deliveryLastAttemptAt     DateTime?
+  deliveryLeaseUntil        DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([emailedAt, deliveryAttempts, deliveryLeaseUntil])
+  @@index([expiresAt, emailedAt])
 }
 
 model Case {
@@ -225,6 +264,20 @@ model Case {
   // migration; those keep the consent-only resolution path. New cases need
   // approver sign-off before consent can resolve them.
   consentOnlyResolution   Boolean   @default(false)
+  // Prototype case agent: the assigned manager opts a case in; any
+  // escalation hands it back to that manager under the normal rules.
+  agentManaged            Boolean   @default(false)
+  // Explicit program policy. Agent cases retain independent approval unless
+  // the operator sets this true after owner/governance approval.
+  agentConsentOnlyResolution Boolean @default(false)
+  agentEscalatedAt        DateTime?
+  agentEscalationReason   String?
+  complainantIntakeReadyAt DateTime?
+  respondentIntakeReadyAt  DateTime?
+  agentLastAttemptAt       DateTime?
+  agentNextRunAt           DateTime?
+  agentLeaseUntil          DateTime?
+  agentLeaseToken          String?
   complainantId           String
   respondentId            String
   caseManagerId           String?
@@ -233,6 +286,8 @@ model Case {
   draftRequestedAt        DateTime?
   createdAt               DateTime  @default(now())
   closedAt                DateTime?
+  // Irreversible processing barrier until the controlled deletion completes.
+  deletionStartedAt       DateTime?
 
   complainant    User @relation("CaseComplainant", fields: [complainantId], references: [id])
   respondent     User @relation("CaseRespondent", fields: [respondentId], references: [id])
@@ -241,6 +296,7 @@ model Case {
   evidenceItems       EvidenceItem[]
   positionStatements  PositionStatement[]
   chronologyEntries   ChronologyEntry[]
+  detailsRevisions    CaseDetailsRevision[]
   recommendations     Recommendation[]
   consentRecords      ConsentRecord[]
   coiDeclarations     CoiDeclaration[]
@@ -257,6 +313,9 @@ model Case {
   contextFactors      ContextFactor[]
   syntheses           SynthesisVersion[]
   contestations       Contestation[]
+  partyOutcomes       PartyOutcome[]
+
+  @@index([agentManaged, agentEscalatedAt, agentNextRunAt, agentLeaseUntil, agentLastAttemptAt, createdAt])
 }
 
 model EvidenceItem {
@@ -279,6 +338,7 @@ model EvidenceItem {
   case        Case @relation(fields: [caseId], references: [id])
   submittedBy User @relation(fields: [submittedById], references: [id])
   citedBySources Source[]
+  outcomeCitations PartyOutcomeCitation[]
 }
 
 model PositionStatement {
@@ -332,6 +392,53 @@ model Recommendation {
   @@unique([caseId, version])
 }
 
+// The outcome a mediator writes for one party. A party reads only their own
+// ISSUED versions. A later draft does not replace the issued text until it
+// is issued. Approvers and admins may read every version; only the assigned
+// mediator writes.
+model PartyOutcome {
+  id           String             @id @default(uuid())
+  caseId       String
+  partyId      String
+  version      Int
+  status       PartyOutcomeStatus @default(DRAFT)
+  body         String
+  locale       String
+  authoredById String
+  issuedAt     DateTime?
+  createdAt    DateTime           @default(now())
+
+  case       Case @relation(fields: [caseId], references: [id])
+  party      User @relation("PartyOutcomeParty", fields: [partyId], references: [id])
+  authoredBy User @relation("PartyOutcomeAuthor", fields: [authoredById], references: [id])
+  consentRecords ConsentRecord[]
+  citations       PartyOutcomeCitation[]
+
+  @@unique([caseId, partyId, version])
+  @@index([caseId, partyId, status])
+}
+
+// A citation belongs to one issued outcome version. It stores a verified
+// pointer into the source extraction, not a second copy of party evidence.
+model PartyOutcomeCitation {
+  id                    String   @id @default(uuid())
+  partyOutcomeId        String
+  evidenceItemId        String
+  relevance             String
+  startChar             Int
+  endChar               Int
+  sourceSha256          String
+  extractedTextSha256   String
+  extractionMethod      String
+  createdAt             DateTime @default(now())
+
+  partyOutcome PartyOutcome @relation(fields: [partyOutcomeId], references: [id], onDelete: Cascade)
+  evidenceItem EvidenceItem @relation(fields: [evidenceItemId], references: [id], onDelete: Restrict)
+
+  @@unique([partyOutcomeId, evidenceItemId])
+  @@index([evidenceItemId])
+}
+
 model ConsentRecord {
   id                 String        @id @default(uuid())
   caseId             String
@@ -344,12 +451,18 @@ model ConsentRecord {
   givenAt            DateTime?
   declinedAt         DateTime?
   revokedAt          DateTime?
+  revokedReason      String?
+  partyOutcomeId     String?
+  partyOutcomeVersion Int?
   createdAt          DateTime      @default(now())
 
   case           Case                     @relation(fields: [caseId], references: [id])
   recommendation Recommendation           @relation(fields: [recommendationId], references: [id])
   party          User                     @relation(fields: [partyId], references: [id])
   statementVersion ConsentStatementVersion @relation(fields: [statementVersionId], references: [id])
+  partyOutcome   PartyOutcome?            @relation(fields: [partyOutcomeId], references: [id])
+
+  @@index([partyOutcomeId])
 }
 
 model ConsentStatementVersion {
@@ -374,6 +487,22 @@ model CoiDeclaration {
 
   case        Case @relation(fields: [caseId], references: [id])
   caseManager User @relation(fields: [caseManagerId], references: [id])
+}
+
+// Source records for future dossier edits. Event stores only a reference and
+// salted digest; historical Event payloads are deliberately not rewritten.
+model CaseDetailsRevision {
+  id        String   @id @default(uuid())
+  caseId    String
+  actorId   String
+  before    Json
+  after     Json
+  nonce     String
+  createdAt DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@index([caseId, createdAt])
 }
 
 model Event {
@@ -412,9 +541,14 @@ model Notification {
   locale    String
   sentAt    DateTime?
   createdAt DateTime  @default(now())
+  // Bounded retry: delivery stops after MAX_DELIVERY_ATTEMPTS (src/lib/mail.ts).
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
   case Case @relation(fields: [caseId], references: [id])
+
+  @@index([sentAt, attempts])
 }
 
 // Phase 1 traceable core. Additive on the dispute case model above.
@@ -795,4 +929,132 @@ model Contestation {
   overruledBy User? @relation("ContestationOverruledBy", fields: [overruledById], references: [id])
 
   @@index([caseId, status])
+}
+
+// Aggregate-only operational state. This row contains no case or party data.
+model ScheduledOperationHeartbeat {
+  name             String                     @id
+  intervalMs       Int
+  lastStartedAt    DateTime?
+  lastHeartbeatAt  DateTime?
+  lastFinishedAt   DateTime?
+  lastSuccessfulAt DateTime?
+  lastOutcome      ScheduledOperationOutcome?
+  lastExitCode     Int?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+}
+
+// Aggregate-only deployment-wide model-call ceiling; contains no case data.
+model CaseAgentDailyUsage {
+  utcDay     DateTime @id @db.Date
+  modelCalls Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum CaseOperationStatus {
+  ACTIVE
+  SUCCEEDED
+  UNCERTAIN
+  RESOLVED
+}
+
+// Deliberately independent of Case: a crashed operation's object intents must
+// survive until erasure is verified. ACTIVE operations never expire by time.
+model CaseOperation {
+  id                       String @id @default(uuid())
+  caseId                   String
+  kind                     String
+  storageKeys              String[] @default([])
+  status                   CaseOperationStatus @default(ACTIVE)
+  startedAt                DateTime @default(now())
+  finishedAt               DateTime?
+  resolutionEvidenceDigest String?
+  @@index([caseId, status])
+}
+
+enum CaseDeletionStatus {
+  REQUESTED
+  APPROVED
+  FROZEN
+  ERASING
+  LOCAL_PURGED
+  COMPLETED
+}
+
+enum RetentionHoldState {
+  UNKNOWN
+  CLEAR
+  HELD
+}
+
+enum DeletionCopyStatus {
+  PENDING
+  VERIFIED_DELETED
+  VERIFIED_ABSENT
+  OUTSIDE_CONTROL
+}
+
+// Restricted operational ledger and restore tombstone, not anonymous data.
+// No case/party narrative, names, evidence contents or email addresses here.
+// No Case FK: receipts survive the authorized whole-case erasure.
+model CaseDeletion {
+  id                  String @id @default(uuid())
+  caseId              String @unique
+  policyVersion       String
+  eligibleAt          DateTime
+  status              CaseDeletionStatus @default(REQUESTED)
+  holdState           RetentionHoldState @default(UNKNOWN)
+  holdEvidenceDigest  String?
+  requestedById       String
+  requestedAt         DateTime @default(now())
+  approvedById        String?
+  approvedAt          DateTime?
+  approvalDigest      String?
+  frozenAt            DateTime?
+  inventoryAt         DateTime?
+  localPurgedAt       DateTime?
+  completedAt         DateTime?
+  erasedObjectCount   Int @default(0)
+  restoredObjectsPending Boolean @default(false)
+  objects             CaseDeletionObject[]
+  copies              CaseDeletionCopy[]
+  decisions           CaseDeletionDecision[]
+}
+
+model CaseDeletionObject {
+  id              String @id @default(uuid())
+  deletionId      String
+  storageKey      String
+  erasedAt        DateTime?
+  backend         String?
+  deletedVersions Int?
+  deletion        CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@unique([deletionId, storageKey])
+}
+
+// Evidence digests refer to separately access-controlled disposal records.
+// An operator attestation is recorded as an assertion, never a provider proof.
+model CaseDeletionCopy {
+  id              String @id @default(uuid())
+  deletionId      String
+  store           String
+  status          DeletionCopyStatus @default(PENDING)
+  evidenceDigest  String?
+  attestedById    String?
+  attestedAt      DateTime?
+  deletion        CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@unique([deletionId, store])
+}
+
+model CaseDeletionDecision {
+  id             String @id @default(uuid())
+  deletionId     String
+  actorId        String
+  action         String
+  evidenceDigest String
+  createdAt      DateTime @default(now())
+  deletion       CaseDeletion @relation(fields: [deletionId], references: [id])
+  @@index([deletionId, createdAt])
 }

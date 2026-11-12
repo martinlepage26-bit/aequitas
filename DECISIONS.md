@@ -196,3 +196,72 @@ Deviations from `aequitas-implementation-handoff.md`, and choices made where the
 - **Contestation.** New `Contestation` table: target (`CLAIM`, `SYNTHESIS`, `PROPOSAL`, `RECOMMENDATION`, must belong to the case), grounds, status `OPEN` → `RESPONDED` | `OVERRULED` | `WITHDRAWN`. Opened by a party or the assigned case manager while the case is OPEN through ISSUED. The assigned case manager responds; an approver who does not own the case overrules with a mandatory reason (also written to `ReviewTrail` as `OVERRULED_CONTESTATION`); only the opener withdraws. Each write appends `CONTESTATION_OPENED` / `_RESPONDED` / `_OVERRULED` / `_WITHDRAWN` to the hash chain. All five new event types are audit-only in `replayCaseState`. Check constraints refuse blank grounds and a RESPONDED or OVERRULED row without its text and actor.
 - **Approver read access.** `caseReadAccess` returns `"approver"` (party-level read) for a case manager holding the capability on a case they are not assigned to, past DRAFT, only when the caller passes `isApprover`. Mutation paths pass a bare session and never see it.
 - **CI.** GitHub-hosted Actions on the account were blocked by a billing hold on 2026-10-11 from about 1:34 PM ET, so this change was verified with the full suite run locally (see the PR).
+
+## Paid-pilot path — case-manager-authored drafts (2026-11-04)
+
+- **Blocker chosen.** Every route to `ISSUED` required a live Anthropic call (`completeDraft`). With no key, or a program that will not send case material to a model, no case could reach issuance, consent, export or closure. A paid pilot therefore had no complete journey without live AI.
+- **New trigger `author_draft`** (`POSITIONS | DRAFTING → DRAFTING`, assigned `CASE_MANAGER`, guards as `request_draft` plus `explanationRecordValid`). The manager writes summary, proposed outcome, reasoning, limits, not-considered and optional citations to clean case evidence. No model or legal-research provider is called. No migration: it emits the existing `RECOMMENDATION_DRAFT_REQUESTED` (from `POSITIONS` only) and `RECOMMENDATION_DRAFTED` with `origin: "case_manager_authored"`, which `replayCaseState` already handles.
+- **Marked as human-written.** `modelId`/`model.id` is `human:case-manager` and `promptVersion` is `human-authored`, set by the server only. The workspace shows "Written by the case manager. No model was used." instead of a model label. Issuance skips the conflict-map check only for this prompt version; every other check (checklist, assigned reviewer, citations to clean evidence, forbidden content) still applies.
+- **Replacing a draft** needs the id of the draft the manager saw and a reason; the old row becomes `SUPERSEDED` and a `NOTE_ADDED` event records the reason. Issued recommendations cannot be replaced here; `request_new_version` remains the path.
+- **Landing pilot contact** renders only when `AEQUITAS_PILOT_CONTACT_URL` is an `https:` or `mailto:` URL at build time. No address is committed.
+- **Not changed:** consent, approver sign-off, contestation, export format, the model path. This change is on `main`; `ct920-standup` and the 2026-10-21 local snapshot need integration (see `docs/paid-pilot-readiness.md`).
+
+## Pilot release candidate (2026-11-05)
+
+- **Base.** `2160eaf` (last recorded production release, unverified today) sits on `ct920-standup`, not `main`. The candidate merges `ct920-standup` and the 2026-10-21 local snapshot (imported verbatim as one commit; it differed from `ct920-standup` in 59 paths) into the PR 14 branch. PR 14 targets `ct920-standup`; `main` is untouched because PR 13 says merging to `main` auto-deploys to Railway.
+- **Citations required for human drafts.** `author_draft` needs at least one distinct citation to clean evidence in the same case. Issuance re-checks it. The conflict-map waiver now needs all four origin markers (row `modelId`, row `promptVersion`, record `model.id`, record `model.prompt_version`) to agree; a partial match blocks issuance.
+- **Party copy.** For a human draft the shared recommendation text is withheld from parties by the snapshot's isolation rule (it may draw on both sides). The page now says so instead of rendering empty fields; each party answers their own outcome.
+- **Notification outbox.** `Notification` gains `attempts` and `lastAttemptAt` (additive migration). Delivery tries least-recently-tried rows first, so failing rows no longer block newer ones, and stops after 8 attempts. `npm run notify:deliver` is the scheduled retry; it prints counts only.
+- **Not decided here:** retention periods, deletion design, privacy assessment, hosting. Listed as gates in `docs/paid-pilot-readiness.md`.
+
+## Case agent prototype (2026-11-05)
+
+- **Scope.** Opt-in, off by default (`AEQUITAS_CASE_AGENT_ENABLED`), `RETAIL` only, with required amount limit (`AEQUITAS_CASE_AGENT_MAX_AMOUNT_CENTS`) and program-approved remedy allowlist (`AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES`); neither has a default. Starts after intake closes and both positions exist. Details and open decisions: `docs/case-agent-prototype.md`.
+- **Identity and least privilege.** New `CASE_AGENT` role for one service account; sessions refuse it; `caseReadAccess` gives it nothing. State machine grants it only `agent_issue` (POSITIONS → ISSUED) and `agent_close` (RESOLVED_CONSENT | WITHDRAWN → CLOSED), each guarded by `agentMayAct`. The assigned human case manager opts a case in and receives every escalation.
+- **No new state.** Additive migration: `Case.agentManaged`, `agentEscalatedAt`, `agentEscalationReason`; event types `AGENT_ENROLLED`, `AGENT_ESCALATED` (replay no-ops). Agent issuance reuses `RECOMMENDATION_DRAFT_REQUESTED/DRAFTED/ISSUED` and `PARTY_OUTCOME_ISSUED`, so replay and visibility rules apply unchanged.
+- **Model is untrusted.** Existing `TextCompletion` provider (Gemini or Workers AI). Output passes strict deterministic checks or the case escalates; nothing partial is written. A change to the material during the call makes the result stale.
+- **Approval.** Consent alone resolves an agent-managed case while it is not escalated (`consentAloneResolves`). After escalation, approver sign-off applies again. This waives the Phase 3 independent check for agent cases and needs Martin's explicit decision before real use.
+- **Refusal.** A declined case is handed to a person, not closed.
+- **Isolation.** A request for a person (`AGENT_ESCALATED`) is visible to the requesting party and staff only; both parties see a neutral "a person will review" notice.
+
+## Case agent routine path (2026-11-05, continued)
+
+- **No per-case manager work on the routine path.** New agent-only transitions `agent_open_intake` (OPEN → EVIDENCE_INTAKE) and `agent_close_intake` (EVIDENCE_INTAKE → POSITIONS). The agent takes an eligible, unassigned, submitted `RETAIL` case, sends the existing respondent invitation once, and closes intake when the configured evidence period ends.
+- **Program rules are configuration with no defaults** (`caseAgentProgram`): amount limit, intake days, response days, respondent withdrawal. Missing or invalid means the agent acts on nothing.
+- **Party text is deterministic.** Model output for parties is a closed remedy choice plus an amount, rendered by fixed bilingual templates; free-text outcomes and the six-word overlap check are removed. Staff keep the model summary and citation notes.
+- **Respondent withdrawal.** Allowed on agent-managed cases only when `AEQUITAS_CASE_AGENT_RESPONDENT_MAY_WITHDRAW=true` (`respondent_withdraw` transition). Human-managed cases keep the complainant-only rule; changing that is an owner decision.
+- **Queue.** Escalations with no assigned manager notify every case manager with a passkey. `caseReadAccess` makes such a case claimable, and `POST /api/cases/[id]/claim` assigns it with a no-conflict declaration.
+- **Timeouts.** Respondent not joining, a missing submission or position, or an unanswered proposal past the configured period goes to a person.
+- **Evaluation.** `scripts/evaluate-case-agent.ts` runs synthetic fixtures. Protocol `.5` requires a private, identity-bound JSON baseline file with all seven dated program reviews, both counsel reviews, and all five Québec French reviews. Live spend approval is a one-command `--authorize-single-live-synthetic-run=0.11` flag, never a persistent environment variable. The evaluator checks all offline gates before resolving a provider or connecting to the `_test` database; live quality remains untested until the independent reviews and account checks are complete.
+
+## Autonomous routine-case product direction (2026-11-07)
+
+- **Owner goal.** The product is intended to handle eligible routine cases end to end, with party control and human escalation for exceptions. A routine agent-managed case may close without independent approver sign-off only after both parties consent to their current outcome version. The persisted `agentConsentOnlyResolution` policy implements this only for non-escalated agent cases; escalation restores the approval requirement. Human-managed cases retain their own configured approval policy.
+- **Scope and launch gate.** This direction resolves the earlier product-policy question in favor of autonomous closure for the routine path. It does not authorize live processing by itself: the agent remains off until program settings, provider terms, a reviewed live synthetic evaluation, counsel/privacy review and operational controls are complete. A program that cannot use this decision rule must keep `AEQUITAS_CASE_AGENT_CONSENT_ONLY_RESOLUTION=false` and route cases through approver sign-off.
+
+## Daily case-agent model-call ceiling (2026-11-06)
+
+- **Required deployment setting.** `AEQUITAS_CASE_AGENT_MAX_MODEL_CALLS_PER_UTC_DAY` has no default and must be a positive PostgreSQL integer before the agent is enabled.
+- **Enforcement.** Each outbound proposal-model attempt atomically reserves one shared daily slot in PostgreSQL. Provider failures count. At the ceiling, proposal-stage cases are handed to the case-manager queue; if the aggregate counter cannot be read or written, no provider call is made.
+- **Boundary.** The counter resets at 00:00 UTC and contains no case or party data. It limits call volume, not billed dollars; the operator must also set provider-side spend controls.
+
+## Token-email outbox key separation (2026-11-06)
+
+- **Decision.** Encrypt queued invitation and recovery payloads with a dedicated `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY`, HKDF-derived for AES-256-GCM and authenticated to message kind and record ID. Do not derive this key from `SESSION_SECRET`.
+- **Reason.** The scheduled worker must decrypt pending token-email payloads but should not receive the web session-signing or WebAuthn secrets. The CT920 scheduled Compose service forwards only the dedicated outbox key.
+- **Operations.** Set the same distinct random value of at least 32 bytes in the web and scheduled-worker environments. Keep it stable while encrypted messages remain queued; changing it makes those payloads undecryptable. Existing sessions are unaffected by outbox-key rotation.
+- **Verification.** Unit tests cover key separation and Compose forwarding; the database-backed outbox integration test delivers a queued message with `SESSION_SECRET` absent.
+
+## Case-agent remedy allowlist (2026-11-09)
+
+- **Decision.** A case agent may propose only remedies explicitly selected for its program through the required `AEQUITAS_CASE_AGENT_ALLOWED_REMEDIES` setting. Missing, empty, duplicate, or unknown values keep the agent off.
+- **Enrollment.** Persist the canonical remedy list in the versioned `AGENT_ENROLLED` policy snapshot. The current configured list must continue to match the enrolled list exactly; a change hands active cases to staff, so an evaluation for one list cannot authorize another. Policy version 1 lacks this list and therefore fails closed to staff.
+- **Evaluation.** Include the canonical remedy-list SHA-256 digest in both pre-model and post-model review identities. Changing the list invalidates prior evaluation approvals.
+- **Current state.** Martin selected the Workers AI account and synthetic-only spend cap, but has not selected a program remedy list. The live evaluation identity is pending; no live model call is authorized by this decision.
+
+
+## 2026-11-12 — reviewed deletion and tagged export completion
+
+Martin's “decide with measure” direction selects first-anniversary closure review with explicit per-case authorization, persistent non-expiring holds and no automatic erasure. This supersedes the original seven-year automatic anonymization design. Whole-case erasure removes historical event/chronology content only through a separate purger procedure; ordinary writes remain append-only. Shared accounts and minimal linkable disposal receipts remain separately controlled. External-copy evidence and an independently retained restore ledger are required; completion concerns the controlled scope, not recipients' independent copies. See `docs/retention-deletion-design.md`.
+
+The earlier M5 untagged-PDF limitation is superseded by `src/lib/taggedPdf.ts`: real Document/H1/H2/P/Span structure, MCIDs, ParentTree, explicit language runs and page-spanning reading order. Automated structural and Poppler extraction checks cover sealed and party views. This is not a claim of PDF/UA certification or human screen-reader testing.

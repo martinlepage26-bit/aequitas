@@ -8,7 +8,7 @@ export interface CaseActivityItem {
   id: string;
   type: string;
   createdAt: string;
-  actorRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER" | "ADMIN" | null;
+  actorRole: "COMPLAINANT" | "RESPONDENT" | "CASE_MANAGER" | "ADMIN" | "CASE_AGENT" | null;
   actorName: string | null;
 }
 
@@ -21,6 +21,7 @@ export default function CaseActivity({ events, locale }: { events: CaseActivityI
     COMPLAINANT: t("role.complainant"),
     RESPONDENT: t("role.respondent"),
     CASE_MANAGER: t("role.caseManager"),
+    CASE_AGENT: t("role.caseAgent"),
   };
   const format = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" });
   return <section aria-labelledby="timeline-heading" className={styles.section}>

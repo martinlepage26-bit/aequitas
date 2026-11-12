@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "Aequitas — espace de résolution",
-    "description": "Une plateforme de résolution des différends documentée et révisable par des humains. Les résultats proposés sont toujours distingués des décisions, chaque étape importante est attribuable, et aucune partie n'est jamais présentée comme ayant consenti avant de l'avoir fait."
+    "description": "Un service bilingue de résolution des différends avec gestion par le personnel et agent facultatif pour les dossiers de vente au détail configurés. L’agent prépare des propositions non contraignantes qui citent les preuves; les parties contrôlent leur consentement et peuvent demander une personne. Le mode agent est désactivé par défaut."
   },
   "banner": {
     "simulated": "Dossier simulé — données d'apprentissage"
@@ -27,6 +27,8 @@
   "workspace": {
     "title": "Espace de dossier",
     "caseReference": "Dossier {reference}",
+    "partyVisibleNotice": "Les deux parties peuvent lire ce texte. N'écrivez que ce que les deux parties doivent voir.",
+    "partyOutcomeNotice": "Seul {name} peut lire ce résultat. N'écrivez que ce que cette partie doit voir.",
     "attribution": {
       "legend": "Couleurs selon la provenance",
       "by": "Source : {name}"
@@ -81,7 +83,8 @@
       "cancel": "Annuler",
       "sent": "Une invitation d'activation a été envoyée à cette adresse. Elle expire après 72 heures.",
       "active": "La partie intimée a déjà activé un compte Aequitas.",
-      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez."
+      "error": "L'invitation n'a pas pu être envoyée. Vérifiez l'adresse et réessayez.",
+      "uncertain": "La livraison du courriel d’invitation n’a pas pu être confirmée. Le lien a peut-être été reçu et demeure utilisable. Un nouveau lien ne peut pas être envoyé avant l’annulation ou l’expiration de celui-ci."
     },
     "state": {
       "DRAFT": "Brouillon",
@@ -101,7 +104,8 @@
       "caseManager": "gestionnaire de dossier",
       "admin": "administrateur ou administratrice",
       "bothParties": "les deux parties",
-      "system": "le système"
+      "system": "le système",
+      "caseAgent": "assistant automatisé"
     },
     "action": {
       "submitCase": "soumettre ce dossier",
@@ -200,17 +204,17 @@
       "positionHelp": "Expliquez votre point de vue, renvoyez à vos preuves et aux événements datés, puis décrivez le résultat recherché. Les versions précédentes sont conservées.",
       "availability": {
         "available": "Vous pouvez soumettre ici maintenant.",
-        "submitCaseFirst": "Soumettez d'abord ce dossier en brouillon. Un gestionnaire ouvrira ensuite la collecte de preuves.",
-        "waitingForManager": "En attente d'un gestionnaire pour ouvrir la collecte de preuves.",
-        "afterEvidence": "Vous pourrez soumettre votre position après la clôture de la collecte de preuves par le gestionnaire.",
+        "submitCaseFirst": "Soumettez d’abord ce dossier en brouillon. Le gestionnaire ou, si le programme l’a activé pour un dossier admissible, le service automatisé ouvrira ensuite la collecte de preuves.",
+        "waitingForManager": "En attente de l’ouverture de la collecte de preuves par le gestionnaire ou, si le programme l’a activé, par le service automatisé.",
+        "afterEvidence": "Vous pourrez soumettre votre position après la clôture de la collecte de preuves par le gestionnaire ou l’agent automatisé du programme.",
         "intakeClosed": "La collecte de preuves est close. Vous pouvez lire le dossier, mais pas ajouter de preuve ou d'événement daté à cette étape.",
         "readOnly": "Les soumissions sont closes à cette étape. Les éléments déjà soumis restent consultables.",
-        "partiesOnly": "Seules les parties au dossier peuvent soumettre. Les gestionnaires examinent leurs soumissions."
+        "partiesOnly": "Seules les parties au dossier peuvent soumettre. Le gestionnaire de dossier ou, si le programme l’a activé, le service automatisé assure ensuite le traitement."
       }
     },
     "chronology": {
       "title": "Chronologie du différend",
-      "description": "Ajoutez les événements du différend selon leur date, et non celle de votre envoi. Les deux parties peuvent lire ces récits; ce sont des événements rapportés, non des faits vérifiés.",
+      "description": "Ajoutez les événements du différend selon leur date, et non celle de votre envoi. Seuls vous, le gestionnaire de dossier, un approbateur et un administrateur pouvez lire les événements que vous ajoutez; ce sont des événements rapportés, non des faits vérifiés.",
       "empty": "Aucun événement du différend n'a encore été ajouté.",
       "reportedBy": "Rapporté par {name}",
       "form": {
@@ -235,6 +239,48 @@
       "requesting": "Demande en cours…",
       "error": "L'ébauche de recommandation n'a pas pu être demandée."
     },
+    "authorDraft": {
+      "title": "Rédiger vous-même l’ébauche de recommandation",
+      "replaceTitle": "Remplacer cette ébauche par la vôtre",
+      "intro": "Aucun modèle n’est appelé. Votre ébauche est enregistrée comme nouvelle version et les parties ne la voient pas avant que vous l’émettiez avec la liste de vérification.",
+      "help": "Rédigez en langage clair. Une issue proposée n’est pas contraignante et ne prend effet que si les deux parties y consentent.",
+      "summaryLabel": "Résumé (120 mots ou moins)",
+      "proposedOutcomeLabel": "Issue proposée",
+      "reasoningLabel": "Raisonnement",
+      "limitsLabel": "Limites de cette recommandation",
+      "notConsideredLabel": "Ce qui n’a pas été pris en compte",
+      "onePerLine": "Un élément par ligne. Chaque liste doit contenir au moins un élément.",
+      "citationsLegend": "Preuves invoquées (au moins une)",
+      "relevanceLabel": "Pertinence de « {title} »",
+      "citationRequired": "Sélectionnez au moins une preuve et indiquez sa pertinence.",
+      "reasonLabel": "Motif du remplacement de l’ébauche actuelle",
+      "save": "Enregistrer l’ébauche",
+      "saving": "Enregistrement…",
+      "error": "L’ébauche n’a pas pu être enregistrée."
+    },
+    "partyOutcome": {
+      "title": "Résultats destinés à chaque partie",
+      "description": "Le médiateur rédige le résultat que chaque partie lira avant de consentir ou de refuser. Une partie ne voit que son propre résultat émis.",
+      "bodyLabel": "Résultat pour {name}",
+      "saveDraft": "Enregistrer le brouillon",
+      "saving": "Enregistrement…",
+      "issueButton": "Émettre ce résultat",
+      "issuing": "Émission…",
+      "issuedStatus": "Résultat émis",
+      "draftStatus": "Brouillon, pas encore émis",
+      "saved": "Brouillon enregistré.",
+      "issuedAnnouncement": "Résultat émis.",
+      "error": "Le résultat n'a pas pu être enregistré.",
+      "version": "Version {version}",
+      "yourOutcome": "Votre résultat",
+      "readOnly": "Vous pouvez lire ces résultats. Seul le médiateur assigné peut les rédiger.",
+      "revisionPending": "Une révision non émise est en attente. Le consentement est encore ouvert sur la version {version}.",
+      "citationHeading": "Preuves citées dans ce résultat",
+      "viewExcerpt": "Afficher l’extrait vérifié",
+      "hideExcerpt": "Masquer l’extrait",
+      "loadingExcerpt": "Vérification de la source…",
+      "excerptUnavailable": "Impossible de vérifier l’extrait. Vous pouvez tout de même ouvrir la pièce originale."
+    },
     "consent": {
       "title": "Consentement",
       "statementHeading": "Déclaration de consentement",
@@ -246,6 +292,9 @@
       "givenAnnouncement": "Votre consentement a été enregistré.",
       "declinedAnnouncement": "Votre refus a été enregistré.",
       "revokedAnnouncement": "Votre consentement a été retiré.",
+      "outcomeUnavailable": "Le résultat ne vous est pas encore accessible.",
+      "outcomeNeedsAnswer": "Un nouveau résultat demande votre réponse.",
+      "outcomeSuperseded": "Un nouveau résultat a été émis, veuillez le relire.",
       "error": "Votre réponse n'a pas pu être enregistrée."
     },
     "withdraw": {
@@ -272,6 +321,8 @@
       "proposedOutcomeLabel": "Résultat proposé",
       "reasoningLabel": "Raisonnement",
       "citationsLabel": "Preuves citées",
+      "claimEvidenceLabel": "Affirmations reliées aux preuves",
+      "proposalBasisLabel": "Fondement de la proposition",
       "limitsLabel": "Limites",
       "notConsideredLabel": "Non considéré",
       "modelLabel": "Rédigé par {model} (invite {version})",
@@ -283,7 +334,10 @@
       },
       "issueButton": "Rendre la recommandation",
       "issuing": "Émission en cours…",
-      "error": "La recommandation n'a pas pu être rendue."
+      "error": "La recommandation n'a pas pu être rendue.",
+      "withheldForParty": "Le raisonnement complet de la personne gestionnaire reste au personnel, car il s'appuie sur les soumissions des deux parties. Votre propre résultat, ci-dessous, est le texte auquel vous devez répondre.",
+      "citedEvidenceFallback": "Preuve citée",
+      "humanAuthoredLabel": "Rédigé par la personne gestionnaire du dossier. Aucun modèle n’a été utilisé."
     },
     "claims": {
       "title": "Énoncés de ce dossier",
@@ -482,7 +536,10 @@
       "description": "Le journal automatique des actions dans Aequitas. Ces dates indiquent les soumissions et l'avancement du dossier, pas les événements du différend.",
       "empty": "Aucun événement pour l'instant.",
       "count": "{count} activités",
-      "filters": { "label": "Filtrer les activités selon leur source", "all": "Tout le monde" },
+      "filters": {
+        "label": "Filtrer les activités selon leur source",
+        "all": "Tout le monde"
+      },
       "by": "par {name}",
       "event": {
         "CASE_CREATED": "Dossier créé",
@@ -495,6 +552,8 @@
         "EVIDENCE_ACCESSED": "Fichier de preuve consulté",
         "EVIDENCE_SUPERSEDED": "Preuve remplacée",
         "EVIDENCE_INTAKE_CLOSED": "Collecte de preuves close",
+        "PARTY_INTAKE_READY_MARKED": "Une partie a indiqué que sa collecte de preuves est complète",
+        "PARTY_INTAKE_READY_CLEARED": "L’indication de fin de collecte de preuves d’une partie a été réinitialisée",
         "POSITION_SUBMITTED": "Position soumise",
         "CHRONOLOGY_ENTRY_SUBMITTED": "Événement du différend soumis",
         "RECOMMENDATION_DRAFT_REQUESTED": "Ébauche de recommandation demandée",
@@ -537,7 +596,12 @@
         "CONTESTATION_RESPONDED": "Réponse à une contestation",
         "CONTESTATION_OVERRULED": "Contestation rejetée avec motif",
         "CONTESTATION_WITHDRAWN": "Contestation retirée",
-        "RESOLUTION_APPROVED": "Approbation de la recommandation par un approbateur"
+        "RESOLUTION_APPROVED": "Approbation de la recommandation par un approbateur",
+        "PARTY_OUTCOME_EDITED": "Brouillon du résultat d'une partie enregistré",
+        "PARTY_OUTCOME_ISSUED": "Résultat d'une partie émis",
+        "AGENT_ENROLLED": "Assistant automatisé activé",
+        "AGENT_ESCALATED": "Confié à une personne",
+        "AGENT_PROCESSING_ACCEPTED": "Traitement automatisé accepté par une partie"
       }
     },
     "resolution": {
@@ -586,6 +650,7 @@
       "targetClaim": "Affirmation : {text}",
       "code": {
         "OPEN_CONTESTATION": "Une contestation est encore ouverte. Elle doit recevoir une réponse, être rejetée ou être retirée avant que le dossier puisse se régler.",
+        "RESOLUTION_PAUSED": "Règlement suspendu en attendant l'examen.",
         "APPROVAL_REQUIRED": "Un approbateur doit approuver la recommandation actuelle avant que le consentement puisse régler le dossier.",
         "ADMIN_CANNOT_APPROVE": "Les administrateurs ne peuvent ni approuver ni rejeter.",
         "NOT_APPROVER": "Seul un approbateur désigné peut approuver ou rejeter.",
@@ -598,6 +663,65 @@
         "TARGET_NOT_ON_CASE": "Cet élément ne fait pas partie de ce dossier.",
         "CASE_NOT_CONTESTABLE": "Les contestations ne peuvent pas être ouvertes ni modifiées à cette étape du dossier."
       }
+    },
+    "caseAgent": {
+      "title": "Assistant automatisé",
+      "partyNotice": "Un assistant automatisé s’occupe des étapes courantes de ce dossier. À partir des renseignements soumis par les deux parties, il propose la même solution aux deux. Chacune la voit formulée selon son rôle et dans sa langue, avec des citations tirées uniquement de ses propres preuves. La proposition n’est pas contraignante, n’est pas un avis juridique et ne juge pas qui dit vrai. Vous pouvez demander l’intervention d’une personne avant la fermeture du dossier et accepter ou refuser la proposition qui vous est présentée. La partie plaignante peut mettre fin à sa participation avant la fermeture; la partie répondante ne peut le faire que si le programme le permet. La page du dossier affiche les options qui vous sont offertes.",
+      "processingTitle": "Examiner le traitement automatisé",
+      "processingProvider": "Fournisseur : {provider}. Compte ou projet : {account}. Modèle : {model}.",
+      "processingRegion": "Région de traitement du modèle : {region}.",
+      "processingIntro": "Une fois que les deux parties ont accepté le traitement automatisé, le service transmet au fournisseur indiqué ci-dessus les renseignements du dossier, y compris la description du différend, les positions des deux parties, la chronologie et le texte extrait des fichiers de preuve lisibles. L’assistant utilise ensemble les renseignements soumis par les deux parties pour proposer la même solution aux deux. Chacune reçoit un texte adapté à son rôle et à sa langue, avec des citations tirées uniquement de ses propres preuves; l’analyse écrite de l’assistant est réservée au personnel du programme. Vous pouvez plutôt demander l’intervention d’une personne.",
+      "processingAccept": "J’ai lu cet avis et j’accepte le traitement automatisé",
+      "processingAccepted": "Votre choix est enregistré. L’assistant continuera seulement après que l’autre partie aura fait le même choix.",
+      "requestButton": "Demander qu’une personne examine ce dossier",
+      "requesting": "Envoi…",
+      "partyEscalated": "Une personne examinera ce dossier. Aucune proposition automatisée ne sera rendue.",
+      "managerActive": "L’assistant automatisé s’occupe des étapes courantes de ce dossier. Il vous rend le dossier si une partie le demande ou s’il ne peut pas continuer de façon sûre.",
+      "managerEscalated": "Dossier qui vous est rendu. Motif : {reason}",
+      "enrollHelp": "Dossiers de consommation au détail seulement. Vous demeurez la personne gestionnaire responsable. Chaque partie peut vous demander en tout temps.",
+      "enrollButton": "Confier les étapes courantes à l’assistant automatisé",
+      "error": "La demande n’a pas pu être traitée.",
+      "intakeReadyTitle": "Terminer la collecte de preuves",
+      "intakeReadyHelp": "Après avoir ajouté vos preuves et vos événements datés, indiquez que votre côté est complet. L’assistant ferme la collecte seulement lorsque les deux parties l’ont indiqué. Vous pouvez rouvrir votre côté tant que la collecte reste ouverte; toute nouvelle soumission efface votre indication, et une modification des renseignements du dossier réinitialise les deux indications. Chaque partie peut demander une personne.",
+      "intakeReadyMarked": "Votre côté est indiqué comme complet.",
+      "intakeReadyMark": "J’ai terminé d’ajouter mes preuves",
+      "intakeReadyClear": "Je dois ajouter d’autres preuves",
+      "intakeReadySaving": "Enregistrement…",
+      "intakeReadyError": "L’état de votre collecte n’a pas pu être mis à jour.",
+      "intakeReadyResolveEvidence": "Résolvez ou remplacez chaque fichier en attente ou refusé avant d’indiquer que votre côté est complet.",
+      "intakeReadyEvidenceRequired": "Soumettez au moins une preuve analysée avant d’indiquer que votre côté est complet.",
+      "reason": {
+        "party_request": "Une partie a demandé qu’une personne examine le dossier.",
+        "out_of_scope_category": "Le dossier n’est pas un différend de consommation au détail.",
+        "out_of_scope_amount": "Le montant en jeu est absent ou dépasse la limite du programme.",
+        "legal_language_detected": "Le dossier contient des termes juridiques et doit être examiné par une personne.",
+        "evidence_inadequate": "Une partie n’a aucune preuve analysée au dossier.",
+        "evidence_rejected": "Un fichier a échoué l’analyse de sécurité.",
+        "contestation_open": "Une contestation est ouverte.",
+        "declined": "Une partie a refusé le résultat proposé.",
+        "model_unavailable": "Aucun modèle n’est configuré.",
+        "model_failed": "La requête au modèle a échoué.",
+        "model_requested_review": "L’assistant n’a pas pu proposer un résultat de façon sûre.",
+        "model_output_rejected": "La proposition de l’assistant n’a pas passé les vérifications.",
+        "daily_model_call_limit_reached": "La limite quotidienne d’analyses automatisées du programme est atteinte. Une personne examinera ce dossier.",
+        "model_budget_unavailable": "La limite d’analyses automatisées n’a pas pu être vérifiée. Une personne examinera ce dossier.",
+        "invitation_failed": "L’invitation de la partie intimée n’a pas pu être livrée.",
+        "respondent_no_response": "La partie intimée ne s’est pas jointe dans le délai prévu par le programme.",
+        "submission_missing": "Une soumission requise manquait à la fin du délai prévu par le programme.",
+        "intake_incomplete": "Une partie n’a pas indiqué que la collecte de preuves était terminée dans le délai prévu par le programme.",
+        "evidence_scan_pending": "Une analyse de sécurité était toujours en attente à la fin du délai prévu par le programme.",
+        "no_answer": "Une partie n’a pas répondu à la proposition dans le délai prévu par le programme.",
+        "evidence_extraction_failed": "Un fichier n’a pas pu être lu au complet.",
+        "evidence_limit_exceeded": "Les preuves dépassent ce que l’assistant peut lire.",
+        "case_input_limit_exceeded": "Le dossier est trop volumineux pour que l’assistant l’examine de façon sécuritaire. Une personne examinera le dossier.",
+        "processing_choice_timeout": "Les deux parties n’ont pas accepté le traitement automatisé à temps. Une personne examinera ce dossier."
+      },
+      "endButton": "Mettre fin à ma participation",
+      "endConfirm": "Mettre fin à votre participation arrête le processus pour ce dossier. Vous ne pourrez pas l’annuler ici.",
+      "endConfirmButton": "Oui, mettre fin à ma participation",
+      "endCancel": "Continuer à participer",
+      "claimHelp": "L’assistant automatisé a confié ce dossier à la file des gestionnaires. Motif : {reason} En le prenant, vous confirmez n’avoir aucun conflit d’intérêts.",
+      "claimButton": "Prendre ce dossier (aucun conflit d’intérêts)"
     }
   },
   "knowledgeMap": {
@@ -771,6 +895,7 @@
     "empty": "Aucun dossier pour l'instant.",
     "startNew": "Ouvrir un nouveau dossier",
     "unclaimed": "Non attribué",
+    "approvalNeeded": "En attente de votre approbation indépendante",
     "otherParty": "Avec {name}",
     "viewLink": "Voir",
     "resumeLink": "Reprendre le brouillon",
@@ -814,15 +939,15 @@
   },
   "landing": {
     "title": "Aequitas",
-    "tagline": "Un dossier que les deux parties peuvent lire.",
-    "lead": "Aequitas accompagne la résolution de différends : chaque partie dépose ses pièces et sa position, un gestionnaire de dossier neutre fait réviser un résultat proposé, et rien n'est conclu sans le consentement explicite de chaque partie.",
+    "tagline": "Chaque partie ne voit que ses propres éléments.",
+    "lead": "Lorsqu’un programme active son agent, Aequitas peut traiter les dossiers admissibles de différend de consommation au détail, de la collecte des preuves à une proposition qui cite les preuves. Chaque partie garde le contrôle de ses propres soumissions et décide de consentir ou non. Chacune peut demander qu’une personne examine le dossier; les exceptions sont transmises au personnel du programme.",
     "signIn": "Se connecter avec une clé d'accès",
-    "myCases": "Mes dossiers",
+    "demoLink": "Voir un exemple de dossier",
     "otherLocale": "English",
     "skipToContent": "Aller au contenu",
     "navigationLabel": "Navigation principale",
     "workspaceLabel": "Un espace pour résoudre les différends",
-    "intro": "Déposez vos pièces, faites entendre votre point de vue et avancez avec un gestionnaire de dossier neutre.",
+    "intro": "Dans un programme qui active l’agent, Aequitas peut gérer les étapes courantes des dossiers admissibles sans intervention d’un gestionnaire. Les parties déposent leurs preuves et leurs positions; le service prépare une proposition qui cite les preuves. Chacune peut consentir, refuser ou demander qu’une personne examine le dossier.",
     "imageCaption": "Deux perspectives. Un même dossier.",
     "processTitle": "Un chemin clair, ensemble.",
     "steps": {
@@ -832,11 +957,11 @@
       },
       "review": {
         "title": "Examiner une proposition",
-        "description": "Un gestionnaire de dossier neutre révise le résultat proposé avant de le partager avec les parties."
+        "description": "Dans un dossier admissible, l’agent d’Aequitas prépare une proposition non contraignante qui cite les preuves. Les exceptions et les demandes d’examen par une personne sont transmises au personnel du programme."
       },
       "consent": {
         "title": "Choisir de consentir",
-        "description": "Chaque partie décide explicitement. Un résultat proposé devient un accord seulement avec le consentement des deux parties."
+        "description": "Chaque partie décide explicitement. Une proposition ne devient un accord qu'avec le consentement des deux parties. Selon les règles standard, un approbateur distinct doit aussi approuver la recommandation avant la fermeture du dossier; le programme ne peut omettre cette étape qu'en activant explicitement le règlement par consentement seulement."
       }
     },
     "submissions": {
@@ -852,14 +977,90 @@
       },
       "position": {
         "title": "Votre position",
-        "description": "Dans Positions, expliquez votre point de vue et le résultat recherché après la clôture de la collecte de preuves par le gestionnaire."
+        "description": "Dans Positions, expliquez votre point de vue et le résultat recherché après la clôture de la collecte de preuves par le gestionnaire ou, dans un dossier admissible où le programme l’active, le service automatisé."
       },
       "note": "Les parties soumettent leurs éléments dans leur dossier, pas sur cette page publique. Le dossier explique pourquoi une action n'est pas disponible."
     },
-    "footer": "Les propositions sont révisées par un humain. Le consentement appartient à chaque partie."
+    "footer": "Le mode automatisé est facultatif et réservé aux dossiers admissibles. Chaque partie décide de consentir ou non; chacune peut demander qu’une personne examine le dossier.",
+    "pilot": {
+      "title": "Vous gérez un programme de règlement des différends?",
+      "body": "Nous cherchons un programme québécois de règlement des différends afin de vérifier si Aequitas convient à un flux documenté de dossiers de consommation au détail que ses services actuels ne couvrent pas. Un projet pilote supervisé utiliserait l’agent facultatif pour les dossiers admissibles selon les règles configurées, de la collecte jusqu’à une proposition non contraignante qui cite les preuves. Chaque partie garde le contrôle de ses propres soumissions, décide de consentir ou non et peut demander qu’une personne examine le dossier; les exceptions vont au personnel. L’agent est désactivé par défaut. La qualité d’un modèle en direct et le fonctionnement en production n’ont pas encore été validés. Aequitas ne donne pas d’avis juridique.",
+      "action": "Demander un projet pilote"
+    }
+  },
+  "caseDemo": {
+    "title": "Un dossier courant, étape par étape",
+    "metadata": "Un parcours interactif et bilingue d'un différend fictif de vente au détail. Les choix restent sur cette page; aucun modèle n'est appelé.",
+    "kicker": "Parcours synthétique",
+    "intro": "Voyez comment un dossier courant configuré pourrait passer de l'ouverture à une proposition qui cite les preuves, tandis que chaque partie garde le contrôle de ses propres soumissions et de son choix.",
+    "signIn": "Se connecter avec une clé d'accès",
+    "home": "Retour à Aequitas",
+    "imageCaption": "Un dossier commun conserve la trace de chaque étape.",
+    "sampleNoticeTitle": "Ceci est une illustration",
+    "sampleNoticeBody": "Les personnes, le commerce et les preuves ci-dessous sont fictifs. Cette simulation dans votre navigateur n'envoie ni ne conserve vos choix, n'appelle aucun modèle et ne crée aucun dossier. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés. Dans l’application, les citations permettent de retrouver les extraits dans les pièces déposées. Elles ne vérifient pas l’exactitude des pièces et ne prouvent pas qu’un extrait appuie la proposition.",
+    "caseTitle": "Une bouilloire cesse de fonctionner après l'achat",
+    "caseDescription": "Une personne signale un problème avec un appareil. Le magasin confirme qu'un remplacement est possible. Cet exemple présente deux courts extraits de preuve fictifs.",
+    "amountLabel": "Montant en jeu",
+    "evidenceTitle": "Preuve visible dans cette vue",
+    "party": {
+      "complainant": "Vue de la partie plaignante",
+      "respondent": "Vue du commerce"
+    },
+    "evidenceLabel": "Extrait de preuve fictif",
+    "sample": {
+      "claim": "La bouilloire a cessé de fonctionner après trois utilisations.",
+      "response": "Le magasin peut remplacer l'article après inspection.",
+      "complainantEvidence": "Bouilloire électrique, 124,50 $, achetée le 12 octobre.",
+      "respondentEvidence": "Remplacement possible dans les 30 jours après inspection."
+    },
+    "proposalTitle": "Une proposition non contraignante",
+    "proposalDescription": "Le texte fixe de l'application présente la même proposition structurée dans la langue de chaque personne.",
+    "interaction": {
+      "title": "Essayez les deux vues des parties",
+      "description": "Changez de côté pour voir comment le même dossier fictif est présenté séparément. Choisissez une réponse pour chaque partie afin de voir quand le service automatisé poursuit ou s'arrête.",
+      "roleLabel": "Choisir une vue fictive",
+      "roleNotice": "Cette simulation dans votre navigateur vous permet de passer d'une partie fictive à l'autre. Dans un vrai dossier, chaque partie utilise un compte distinct et ne voit que son propre résultat et les preuves qui le soutiennent. Le résumé et le raisonnement du personnel restent confidentiels. Les réponses ici ne sont ni envoyées ni conservées.",
+      "positionLabel": "Version des faits de cette partie",
+      "choiceTitle": "Que choisit cette partie?",
+      "choiceHint": "Les deux parties doivent consentir. Selon les règles standard du programme, un approbateur distinct doit aussi autoriser la fermeture.",
+      "consent": "Je consens à cette proposition",
+      "decline": "Refuser cette proposition",
+      "askPerson": "Demander l'examen par une personne",
+      "reset": "Recommencer la simulation",
+      "statusLabel": "État de la simulation",
+      "status": {
+        "initial": "Choisissez une réponse pour cette vue fictive. Le choix de l'autre partie n'est pas affiché ici.",
+        "accepted": "La réponse de cette vue est enregistrée dans la simulation. Le dossier reste ouvert jusqu'au consentement des deux parties et à l'examen par l'approbateur requis.",
+        "completed": "Les deux parties fictives ont consenti. Selon les règles standard, un approbateur distinct doit encore examiner le dossier avant sa fermeture.",
+        "handoff": "L'automatisation s'arrête et transmet le dossier au personnel du programme. Aucun accord n'est enregistré."
+      }
+    },
+    "workflowTitle": "La suite du parcours",
+    "steps": {
+      "intake": {
+        "title": "Ouverture et invitation",
+        "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation."
+      },
+      "evidence": {
+        "title": "Preuves et positions",
+        "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel."
+      },
+      "proposal": {
+        "title": "Une proposition avec citations",
+        "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions."
+      },
+      "choice": {
+        "title": "Chaque personne choisit",
+        "description": "Les deux parties peuvent consentir. Selon les règles standard, le dossier se ferme seulement après leur consentement et l'approbation distincte. Le programme ne peut omettre l'approbation qu'en activant explicitement le règlement par consentement seulement. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel."
+      }
+    },
+    "handoffTitle": "Quand une personne doit examiner le dossier",
+    "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
+    "pilotStatus": "L'agent est désactivé par défaut. Cette version candidate a été exercée avec des dossiers synthétiques et un modèle simulé seulement. Elle n'est pas approuvée pour des dossiers réels.",
+    "pilotAction": "Demander un projet pilote supervisé"
   },
   "auth": {
-    "tagline": "un dossier lisible par les deux parties",
+    "tagline": "chaque partie ne voit que ses propres éléments",
     "otherLanguage": "English",
     "chooseMode": "Choisir la connexion ou l’inscription",
     "signIn": "Se connecter",
@@ -880,6 +1081,7 @@
     "account": "Navigation du compte",
     "cases": "Dossiers",
     "invites": "Invitations",
+    "operations": "Opérations",
     "signOut": "Se déconnecter"
   },
   "recovery": {
@@ -937,5 +1139,87 @@
       "failed": "Invitation créée, mais l’envoi a échoué. Transmettez ce lien directement ou créez une nouvelle invitation.",
       "not_configured": "Invitation créée. Le courriel n’est pas configuré; transmettez ce lien directement."
     }
+  },
+  "adminOperations": {
+    "title": "Opérations",
+    "explain": "État global de l’agent de traitement des dossiers et des envois pour cette installation. Seuls des nombres agrégés sont affichés, sans détail sur les dossiers ou les parties.",
+    "scopeNotice": "L’état opérationnel ne confirme ni la qualité des propositions, ni l’approbation juridique, ni la conformité à la vie privée, ni l’autorisation de traiter de vrais dossiers.",
+    "unavailable": "L’état est actuellement indisponible. Aucun détail de dossier n’est affiché.",
+    "generatedAt": "Bilan généré à {time} UTC",
+    "refresh": "Actualiser l’état",
+    "notRecorded": "Non consigné",
+    "notAvailable": "Indisponible",
+    "agentHeading": "Agent automatisé de traitement des dossiers",
+    "ready": "Prêt pour les nouveaux dossiers admissibles",
+    "notReady": "Pas prêt pour de nouveaux dossiers",
+    "agentEnabled": "Agent activé et règles du programme complètes",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "modelConfigured": "Fournisseur de modèle approuvé",
+    "configured": "Configuré",
+    "notConfigured": "Non configuré",
+    "serviceAccounts": "Comptes de service de l’agent (1 attendu)",
+    "runtimeConfigured": "Environnement d’exécution configuré",
+    "yes": "Oui",
+    "no": "Non",
+    "dailyCalls": "Budget d’appels au modèle aujourd’hui (UTC)",
+    "callsUsed": "Utilisés : {used}",
+    "callsRemaining": "Utilisés : {used} sur {limit}; {remaining} restants",
+    "missingSettings": "Réglages du programme manquants ou invalides",
+    "caseQueueHeading": "Files de dossiers",
+    "eligibleOpen": "Dossiers de vente au détail admissibles et non attribués",
+    "unassignedEscalations": "Escalades non attribuées",
+    "activeLeases": "Baux actifs de l’agent",
+    "expiredLeases": "Baux expirés de l’agent",
+    "latestAttempt": "Dernière tentative de l’agent",
+    "activeCases": "Dossiers gérés par l’agent selon l’étape",
+    "escalatedCases": "Escalades ouvertes selon le code de motif",
+    "none": "Aucun",
+    "emailHeading": "Envoi des courriels",
+    "emailConfigured": "Configuration du courriel sortant",
+    "retryingNotifications": "Notifications de dossier à réessayer",
+    "exhaustedNotifications": "Notifications de dossier à la limite de tentatives",
+    "retryingTokenEmails": "Invitations ou récupérations de compte à réessayer",
+    "exhaustedTokenEmails": "Invitations ou récupérations à la limite de tentatives",
+    "scheduledHeading": "Tâches planifiées",
+    "scheduledCaption": "État de disponibilité consigné par cette installation",
+    "operation": "Tâche",
+    "health": "État",
+    "interval": "Intervalle prévu",
+    "lastStarted": "Dernier démarrage (UTC)",
+    "lastSucceeded": "Dernière exécution réussie (UTC)",
+    "caseAgentWorker": "Agent de dossiers",
+    "notificationRetryWorker": "Réessai des notifications",
+    "minutes": "Toutes les {count} min",
+    "healthNeverRun": "Jamais exécutée",
+    "healthRunning": "En cours",
+    "healthStalled": "Bloquée",
+    "healthHealthy": "Fonctionnelle",
+    "healthOverdue": "En retard",
+    "healthFailed": "Échec",
+    "healthInterrupted": "Interrompue",
+    "healthUnknown": "Inconnu"
+  },
+  "deletionRequest": {
+    "title": "Demande de suppression",
+    "intro": "Demandez un examen de la conservation de ce dossier fermé. Le dépôt de la demande n’efface pas immédiatement les documents.",
+    "request": "Demander un examen de suppression",
+    "busy": "Envoi…",
+    "error": "La demande n’a pas pu être envoyée. Veuillez réessayer.",
+    "statusLink": "Voir la demande de suppression",
+    "back": "Retour aux dossiers",
+    "received": "Votre demande est enregistrée.",
+    "reviewDate": "Date prévue de l’examen",
+    "requested": "En attente d’examen",
+    "approved": "Examen approuvé",
+    "frozen": "Les documents sont inaccessibles pendant l’examen ou le traitement de la suppression.",
+    "erasing": "La suppression est en cours.",
+    "localPurged": "Les documents de l’application ont été supprimés. Les copies restantes font l’objet d’une vérification.",
+    "completed": "La suppression dans le périmètre contrôlé est terminée.",
+    "hold": "La suppression est suspendue dans l’attente d’un examen de conservation.",
+    "outside": "Des copies détenues indépendamment par des destinataires ou des sources externes peuvent subsister.",
+    "account": "Votre compte partagé et les documents d’autres dossiers sont traités séparément.",
+    "listTitle": "Vos demandes de suppression",
+    "requestedOn": "Date de la demande"
   }
 }

@@ -29,6 +29,9 @@
   text-decoration: none;
 }
 .primaryAction { background: var(--accent); color: var(--on-accent); }
+.pilot { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--control-border); }
+.pilot h2 { font-size: 1.05rem; margin: 0 0 6px; }
+.pilot p { margin: 0 0 12px; }
 .primaryAction:hover { background: color-mix(in srgb, var(--accent) 86%, var(--text)); text-decoration: none; }
 .secondaryAction { border: 1px solid var(--control-border); background: var(--panel-raised); color: var(--text); }
 .secondaryAction:hover { text-decoration: none; background: var(--bg); }

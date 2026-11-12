@@ -1,5 +1,4 @@
 import "../src/lib/loadEnv";
-import { mkdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { test, expect, type Browser, type BrowserContext } from "@playwright/test";
 import { prisma } from "../src/lib/prisma";
@@ -8,8 +7,9 @@ import { SESSION_COOKIE } from "../src/lib/session";
 import { createCase, openIntake, submitCase } from "../src/domain/mutate";
 import fr from "../messages/fr-CA.json";
 import en from "../messages/en-CA.json";
+import { e2eArtifactDirectory } from "./artifactDirectory";
 
-const ARTIFACTS = "/opt/cursor/artifacts";
+const ARTIFACTS = e2eArtifactDirectory();
 
 function cookieFor(userId: string, globalRole: string): string {
   return signPayload({ purpose: "session", userId, globalRole, authMethod: "dev-bypass" }, 60 * 60);
@@ -28,7 +28,6 @@ async function contextFor(browser: Browser, userId: string, globalRole: string):
 for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
   test(`provenance click shows the excerpt in ${locale}`, async ({ browser }) => {
     test.setTimeout(120_000);
-    mkdirSync(ARTIFACTS, { recursive: true });
     const suffix = locale === "fr-CA" ? "fr" : "en";
     const complainant = await prisma.user.create({
       data: { email: `prov-c-${randomUUID()}@example.com`, displayName: `Prov Complainant ${suffix}`, globalRole: "COMPLAINANT", locale },
@@ -115,9 +114,10 @@ for (const [locale, messages] of [["fr-CA", fr], ["en-CA", en]] as const) {
     await partyPage.goto(`/${locale}/cases/${caseId}`);
     await expect(partyPage.getByRole("button", { name: copy.form.saveSource, exact: true })).toHaveCount(0);
     const partyPanel = partyPage.locator("[data-claims-panel]");
-    await partyPanel.getByText(copy.why, { exact: true }).click();
-    await expect(partyPanel.getByText(excerpt)).toBeVisible();
-    await expect(partyPanel.getByText(manager.displayName)).toHaveCount(2);
+    // The only source is a statute, not the party's own evidence, so the party does not receive the claim or its excerpt.
+    await expect(partyPanel.getByText(claimText)).toHaveCount(0);
+    await expect(partyPanel.getByText(excerpt)).toHaveCount(0);
+    await expect(partyPanel.getByText(copy.why, { exact: true })).toHaveCount(0);
     await managerContext.close();
     await partyContext.close();
   });

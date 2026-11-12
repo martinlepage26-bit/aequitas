@@ -91,11 +91,15 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await expect(page.locator("#evidence-heading ~ ul li")).toHaveCount(1);
       await expect(page.locator("#evidence-file")).toHaveValue("");
       const otherPage = await respondentContext.newPage(); await otherPage.goto(`/${locale}/cases/${caseId}`);
-      await expect(otherPage.getByRole("heading", { name: "Invoice received" })).toBeVisible();
+      await expect(otherPage.getByRole("heading", { name: "Invoice received" })).toHaveCount(0);
+      await expect(otherPage.getByText("Invoice evidence")).toHaveCount(0);
       await otherPage.fill("#evidence-title", "Respondent evidence"); await otherPage.setInputFiles("#evidence-file", { name: "reply.png", mimeType: "image/png", buffer: PNG });
       await otherPage.getByRole("button", { name: m.workspace.evidence.form.submit, exact: true }).click();
-      await expect(otherPage.locator("#evidence-heading ~ ul li")).toHaveCount(2);
+      await expect(otherPage.locator("#evidence-heading ~ ul li")).toHaveCount(1);
+      await expect(otherPage.locator("#evidence-heading ~ ul li strong")).toHaveText("Respondent evidence");
+      await expect(otherPage.getByText("Invoice evidence")).toHaveCount(0);
       const managerPage = await managerContext.newPage(); await managerPage.goto(`/${locale}/cases/${caseId}`);
+      await expect(managerPage.getByRole("heading", { name: "Invoice received" })).toBeVisible();
       await expect(managerPage.locator("#chronology-date")).toBeDisabled();
       await managerPage.getByRole("button", { name: m.workspace.intake.closeButton, exact: true }).click();
       await expect(managerPage.locator("h1 + p strong")).toHaveText(m.workspace.state.POSITIONS);
@@ -117,7 +121,8 @@ for (const [locale, m] of [["fr-CA", fr], ["en-CA", en]] as const) {
       await page.evaluate(axeSource);
       for (const [name, width, scheme] of [["desktop", 1440, "light"], ["mobile", 390, "light"], ["small-mobile", 320, "light"], ["dark", 1440, "dark"]] as const) {
         await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: scheme });
-        await expect(page.getByRole("note")).toHaveCSS("color", "rgb(74, 59, 19)");
+        await page.evaluate((next) => document.documentElement.setAttribute("data-theme", next), scheme);
+        await expect(page.getByRole("note")).toHaveCSS("color", scheme === "dark" ? "rgb(229, 227, 179)" : "rgb(74, 75, 34)");
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
         await page.screenshot({ path: testInfo.outputPath(`submissions-${locale}-${name}.png`), fullPage: true });
         const violations = await page.evaluate(async () => {

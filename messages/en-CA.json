@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "Aequitas — resolution workspace",
-    "description": "A documented, human-reviewable dispute-resolution platform. Proposed outcomes are always distinguished from decisions, every material step is attributable, and no party is ever represented as having consented before it has done so."
+    "description": "A bilingual dispute-resolution service with staff-led cases and optional autonomous handling of configured retail cases. The agent prepares evidence-cited, non-binding proposals; parties control consent and can ask for a person. Agent mode is off by default."
   },
   "banner": {
     "simulated": "Simulated case — training data"
@@ -27,6 +27,8 @@
   "workspace": {
     "title": "Case workspace",
     "caseReference": "Case {reference}",
+    "partyVisibleNotice": "Both parties may read this text. Write only what both parties should see.",
+    "partyOutcomeNotice": "Only {name} can read this outcome. Write only what that party should see.",
     "attribution": {
       "legend": "Colours by source",
       "by": "Source: {name}"
@@ -81,7 +83,8 @@
       "cancel": "Cancel",
       "sent": "An activation invitation was sent to this address. It expires after 72 hours.",
       "active": "The respondent has already activated an Aequitas account.",
-      "error": "The invitation could not be sent. Check the address and try again."
+      "error": "The invitation could not be sent. Check the address and try again.",
+      "uncertain": "We could not confirm whether the invitation email was delivered. It may have arrived, and this link remains usable. A new link cannot be issued until this one is cancelled or expires."
     },
     "state": {
       "DRAFT": "Draft",
@@ -101,7 +104,8 @@
       "caseManager": "case manager",
       "admin": "administrator",
       "bothParties": "both parties",
-      "system": "the system"
+      "system": "the system",
+      "caseAgent": "automated assistant"
     },
     "action": {
       "submitCase": "submit this case",
@@ -200,17 +204,17 @@
       "positionHelp": "Explain your account, refer to your evidence and dated events, and describe the outcome you are seeking. New submissions retain earlier versions.",
       "availability": {
         "available": "You can submit here now.",
-        "submitCaseFirst": "Submit this draft case first. A case manager then opens evidence intake.",
-        "waitingForManager": "Waiting for a case manager to open evidence intake.",
-        "afterEvidence": "Position submissions open after the case manager closes evidence intake.",
+        "submitCaseFirst": "Submit this draft case first. A case manager or, in an opted-in eligible case, the automated service then opens evidence intake.",
+        "waitingForManager": "Waiting for a case manager or, in an opted-in case, the automated service to open evidence intake.",
+        "afterEvidence": "Position submissions open after the case manager or enabled case agent closes evidence intake.",
         "intakeClosed": "Evidence intake is closed. You can read the record, but cannot add evidence or dated events at this stage.",
         "readOnly": "Submissions are closed at this stage. Previously submitted material remains available to read.",
-        "partiesOnly": "Only the parties to this case can submit. Case managers review their submissions."
+        "partiesOnly": "Only the parties to this case can submit. A case manager or, in an opted-in case, the automated service handles the next steps."
       }
     },
     "chronology": {
       "title": "Dispute chronology",
-      "description": "Add events from the dispute using the date they happened, not the date you submit them. Both parties can read these accounts; they are reported events, not verified findings.",
+      "description": "Add events from the dispute using the date they happened, not the date you submit them. Only you, the case manager, an approver, and an administrator can read the events you add; they are reported events, not verified findings.",
       "empty": "No dispute events have been added yet.",
       "reportedBy": "Reported by {name}",
       "form": {
@@ -235,6 +239,48 @@
       "requesting": "Requesting…",
       "error": "The draft recommendation could not be requested."
     },
+    "authorDraft": {
+      "title": "Write the draft recommendation yourself",
+      "replaceTitle": "Replace this draft with one you write",
+      "intro": "No model is called. Your draft is saved as a new version and is not visible to the parties until you issue it with the checklist.",
+      "help": "Write in plain language. A proposed outcome is not binding and does not take effect unless both parties consent.",
+      "summaryLabel": "Summary (120 words or fewer)",
+      "proposedOutcomeLabel": "Proposed outcome",
+      "reasoningLabel": "Reasoning",
+      "limitsLabel": "Limits of this recommendation",
+      "notConsideredLabel": "What was not considered",
+      "onePerLine": "One item per line. Each list needs at least one item.",
+      "citationsLegend": "Evidence relied on (at least one)",
+      "relevanceLabel": "Why “{title}” is relevant",
+      "citationRequired": "Select at least one piece of evidence and say why it is relevant.",
+      "reasonLabel": "Reason for replacing the current draft",
+      "save": "Save draft",
+      "saving": "Saving…",
+      "error": "The draft could not be saved."
+    },
+    "partyOutcome": {
+      "title": "Outcomes for each party",
+      "description": "The mediator writes the outcome each party will read before they consent or decline. A party sees only their own issued outcome.",
+      "bodyLabel": "Outcome for {name}",
+      "saveDraft": "Save draft",
+      "saving": "Saving…",
+      "issueButton": "Issue this outcome",
+      "issuing": "Issuing…",
+      "issuedStatus": "Issued outcome",
+      "draftStatus": "Draft, not yet issued",
+      "saved": "Draft saved.",
+      "issuedAnnouncement": "Outcome issued.",
+      "error": "The outcome could not be saved.",
+      "version": "Version {version}",
+      "yourOutcome": "Your outcome",
+      "readOnly": "You can read these outcomes. Only the assigned mediator can write them.",
+      "revisionPending": "An unissued revision is pending. Consent is still open on version {version}.",
+      "citationHeading": "Evidence cited for this outcome",
+      "viewExcerpt": "Show verified excerpt",
+      "hideExcerpt": "Hide excerpt",
+      "loadingExcerpt": "Verifying source…",
+      "excerptUnavailable": "The source excerpt could not be verified. You can still open the original evidence."
+    },
     "consent": {
       "title": "Consent",
       "statementHeading": "Consent statement",
@@ -246,6 +292,9 @@
       "givenAnnouncement": "Your consent has been recorded.",
       "declinedAnnouncement": "Your decline has been recorded.",
       "revokedAnnouncement": "Your consent has been withdrawn.",
+      "outcomeUnavailable": "Outcome not yet available to you",
+      "outcomeNeedsAnswer": "A new outcome needs your answer.",
+      "outcomeSuperseded": "A new outcome was issued, please review it.",
       "error": "Your response could not be recorded."
     },
     "withdraw": {
@@ -272,6 +321,8 @@
       "proposedOutcomeLabel": "Proposed outcome",
       "reasoningLabel": "Reasoning",
       "citationsLabel": "Cited evidence",
+      "claimEvidenceLabel": "Claims linked to evidence",
+      "proposalBasisLabel": "Basis for proposal",
       "limitsLabel": "Limits",
       "notConsideredLabel": "Not considered",
       "modelLabel": "Drafted by {model} (prompt {version})",
@@ -283,7 +334,10 @@
       },
       "issueButton": "Issue recommendation",
       "issuing": "Issuing…",
-      "error": "The recommendation could not be issued."
+      "error": "The recommendation could not be issued.",
+      "withheldForParty": "The case manager's full reasoning stays with staff because it draws on both parties' submissions. Your own outcome below is the text you are asked to answer.",
+      "citedEvidenceFallback": "Cited evidence",
+      "humanAuthoredLabel": "Written by the case manager. No model was used."
     },
     "claims": {
       "title": "Claims on this case",
@@ -482,7 +536,10 @@
       "description": "An automatic log of actions taken in Aequitas. These timestamps record submissions and case progress, not when events in the dispute happened.",
       "empty": "No events yet.",
       "count": "{count} activity items",
-      "filters": { "label": "Filter case activity by source", "all": "Everyone" },
+      "filters": {
+        "label": "Filter case activity by source",
+        "all": "Everyone"
+      },
       "by": "by {name}",
       "event": {
         "CASE_CREATED": "Case created",
@@ -495,6 +552,8 @@
         "EVIDENCE_ACCESSED": "Evidence file opened",
         "EVIDENCE_SUPERSEDED": "Evidence replaced",
         "EVIDENCE_INTAKE_CLOSED": "Evidence intake closed",
+        "PARTY_INTAKE_READY_MARKED": "Party marked evidence intake complete",
+        "PARTY_INTAKE_READY_CLEARED": "A party's evidence-intake completion mark was cleared",
         "POSITION_SUBMITTED": "Position submitted",
         "CHRONOLOGY_ENTRY_SUBMITTED": "Dispute chronology event submitted",
         "RECOMMENDATION_DRAFT_REQUESTED": "Draft recommendation requested",
@@ -537,7 +596,12 @@
         "CONTESTATION_RESPONDED": "Contestation answered",
         "CONTESTATION_OVERRULED": "Contestation overruled with a reason",
         "CONTESTATION_WITHDRAWN": "Contestation withdrawn",
-        "RESOLUTION_APPROVED": "Approver signed off on the recommendation"
+        "RESOLUTION_APPROVED": "Approver signed off on the recommendation",
+        "PARTY_OUTCOME_EDITED": "Party outcome draft saved",
+        "PARTY_OUTCOME_ISSUED": "Party outcome issued",
+        "AGENT_ENROLLED": "Automated assistant enabled",
+        "AGENT_ESCALATED": "Handed to a person",
+        "AGENT_PROCESSING_ACCEPTED": "Party accepted automated processing"
       }
     },
     "resolution": {
@@ -586,6 +650,7 @@
       "targetClaim": "Claim: {text}",
       "code": {
         "OPEN_CONTESTATION": "A contestation is still open. It must be answered, overruled, or withdrawn before the case can resolve.",
+        "RESOLUTION_PAUSED": "Resolution paused pending review",
         "APPROVAL_REQUIRED": "An approver must sign off on the current recommendation before consent can resolve the case.",
         "ADMIN_CANNOT_APPROVE": "Administrators cannot sign off or overrule.",
         "NOT_APPROVER": "Only a designated approver can sign off or overrule.",
@@ -598,6 +663,65 @@
         "TARGET_NOT_ON_CASE": "That item is not on this case.",
         "CASE_NOT_CONTESTABLE": "Contestations cannot be opened or changed at this stage of the case."
       }
+    },
+    "caseAgent": {
+      "title": "Automated assistant",
+      "partyNotice": "An automated assistant handles routine steps of this case. It uses information submitted by both parties to propose the same resolution to both. Each party sees it worded for their role and in their language, with citations only to their own evidence. The proposal is not binding, is not legal advice, and does not judge who is telling the truth. You can ask for a person before the case closes and accept or decline the proposal shown to you. The complainant can end participation before closure; the respondent can do so only when the program allows it. The case page shows the controls available to you.",
+      "processingTitle": "Review automated processing",
+      "processingProvider": "Provider: {provider}. Account or project: {account}. Model: {model}.",
+      "processingRegion": "Model processing region: {region}.",
+      "processingIntro": "Once both parties agree to automated processing, the service sends case information to the provider listed above, including the dispute description, both positions, chronology, and readable text extracted from evidence files. The assistant uses both parties' information together to propose the same resolution to both. Each party receives wording for their role and language, with citations only to their own evidence; the assistant's written analysis stays with program staff. You can ask for a person instead.",
+      "processingAccept": "I have read this notice and agree to automated processing",
+      "processingAccepted": "Your choice is recorded. The assistant will proceed only after the other party makes the same choice.",
+      "requestButton": "Ask for a person to review this case",
+      "requesting": "Sending…",
+      "partyEscalated": "A person will review this case. No automated proposal will be issued.",
+      "managerActive": "The automated assistant handles routine steps of this case. It hands the case back to you if a party asks or if it cannot proceed safely.",
+      "managerEscalated": "Handed back to you. Reason: {reason}",
+      "enrollHelp": "Retail cases only. You remain the accountable case manager. Either party can ask for you at any time.",
+      "enrollButton": "Let the automated assistant handle routine steps",
+      "error": "The request could not be completed.",
+      "intakeReadyTitle": "Finish evidence intake",
+      "intakeReadyHelp": "When you have added your evidence and dated entries, mark your side complete. The assistant closes intake only after both parties mark complete. You can reopen your side while intake is open; a new submission clears your mark, and a change to the case details clears both marks. Either party can ask for a person.",
+      "intakeReadyMarked": "Your side is marked complete.",
+      "intakeReadyMark": "I have finished adding evidence",
+      "intakeReadyClear": "I need to add more evidence",
+      "intakeReadySaving": "Saving…",
+      "intakeReadyError": "Your intake status could not be updated.",
+      "intakeReadyResolveEvidence": "Resolve or replace every pending or rejected file before marking your side complete.",
+      "intakeReadyEvidenceRequired": "Submit at least one clean evidence item before marking your side complete.",
+      "reason": {
+        "party_request": "A party asked for a person to review the case.",
+        "out_of_scope_category": "The case is not a retail dispute.",
+        "out_of_scope_amount": "The amount at stake is missing or above the program's limit.",
+        "legal_language_detected": "The case includes legal language and needs a person to review it.",
+        "evidence_inadequate": "A party has no scanned evidence on file.",
+        "evidence_rejected": "A file failed the security scan.",
+        "contestation_open": "A contestation is open.",
+        "declined": "A party declined the proposed outcome.",
+        "model_unavailable": "No model is configured.",
+        "model_failed": "The model request failed.",
+        "model_requested_review": "The assistant could not propose an outcome safely.",
+        "model_output_rejected": "The assistant's proposal failed the safety checks.",
+        "daily_model_call_limit_reached": "The program's daily automated review limit was reached. A person will review this case.",
+        "model_budget_unavailable": "The automated review limit could not be checked. A person will review this case.",
+        "invitation_failed": "The respondent invitation could not be delivered.",
+        "respondent_no_response": "The respondent did not join within the program's response period.",
+        "submission_missing": "A required submission was missing at the end of the program's period.",
+        "intake_incomplete": "A party did not mark evidence intake complete within the program's period.",
+        "evidence_scan_pending": "A required security scan was still pending at the end of the program's period.",
+        "no_answer": "A party did not answer the proposal within the program's response period.",
+        "evidence_extraction_failed": "A file could not be read in full.",
+        "evidence_limit_exceeded": "The evidence exceeds what the assistant can read.",
+        "case_input_limit_exceeded": "The case file is too large for the assistant to review safely. A person will review this case.",
+        "processing_choice_timeout": "The parties did not both accept automated processing in time. A person will review this case."
+      },
+      "endButton": "End my participation",
+      "endConfirm": "Ending your participation stops the process for this case. You cannot undo it here.",
+      "endConfirmButton": "Yes, end my participation",
+      "endCancel": "Keep participating",
+      "claimHelp": "The automated assistant handed this case to the case-manager queue. Reason: {reason} Taking it confirms you have no conflict of interest.",
+      "claimButton": "Take this case (no conflict of interest)"
     }
   },
   "knowledgeMap": {
@@ -771,6 +895,7 @@
     "empty": "No cases yet.",
     "startNew": "Start a new case",
     "unclaimed": "Unclaimed",
+    "approvalNeeded": "Awaiting your independent sign-off",
     "otherParty": "With {name}",
     "viewLink": "View",
     "resumeLink": "Resume draft",
@@ -814,15 +939,15 @@
   },
   "landing": {
     "title": "Aequitas",
-    "tagline": "A record both sides can read.",
-    "lead": "Aequitas supports dispute resolution: each party submits its evidence and position, a neutral case manager reviews a proposed outcome, and nothing is concluded without each party's explicit consent.",
+    "tagline": "Each party sees only their own submissions.",
+    "lead": "In an opted-in program, Aequitas can handle configured, eligible retail cases from intake through an evidence-cited proposal. Each party controls their submissions and chooses whether to consent; either party can ask for a person, and exceptions go to program staff.",
     "signIn": "Sign in with a passkey",
-    "myCases": "My cases",
+    "demoLink": "Explore a sample case",
     "otherLocale": "Français",
     "skipToContent": "Skip to content",
     "navigationLabel": "Main navigation",
     "workspaceLabel": "A workspace for dispute resolution",
-    "intro": "Bring your evidence, share your perspective, and work toward a proposed outcome with a neutral case manager.",
+    "intro": "For eligible cases in an opted-in program, Aequitas can handle routine steps without case-manager action. Parties submit evidence and positions; the system prepares a cited proposal. Each party may consent, decline, or ask a person to review.",
     "imageCaption": "Two perspectives. One shared record.",
     "processTitle": "A clear process, together.",
     "steps": {
@@ -832,11 +957,11 @@
       },
       "review": {
         "title": "Review a proposal",
-        "description": "A neutral case manager reviews the proposed outcome before it is shared with the parties."
+        "description": "For an opted-in eligible case, Aequitas prepares a non-binding proposal with evidence citations. Exceptions and requests for a person go to program staff."
       },
       "consent": {
         "title": "Choose whether to consent",
-        "description": "Each party decides explicitly. A proposed outcome becomes an agreement only with both parties' consent."
+        "description": "Each party decides explicitly. A proposal becomes an agreement only with both parties' consent. Under the standard rules, a separate approver must also sign off before the case closes; a program can waive that step only by explicitly enabling consent-only resolution."
       }
     },
     "submissions": {
@@ -852,14 +977,90 @@
       },
       "position": {
         "title": "Your position",
-        "description": "In Positions, explain your account and the outcome you are seeking once the case manager closes evidence intake."
+        "description": "In Positions, explain your account and the outcome you are seeking once the case manager or, in an opted-in eligible case, the automated service closes evidence intake."
       },
       "note": "Submissions are made by the parties inside their case, not on this public page. The case workspace explains any unavailable action."
     },
-    "footer": "Proposals are reviewed by a person. Consent belongs to each party."
+    "footer": "Agent mode is optional and limited to eligible cases. Both parties choose whether to consent; either can ask for a person.",
+    "pilot": {
+      "title": "Running a dispute-resolution program?",
+      "body": "We are seeking one Québec dispute-resolution program to assess whether Aequitas fits a documented retail-case workflow its existing services do not cover. A supervised pilot would use the optional case agent for configured, eligible cases, from intake through an evidence-cited, non-binding proposal. Each party controls their submissions, chooses whether to consent, and can ask for a person; exceptions go to staff. The agent is off by default, and live-model quality and production operations have not yet been validated. Aequitas does not give legal advice.",
+      "action": "Ask about a pilot"
+    }
+  },
+  "caseDemo": {
+    "title": "A routine case, step by step",
+    "metadata": "An interactive bilingual walkthrough of a fictional Aequitas retail dispute. Choices stay on this page; no model is called.",
+    "kicker": "Synthetic walkthrough",
+    "intro": "See how a configured routine case could move from intake to an evidence-cited proposal, while each party keeps control of their own submissions and choice.",
+    "signIn": "Sign in with a passkey",
+    "home": "Back to Aequitas",
+    "imageCaption": "A shared record keeps each step traceable.",
+    "sampleNoticeTitle": "This is an illustration",
+    "sampleNoticeBody": "The people, business and evidence below are invented. This browser simulation does not send or save your choices, call a model, or create a case. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
+    "caseTitle": "A kettle stops working after purchase",
+    "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
+    "amountLabel": "Amount at stake",
+    "evidenceTitle": "Evidence in this party's view",
+    "party": {
+      "complainant": "Buyer view",
+      "respondent": "Shop view"
+    },
+    "evidenceLabel": "Sample evidence excerpt",
+    "sample": {
+      "claim": "The kettle stopped working after three uses.",
+      "response": "The shop can replace the item after inspection.",
+      "complainantEvidence": "Electric kettle, $124.50, purchased October 12.",
+      "respondentEvidence": "Replacement available within 30 days after inspection."
+    },
+    "proposalTitle": "A non-binding proposal",
+    "proposalDescription": "The app's fixed wording presents the same structured proposal in each person's language.",
+    "interaction": {
+      "title": "Try the two party views",
+      "description": "Switch sides to see how the same fictional case is presented separately. Choose a response for each side to see when the automated service proceeds or stops.",
+      "roleLabel": "Choose a fictional view",
+      "roleNotice": "This browser simulation lets you switch between both fictional roles. In a real case, each party uses a separate account and sees only its own outcome and cited evidence. Staff summaries and reasoning stay private. Responses here are not sent or saved.",
+      "positionLabel": "This party's account",
+      "choiceTitle": "What does this party choose?",
+      "choiceHint": "Both parties must consent. Under the standard program rules, a separate approver also signs off before closure.",
+      "consent": "I consent to this proposal",
+      "decline": "Decline this proposal",
+      "askPerson": "Ask a person to review",
+      "reset": "Start the simulation again",
+      "statusLabel": "Simulation status",
+      "status": {
+        "initial": "Choose a response for this fictional view. The other party's choice is not shown here.",
+        "accepted": "This view's response is recorded in the simulation. The case stays open until both parties consent and the required approver reviews it.",
+        "completed": "Both fictional parties consented. Under the standard rules, a separate approver still reviews the case before closure.",
+        "handoff": "Automation stops and the case returns to program staff. No agreement is recorded."
+      }
+    },
+    "workflowTitle": "What happens next",
+    "steps": {
+      "intake": {
+        "title": "Intake and invitation",
+        "description": "Program rules check the case, then the respondent is invited."
+      },
+      "evidence": {
+        "title": "Evidence and positions",
+        "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff."
+      },
+      "proposal": {
+        "title": "A cited proposal",
+        "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list."
+      },
+      "choice": {
+        "title": "Each person chooses",
+        "description": "Both parties may consent. Under the standard rules, the case closes only after their consent and separate approver sign-off. A program can skip sign-off only by explicitly enabling consent-only resolution. Declines, requests for a person and uncertainty return the case to program staff."
+      }
+    },
+    "handoffTitle": "When a person needs to review",
+    "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",
+    "pilotStatus": "The case agent is off by default. This release candidate has been exercised with synthetic cases and a stub model only. It is not approved for real case data.",
+    "pilotAction": "Ask about a supervised pilot"
   },
   "auth": {
-    "tagline": "a record both sides can read",
+    "tagline": "each party sees only their own submissions",
     "otherLanguage": "Français",
     "chooseMode": "Choose sign-in or registration",
     "signIn": "Sign in",
@@ -880,6 +1081,7 @@
     "account": "Account navigation",
     "cases": "Cases",
     "invites": "Invitations",
+    "operations": "Operations",
     "signOut": "Sign out"
   },
   "recovery": {
@@ -937,5 +1139,87 @@
       "failed": "Invitation created, but the email failed. Share this link directly or issue another invitation.",
       "not_configured": "Invitation created. Email is not configured; share this link directly."
     }
+  },
+  "adminOperations": {
+    "title": "Operations",
+    "explain": "Deployment-wide case-agent and delivery status. This screen uses aggregate counts and does not show cases or party details.",
+    "scopeNotice": "Operational readiness does not establish proposal quality, legal approval, privacy readiness, or approval to process real case data.",
+    "unavailable": "Status is currently unavailable. No case details are shown.",
+    "generatedAt": "Snapshot generated {time} UTC",
+    "refresh": "Refresh status",
+    "notRecorded": "Not recorded",
+    "notAvailable": "Not available",
+    "agentHeading": "Automated case agent",
+    "ready": "Ready for eligible new cases",
+    "notReady": "Not ready for new cases",
+    "agentEnabled": "Agent enabled and program rules complete",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "modelConfigured": "Approved model provider",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "serviceAccounts": "Agent service accounts (expected: 1)",
+    "runtimeConfigured": "Runtime configured",
+    "yes": "Yes",
+    "no": "No",
+    "dailyCalls": "Model-call budget today (UTC)",
+    "callsUsed": "Used: {used}",
+    "callsRemaining": "Used {used} / {limit}; {remaining} remaining",
+    "missingSettings": "Missing or invalid program settings",
+    "caseQueueHeading": "Case queues",
+    "eligibleOpen": "Eligible unassigned retail cases",
+    "unassignedEscalations": "Unassigned escalations",
+    "activeLeases": "Active agent leases",
+    "expiredLeases": "Expired agent leases",
+    "latestAttempt": "Latest agent attempt",
+    "activeCases": "Agent-managed cases by state",
+    "escalatedCases": "Open escalations by reason code",
+    "none": "None",
+    "emailHeading": "Email delivery",
+    "emailConfigured": "Outgoing email configuration",
+    "retryingNotifications": "Case notifications waiting for retry",
+    "exhaustedNotifications": "Case notifications at retry limit",
+    "retryingTokenEmails": "Invitation or recovery emails waiting for retry",
+    "exhaustedTokenEmails": "Invitation or recovery emails at retry limit",
+    "scheduledHeading": "Scheduled workers",
+    "scheduledCaption": "Heartbeat status recorded by this deployment",
+    "operation": "Worker",
+    "health": "Health",
+    "interval": "Expected interval",
+    "lastStarted": "Last started (UTC)",
+    "lastSucceeded": "Last successful run (UTC)",
+    "caseAgentWorker": "Case agent",
+    "notificationRetryWorker": "Notification retry",
+    "minutes": "Every {count} min",
+    "healthNeverRun": "Never run",
+    "healthRunning": "Running",
+    "healthStalled": "Stalled",
+    "healthHealthy": "Healthy",
+    "healthOverdue": "Overdue",
+    "healthFailed": "Failed",
+    "healthInterrupted": "Interrupted",
+    "healthUnknown": "Unknown"
+  },
+  "deletionRequest": {
+    "title": "Deletion request",
+    "intro": "Ask for a review of this closed case’s retention. Submitting a request does not immediately erase the records.",
+    "request": "Request deletion review",
+    "busy": "Submitting…",
+    "error": "The request could not be submitted. Please try again.",
+    "statusLink": "View deletion request",
+    "back": "Back to cases",
+    "received": "Your request is recorded.",
+    "reviewDate": "Scheduled review date",
+    "requested": "Awaiting review",
+    "approved": "Review approved",
+    "frozen": "Records are unavailable while deletion is reviewed or processed.",
+    "erasing": "Deletion is in progress.",
+    "localPurged": "Application records have been deleted. Remaining copies are being reconciled.",
+    "completed": "Deletion within the controlled scope is complete.",
+    "hold": "Deletion is paused pending a retention review.",
+    "outside": "Copies held independently by recipients or external sources may remain.",
+    "account": "Your shared account and records belonging to other cases are handled separately.",
+    "listTitle": "Your deletion requests",
+    "requestedOn": "Requested on"
   }
 }

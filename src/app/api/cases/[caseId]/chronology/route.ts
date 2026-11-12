@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
@@ -9,14 +10,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
   const auth = await requireSession();
   if ("response" in auth) return auth.response;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
+
   const row = await prisma.case.findUnique({ where: { id: caseId } });
-  if (!row || !caseReadAccess(row, auth.session)) return Response.json({ message: "Not found." }, { status: 404 });
+  const access = row ? caseReadAccess(row, auth.session) : null;
+  if (!row || !access) return Response.json({ message: "Not found." }, { status: 404 });
   await recordStaffAccess(caseId, auth.session, "chronology");
   const entries = await prisma.chronologyEntry.findMany({
-    where: { caseId }, orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    where: access === "party" ? { caseId, submittedById: auth.session.userId } : { caseId },
+    orderBy: [{ occurredOn: "asc" }, { createdAt: "asc" }, { id: "asc" }],
     include: { submittedBy: { select: { displayName: true } } },
   });
   return Response.json({ entries }, { headers: { "Cache-Control": "private, no-store" } });
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

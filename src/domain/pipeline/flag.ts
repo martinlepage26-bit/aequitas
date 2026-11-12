@@ -4,4 +4,4 @@ export function pipelineEnabled(env?: { AEQUITAS_PIPELINE_ENABLED?: string }): b
 }
 
 export const PIPELINE_OFF_REASON =
-  "The analysis pipeline is off. It stays off until AEQUITAS_PIPELINE_ENABLED=true and a free-tier key are set.";
+  "The analysis pipeline is off. It stays off until AEQUITAS_PIPELINE_ENABLED=true and an approved provider configuration is set.";

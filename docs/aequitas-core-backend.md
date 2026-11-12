@@ -22,9 +22,11 @@ Every new AI draft includes a versioned Conflict Knowledge Map:
   conditions; repair options with prerequisites, accountability and consent.
 
 The method is `aequitas-core-v1`; the drafting prompt is `2026-09-22.1` (see
-`src/ai/prompts/CHANGELOG.md` for the full version history).
-It applies across all existing dispute categories. Human review and party consent
-remain separate from AI assessments.
+`src/ai/prompts/CHANGELOG.md` for the full version history). This map pipeline
+applies across the existing dispute categories. Its human review and issuance
+checklist remain separate from AI assessments. The distinct case-agent route
+handles only configured, eligible routine retail cases and does not use this
+knowledge-map workflow; it is off by default and has separate launch gates.
 
 ## Legal research (LegiPro)
 
@@ -47,11 +49,14 @@ pattern already used for `ANTHROPIC_API_KEY` and the database connection —
 see DECISIONS.md.
 
 **This is legal research support for a human reviewer, not adjudication.**
-Nothing in this pipeline determines liability, issues a binding ruling, or
-constitutes legal advice — the hard constraint against the word "decision"
-and the mandatory human-review-before-issuance gate (Section 9) are
-unchanged and apply to legal_research-informed drafts exactly as to any
-other draft.
+Nothing in this map pipeline determines liability, issues a binding ruling, or
+constitutes legal advice. Its human-review-before-issuance gate remains in
+force for map drafts, including drafts informed by `legal_research`. The
+separate case-agent route can issue a structured, non-binding proposal without
+case-manager action; both parties must consent to close, and exceptions go to
+staff. That route's no-approver policy is still an owner and counsel gate; it
+must remain disabled until the program's provider, oversight and legal reviews
+are complete.
 
 ## Persistence, provenance and validation
 
@@ -119,15 +124,19 @@ create a new version; they do not overwrite the original AI draft.
   Tests use synthetic records and do not establish live model quality.
 - Clean attachments are downloaded and checked against their recorded byte size
   and SHA-256 before extraction. UTF-8 text, PDF text (`pdftotext`) and image OCR
-  (`tesseract`) are supported. Missing native tools yield an explicit metadata-only
-  source; integrity failures block drafting. Scanned PDFs are not OCRed.
+  (`tesseract`) are supported. PDF pages with no text-layer content are rendered
+  one at a time at bounded resolution and OCRed; mixed PDFs retain digital text and OCR blank
+  pages. Missing native tools yield an explicit metadata-only source; integrity
+  failures block drafting. OCR can misread text, and an embedded scan on a page
+  that also has a text layer may be omitted.
 - Extraction is limited to 25 MiB per file, 20 PDF pages, 12,000 characters per
-  source, 12 files and 60,000 characters per case. Native processes have a 15-second
-  timeout and 512 KiB output cap. Extracted quotations require original-file review.
-- Configure `AEQUITAS_PDFTOTEXT_PATH`, `AEQUITAS_TESSERACT_PATH` and
-  `AEQUITAS_OCR_LANGUAGES` as needed. OCR defaults to `eng`; bilingual installations
-  should install French language data and select `eng+fra`. There is no external
-  web research or general image interpretation.
+  source, 12 files and 60,000 characters per case. Native processes have bounded
+  output; PDF OCR has a 90-second total limit and a 16 MiB rendered-page limit.
+  Extracted quotations require original-file review.
+- Configure `AEQUITAS_PDFINFO_PATH`, `AEQUITAS_PDFTOTEXT_PATH`, `AEQUITAS_TESSERACT_PATH` and
+  `AEQUITAS_PDFTOPPM_PATH`, `AEQUITAS_TESSERACT_PATH` and `AEQUITAS_OCR_LANGUAGES` as needed.
+  OCR defaults to `eng+fra`; install both language packs or configure an available
+  language. There is no external web research or general image interpretation.
 - Independence beyond exact duplicate file hashes, contextual relevance and
   ethical interpretation require human assessment.
 - The existing two-party case model remains in use; the ontology supports multiple

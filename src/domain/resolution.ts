@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError } from "../lib/caseOperation";
 import { z } from "zod";
 import type { CaseState, ContestationStatus, ContestationTarget, GlobalRole, Prisma } from "../generated/prisma";
 import { prisma } from "../lib/prisma";
@@ -21,6 +22,8 @@ import type { MutationOutcome } from "./mutate";
 
 export const RESOLUTION_BLOCKERS = ["OPEN_CONTESTATION", "APPROVAL_REQUIRED"] as const;
 export type ResolutionBlocker = (typeof RESOLUTION_BLOCKERS)[number];
+/** Shown to a party instead of naming another party's open contestation. The resolution gate still uses OPEN_CONTESTATION. */
+export type ShownResolutionBlocker = ResolutionBlocker | "RESOLUTION_PAUSED";
 
 export const APPROVAL_FAILURE_CODES = [
   "ADMIN_CANNOT_APPROVE",
@@ -79,9 +82,16 @@ export function resolutionBlockers(input: BlockerInput): ResolutionBlocker[] {
   return blockers;
 }
 
-export const BLOCKER_REASONS: Record<ResolutionBlocker, string> = {
+/** A party does not see OPEN_CONTESTATION for a contestation they did not open. The pause notice is the same text as the consent error. */
+export function partyFacingBlockers(gate: readonly ResolutionBlocker[], otherPartyOpenContestations: number): ShownResolutionBlocker[] {
+  if (otherPartyOpenContestations <= 0) return [...gate];
+  return ["RESOLUTION_PAUSED", ...gate.filter((code) => code !== "OPEN_CONTESTATION")];
+}
+
+export const BLOCKER_REASONS: Record<ShownResolutionBlocker, string> = {
   OPEN_CONTESTATION: "A contestation on this case is still open. It must be answered, overruled, or withdrawn before the case can resolve.",
   APPROVAL_REQUIRED: "This case needs approver sign-off on the current recommendation before consent can resolve it.",
+  RESOLUTION_PAUSED: "Resolution paused pending review",
 };
 
 export interface ApprovalCheckInput {
@@ -133,17 +143,29 @@ export function checkApproval(input: ApprovalCheckInput): { ok: true } | { ok: f
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-export async function loadResolutionBlockers(db: Db, caseId: string): Promise<ResolutionBlocker[]> {
-  const caseRow = await db.case.findUnique({ where: { id: caseId }, select: { consentOnlyResolution: true, currentRecommendationId: true } });
+/** Unscoped, this is the resolution gate: any open contestation blocks the case. Pass openedById only for a party's own blocker list. */
+/**
+ * Whether both parties' consent resolves the case without approver
+ * sign-off: migrated consent-only cases (P3-D1), and agent-managed cases
+ * only when their persisted program policy explicitly allows it. Escalation
+ * always restores the independent approval requirement for agent cases.
+ */
+export function consentAloneResolves(caseRow: { consentOnlyResolution: boolean; agentManaged?: boolean; agentConsentOnlyResolution?: boolean; agentEscalatedAt?: Date | null }): boolean {
+  if (caseRow.agentManaged === true) return caseRow.agentConsentOnlyResolution === true && !caseRow.agentEscalatedAt;
+  return caseRow.consentOnlyResolution;
+}
+
+export async function loadResolutionBlockers(db: Db, caseId: string, scope?: { openedById: string }): Promise<ResolutionBlocker[]> {
+  const caseRow = await db.case.findUnique({ where: { id: caseId }, select: { consentOnlyResolution: true, agentManaged: true, agentConsentOnlyResolution: true, agentEscalatedAt: true, currentRecommendationId: true } });
   if (!caseRow) return [];
   const [openContestations, approvals] = await Promise.all([
-    db.contestation.count({ where: { caseId, status: "OPEN" } }),
+    db.contestation.count({ where: { caseId, status: "OPEN", ...(scope ? { openedById: scope.openedById } : {}) } }),
     caseRow.currentRecommendationId
       ? db.reviewTrail.count({ where: { caseId, action: "APPROVED", recommendationId: caseRow.currentRecommendationId } })
       : Promise.resolve(0),
   ]);
   return resolutionBlockers({
-    consentOnlyResolution: caseRow.consentOnlyResolution,
+    consentOnlyResolution: consentAloneResolves(caseRow),
     openContestations,
     approvedForCurrentRecommendation: approvals > 0,
   });
@@ -166,7 +188,7 @@ export interface ContestationView {
 
 export interface ResolutionView {
   consentOnlyResolution: boolean;
-  blockers: ResolutionBlocker[];
+  blockers: ShownResolutionBlocker[];
   approval: { approverName: string; rationale: string | null; createdAt: string } | null;
   contestations: ContestationView[];
   viewer: {
@@ -179,8 +201,12 @@ export interface ResolutionView {
 }
 
 export async function readResolutionView(caseId: string, viewer: { userId: string; globalRole: GlobalRole; isApprover: boolean }): Promise<ResolutionView | null> {
+  try { return await withCaseOperation(caseId, "readResolutionView", async () => {
+
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
+  const access = caseReadAccess(caseRow, viewer);
+  if (!access) return null;
   const [rows, approvalRow, recommendation, synthesis, blockers] = await Promise.all([
     prisma.contestation.findMany({
       where: { caseId },
@@ -196,11 +222,10 @@ export async function readResolutionView(caseId: string, viewer: { userId: strin
       : Promise.resolve(null),
     caseRow.currentRecommendationId ? prisma.recommendation.findUnique({ where: { id: caseRow.currentRecommendationId }, select: { issuedById: true } }) : Promise.resolve(null),
     prisma.synthesisVersion.findFirst({ where: { caseId }, orderBy: { version: "desc" }, select: { createdById: true } }),
-    loadResolutionBlockers(prisma, caseId),
+    loadResolutionBlockers(prisma, caseId, access === "party" ? { openedById: viewer.userId } : undefined),
   ]);
   const open = rows.filter((row) => row.status === "OPEN").length;
   const contestable = CONTESTABLE_STATES.includes(caseRow.state);
-  const access = caseReadAccess(caseRow, viewer);
   const approvalCheck = checkApproval({
     approver: { id: viewer.userId, globalRole: viewer.globalRole, isApprover: viewer.isApprover },
     caseRow,
@@ -210,11 +235,14 @@ export async function readResolutionView(caseId: string, viewer: { userId: strin
     openContestations: open,
     alreadyApproved: Boolean(approvalRow),
   });
-  return {
-    consentOnlyResolution: caseRow.consentOnlyResolution,
-    blockers,
+  const seesAllContestations = access === "assigned-manager" || access === "approver" || access === "admin";
+  const visibleRows = seesAllContestations ? rows : access === "party" ? rows.filter((row) => row.openedById === viewer.userId) : [];
+  const otherPartyOpen = access === "party" ? rows.filter((row) => row.status === "OPEN" && row.openedById !== viewer.userId).length : 0;
+  const view: ResolutionView = {
+    consentOnlyResolution: consentAloneResolves(caseRow),
+    blockers: access === "party" ? partyFacingBlockers(blockers, otherPartyOpen) : blockers,
     approval: approvalRow ? { approverName: approvalRow.reviewer.displayName, rationale: approvalRow.rationale, createdAt: approvalRow.createdAt.toISOString() } : null,
-    contestations: rows.map((row) => ({
+    contestations: visibleRows.map((row) => ({
       id: row.id,
       targetType: row.targetType,
       targetId: row.targetId,
@@ -236,6 +264,9 @@ export async function readResolutionView(caseId: string, viewer: { userId: strin
       approveBlockedCode: approvalCheck.ok || !viewer.isApprover ? null : approvalCheck.code,
     },
   };
+  return view;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }
 
 // --- writes --------------------------------------------------------------

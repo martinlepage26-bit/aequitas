@@ -87,4 +87,25 @@ for (const [locale, messages] of [["en-CA", en], ["fr-CA", fr]] as const) {
       await expect(invitePage.getByRole("link", { name: messages.invite.home, exact: true })).toBeVisible();
     } finally { await publicContext.close(); }
   });
+
+  test(`administrator can read aggregate operations status (${locale})`, async ({ page, baseURL }) => {
+    const admin = await prisma.user.create({ data: { email: `browser-ops-admin-${randomUUID()}@example.com`, displayName: "Operations administrator", globalRole: "ADMIN", locale } });
+    await page.context().addCookies([{ name: "aequitas_session", value: signPayload({ purpose: "session", userId: admin.id, globalRole: "ADMIN", authMethod: "dev-bypass" }, 3600), url: baseURL! }]);
+
+    const response = await page.goto(`/${locale}/admin/operations`);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { name: messages.adminOperations.title, level: 1 })).toBeVisible();
+    await expect(page.getByText(messages.adminOperations.scopeNotice, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: messages.adminOperations.scheduledHeading })).toBeVisible();
+    await expect(page.getByRole("link", { name: messages.auth.operations, exact: true })).toBeVisible();
+  });
+
+  test(`case manager cannot read admin operations status (${locale})`, async ({ page, baseURL }) => {
+    const manager = await prisma.user.create({ data: { email: `browser-ops-manager-${randomUUID()}@example.com`, displayName: "Operations test manager", globalRole: "CASE_MANAGER", locale } });
+    await page.context().addCookies([{ name: "aequitas_session", value: signPayload({ purpose: "session", userId: manager.id, globalRole: "CASE_MANAGER", authMethod: "dev-bypass" }, 3600), url: baseURL! }]);
+
+    const response = await page.goto(`/${locale}/admin/operations`);
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { name: messages.adminOperations.title, level: 1 })).toHaveCount(0);
+  });
 }

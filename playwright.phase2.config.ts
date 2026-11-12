@@ -4,6 +4,7 @@ import { applyTestDatabase } from "./test/testDatabaseUrl";
 
 applyTestDatabase();
 process.env.RESEND_API_KEY = "";
+process.env.SESSION_SECRET = "aequitas-playwright-test-only-session-secret";
 process.env.AEQUITAS_PIPELINE_ENABLED = "true";
 const testPort = Number(process.env.PHASE2_PORT ?? 3010);
 process.env.PLAYWRIGHT_PORT = String(testPort);
@@ -23,9 +24,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: process.env.CI
-      ? `node node_modules/next/dist/bin/next start --port ${testPort}`
-      : `node node_modules/next/dist/bin/next dev --port ${testPort}`,
+    command: `node scripts/start-e2e-app.mjs --port ${testPort}`,
     url: `http://localhost:${testPort}`,
     reuseExistingServer: false,
     timeout: 120_000,

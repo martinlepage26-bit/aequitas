@@ -5,7 +5,7 @@ import { prisma } from "../../src/lib/prisma";
 import { signPayload } from "../../src/lib/signedCookie";
 import { SESSION_COOKIE } from "../../src/lib/session";
 import { createCase, openIntake, submitCase } from "../../src/domain/mutate";
-import { startNextDev, type DevServer } from "../helpers/nextDevServer";
+import { ensureDevRoute, startNextDev, type DevServer } from "../helpers/nextDevServer";
 
 /**
  * Regression for security-audit finding 5.4 (aequitas-audit-run1, Area 5,
@@ -16,12 +16,11 @@ import { startNextDev, type DevServer } from "../helpers/nextDevServer";
  *     and stored as application/x-msdownload;
  *   - 10 random bytes starting 0xFF 0xFE are sniffed as audio/mpeg and also
  *     stored CLEAN.
- * The supported formats are the ones the extraction pipeline actually
- * handles (docs/aequitas-core-backend.md: "UTF-8 text, PDF text
- * (pdftotext) and image OCR (tesseract) are supported"; src/lib/
- * evidenceText.ts extractEvidenceText): text/plain, application/pdf, and
- * image/png, image/jpeg, image/tiff, image/webp. Anything else must be a
- * 400 with nothing stored — no EvidenceItem row and no storage object.
+ * The upload allowlist stores text/plain, application/pdf, image/png,
+ * image/jpeg, image/tiff and image/webp. TIFF remains available to staff but
+ * is no longer sent to automatic extraction. Anything outside the upload
+ * allowlist must be a 400 with nothing stored — no EvidenceItem row and no
+ * storage object.
  *
  * These tests protect the allowlist on both upload paths. The control test
  * also checks that supported formats still upload successfully.
@@ -132,6 +131,14 @@ describe("Evidence MIME allowlist (finding 5.4 regression)", () => {
     expect((await upload(caseId, Buffer.from("Original evidence", "utf8"), "original.txt")).status).toBe(200);
     const original = await prisma.evidenceItem.findFirstOrThrow({ where: { caseId } });
     const beforeObjects = await objectsFor(caseId);
+    // The dev server can HTML-404 this nested route on its first request
+    // (parent /evidence already works). Wait until the handler is registered;
+    // the handler itself rejects this PE with 400 and never reaches the
+    // party-visibility checks.
+    await ensureDevRoute(
+      `${base}/api/cases/00000000-0000-4000-8000-000000000000/evidence/00000000-0000-4000-8000-000000000001/supersede`,
+      "src/app/api/cases/[caseId]/evidence/[evidenceId]/supersede/route.ts",
+    );
     const res = await upload(caseId, PE_EXE, "replacement.exe", original.id);
     expect(res.status).toBe(400);
     expect(await prisma.evidenceItem.count({ where: { caseId } })).toBe(1);

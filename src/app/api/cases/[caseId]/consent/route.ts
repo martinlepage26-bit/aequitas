@@ -34,6 +34,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (typeof body?.statementVersionId !== "string") {
     return Response.json({ message: "statementVersionId is required." }, { status: 400 });
   }
+  if (typeof body?.outcomeId !== "string" || !Number.isInteger(body?.outcomeVersion)) {
+    return Response.json({ message: "outcomeId and outcomeVersion are required." }, { status: 400 });
+  }
 
   const actorLocale = session.userId === caseRow.complainantId ? caseRow.complainant.locale : caseRow.respondent.locale;
   const currentStatement = await prisma.consentStatementVersion.findFirst({
@@ -58,6 +61,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     statementVersionId: body.statementVersionId,
     currentStatementVersionId: currentStatement?.id ?? null,
     recommendationId: caseRow.currentRecommendationId,
+    outcomeId: body.outcomeId,
+    outcomeVersion: body.outcomeVersion,
     authContext,
   };
 

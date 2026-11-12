@@ -79,6 +79,9 @@ function toRoleKey(role: GlobalRole): AuthorityRoleKey {
       return "caseManager";
     case "ADMIN":
       return "admin";
+    case "CASE_AGENT":
+      // The case agent never has a session or a workspace view.
+      throw new Error("The case agent has no authority view.");
   }
 }
 

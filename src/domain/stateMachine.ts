@@ -14,10 +14,12 @@ export const TRIGGERS = [
   "submit_evidence",
   "submit_chronology",
   "supersede_evidence",
+  "mark_intake_ready",
   "close_intake",
   "submit_position",
   "request_draft",
   "draft_completed",
+  "author_draft",
   "review_draft",
   "issue_recommendation",
   "give_consent",
@@ -26,6 +28,12 @@ export const TRIGGERS = [
   "request_new_version",
   "withdraw",
   "close_case",
+  "agent_issue",
+  "agent_close",
+  "agent_open_intake",
+  "agent_close_intake",
+  "accept_agent_processing",
+  "respondent_withdraw",
 ] as const;
 
 export type Trigger = (typeof TRIGGERS)[number];
@@ -141,6 +149,14 @@ export const TRANSITIONS: TransitionDef[] = [
     events: ["EVIDENCE_INTAKE_CLOSED"],
   },
   {
+    trigger: "mark_intake_ready",
+    from: ["EVIDENCE_INTAKE"],
+    to: "EVIDENCE_INTAKE",
+    actorRoles: ["COMPLAINANT", "RESPONDENT"],
+    guards: ["isCaseParty", "agentCaseIsActive"],
+    events: ["PARTY_INTAKE_READY_MARKED", "PARTY_INTAKE_READY_CLEARED"],
+  },
+  {
     trigger: "submit_position",
     from: ["POSITIONS"],
     to: "POSITIONS",
@@ -163,6 +179,17 @@ export const TRANSITIONS: TransitionDef[] = [
     actorRoles: SYSTEM,
     guards: ["explanationRecordValidatesAgainstSchema"],
     events: ["RECOMMENDATION_DRAFTED"],
+  },
+  {
+    // A case manager writes the recommendation draft themselves, with no
+    // model call. Same authority and guards as request_draft; the draft
+    // still needs the separate issue_recommendation checklist.
+    trigger: "author_draft",
+    from: ["POSITIONS", "DRAFTING"],
+    to: "DRAFTING",
+    actorRoles: ["CASE_MANAGER"],
+    guards: ["caseAssignedToManager", "bothPartiesHaveCurrentPositions", "coiDeclarationOnFile", "explanationRecordValid"],
+    events: ["RECOMMENDATION_DRAFT_REQUESTED", "RECOMMENDATION_DRAFTED"],
   },
   {
     trigger: "review_draft",
@@ -226,6 +253,60 @@ export const TRANSITIONS: TransitionDef[] = [
     to: "CLOSED",
     actorRoles: ["CASE_MANAGER"],
     guards: ["caseAssignedToManager", "exportBundleGeneratedAndHashed"],
+    events: ["EXPORT_GENERATED", "CASE_CLOSED"],
+  },
+  // Prototype case agent (CASE_AGENT service role). These are its only
+  // transitions; every other trigger excludes it. It never drafts without
+  // issuing in the same write, never approves or consents, and closes only
+  // cases resolved by both parties' consent or a withdrawal.
+  {
+    trigger: "agent_issue",
+    from: ["POSITIONS"],
+    to: "ISSUED",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "bothPartiesHaveCurrentPositions", "explanationRecordValid", "citationsResolveToCaseEvidence"],
+    events: ["RECOMMENDATION_DRAFT_REQUESTED", "RECOMMENDATION_DRAFTED", "RECOMMENDATION_ISSUED", "PARTY_OUTCOME_ISSUED"],
+  },
+  {
+    trigger: "agent_open_intake",
+    from: ["OPEN"],
+    to: "EVIDENCE_INTAKE",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct"],
+    events: ["AGENT_ENROLLED", "EVIDENCE_INTAKE_OPENED"],
+  },
+  {
+    trigger: "agent_close_intake",
+    from: ["EVIDENCE_INTAKE"],
+    to: "POSITIONS",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "bothPartiesMarkedIntakeReady", "atLeastOneEvidenceItemPerPartyOrOverride"],
+    events: ["EVIDENCE_INTAKE_CLOSED"],
+  },
+  {
+    trigger: "accept_agent_processing",
+    from: ["POSITIONS"],
+    to: "POSITIONS",
+    actorRoles: ["COMPLAINANT", "RESPONDENT"],
+    guards: ["isCaseParty", "agentCaseIsActive"],
+    events: ["AGENT_PROCESSING_ACCEPTED"],
+  },
+  {
+    // Respondent ends participation on an agent-managed case, only where the
+    // program's configured rule allows it (caseAgent/agent.ts endParticipation).
+    trigger: "respondent_withdraw",
+    from: ANY_EXCEPT_CLOSED,
+    to: "WITHDRAWN",
+    actorRoles: ["RESPONDENT"],
+    guards: ["isCaseParty"],
+    events: ["CASE_WITHDRAWN"],
+  },
+  {
+    trigger: "agent_close",
+    from: ["RESOLVED_CONSENT", "WITHDRAWN"],
+    to: "CLOSED",
+    actorRoles: ["CASE_AGENT"],
+    guards: ["agentMayAct", "exportBundleGeneratedAndHashed"],
     events: ["EXPORT_GENERATED", "CASE_CLOSED"],
   },
 ];

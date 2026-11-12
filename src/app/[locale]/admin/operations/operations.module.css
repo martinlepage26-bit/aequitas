@@ -1,0 +1,31 @@
+.page { display: grid; gap: 18px; max-width: 74rem; min-width: 0; }
+.header { display: grid; gap: 8px; }
+.header h1, .panel h2, .panel h3, .header p { margin: 0; }
+.header > p { max-width: 72ch; color: var(--muted); }
+.notice { padding: 12px 14px; border-inline-start: 4px solid var(--accent); border-radius: var(--radius-sm); background: var(--panel-raised); color: var(--text) !important; }
+.generated { font-size: .85rem; }
+.panel { display: grid; gap: 14px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.sectionHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.sectionHeading h2 { margin: 0; }
+.good, .bad { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-weight: 700; }
+.good { color: var(--accent-text); background: color-mix(in srgb, var(--accent) 15%, var(--panel)); }
+.bad { color: var(--text); background: var(--panel-raised); }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: 10px; margin: 0; }
+.metrics > div { display: grid; align-content: start; gap: 5px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
+.metrics dt { color: var(--muted); font-size: .82rem; }
+.metrics dd { margin: 0; overflow-wrap: anywhere; font-size: 1.05rem; font-weight: 650; }
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.columns h3, .panel h3 { margin: 0 0 8px; font-size: 1rem; }
+.columns ul, .codes { display: grid; gap: 7px; margin: 0; padding-inline-start: 20px; }
+.columns li { overflow-wrap: anywhere; }
+.columns li strong { margin-inline-start: 6px; }
+.codes { list-style: none; padding: 0; }
+.codes code, .columns code { overflow-wrap: anywhere; font-size: .84rem; }
+.tableWrap { max-width: 100%; overflow-x: auto; }
+.tableWrap table { width: 100%; border-collapse: collapse; text-align: start; }
+.tableWrap caption { margin-bottom: 8px; text-align: start; color: var(--muted); }
+.tableWrap th, .tableWrap td { min-width: 8rem; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; text-align: start; }
+.tableWrap th { color: var(--muted); font-size: .8rem; }
+.tableWrap tbody th { color: var(--text); }
+.alert { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+@media (max-width: 650px) { .columns { grid-template-columns: 1fr; } .panel { padding: 13px; } }

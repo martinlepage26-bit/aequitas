@@ -1,3 +1,4 @@
+import { CaseUnavailableError } from "../lib/caseOperation";
 import { createHash } from "node:crypto";
 import type { Prisma, EventType } from "../generated/prisma";
 
@@ -53,7 +54,8 @@ export interface AppendEventInput {
  */
 export async function appendEvent(tx: Prisma.TransactionClient, input: AppendEventInput) {
   // All chain writers, including read-access audits, serialize on the case row.
-  await tx.$queryRaw`SELECT id FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
+  const cases = await tx.$queryRaw<Array<{ deletionStartedAt: Date | null }>>`SELECT "deletionStartedAt" FROM "Case" WHERE id = ${input.caseId} FOR UPDATE`;
+  if (cases.length !== 1 || cases[0].deletionStartedAt !== null) throw new CaseUnavailableError();
   const tip = await tx.event.findFirst({
     where: { caseId: input.caseId },
     orderBy: { seq: "desc" },

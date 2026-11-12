@@ -1,7 +1,9 @@
+import { randomBytes } from "node:crypto";
 import type { CaseState, DisputeCategory, GlobalRole } from "../generated/prisma";
 import { DISPUTE_CATEGORIES } from "../i18n/categoryGlossary";
 import { prisma } from "../lib/prisma";
 import { appendEvent } from "./events";
+import { digestCaseDetailsRevision } from "./caseDetailsRevision";
 import { normalizeAmountAtStake, normalizeDisputeDescription } from "./intake";
 
 export const caseDetailsEditable = (state: CaseState) =>
@@ -98,17 +100,33 @@ export async function saveCaseDetails(input: CaseDetailsInput): Promise<Result> 
       }
     }
 
+    const clearIntakeReadiness = row.state === "EVIDENCE_INTAKE" && detailsChanged;
+
     await tx.case.update({ where: { id: input.caseId }, data: {
       category: input.category as DisputeCategory,
       disputeDescription: description.description,
       amountAtStakeCents: amount.cents,
       respondentId,
       simulated: input.simulated as boolean,
+      ...(clearIntakeReadiness ? { complainantIntakeReadyAt: null, respondentIntakeReadyAt: null } : {}),
+    } });
+    const revision = await tx.caseDetailsRevision.create({ data: {
+      caseId: input.caseId,
+      actorId: input.actorId,
+      nonce: randomBytes(32).toString("hex"),
+      before: { category: row.category, disputeDescription: row.disputeDescription, amountAtStakeCents: row.amountAtStakeCents, simulated: row.simulated, respondentId: row.respondentId, respondentEmail: row.respondent.email, respondentName: row.respondent.displayName },
+      after: { category: input.category as DisputeCategory, disputeDescription: description.description, amountAtStakeCents: amount.cents, simulated: input.simulated as boolean, respondentId, respondentEmail: email, respondentName },
     } });
     const event = await appendEvent(tx, { caseId: input.caseId, actorId: input.actorId, type: "CASE_DETAILS_UPDATED", payload: {
-      before: { category: row.category, disputeDescription: row.disputeDescription, amountAtStakeCents: row.amountAtStakeCents, simulated: row.simulated, respondentId: row.respondentId, respondentEmail: row.respondent.email, respondentName: row.respondent.displayName },
-      after: { category: input.category, disputeDescription: description.description, amountAtStakeCents: amount.cents, simulated: input.simulated, respondentId, respondentEmail: email, respondentName },
+      revisionId: revision.id,
+      revisionDigest: digestCaseDetailsRevision(revision),
     } });
+    if (clearIntakeReadiness && row.complainantIntakeReadyAt) {
+      await appendEvent(tx, { caseId: input.caseId, actorId: input.actorId, type: "PARTY_INTAKE_READY_CLEARED", payload: { reason: "case_details_updated", partyRole: "COMPLAINANT" } });
+    }
+    if (clearIntakeReadiness && row.respondentIntakeReadyAt) {
+      await appendEvent(tx, { caseId: input.caseId, actorId: input.actorId, type: "PARTY_INTAKE_READY_CLEARED", payload: { reason: "case_details_updated", partyRole: "RESPONDENT" } });
+    }
     return { ok: true, revision: event.id, changed: true };
   });
 }

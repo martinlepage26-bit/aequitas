@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ session: vi.fn(), caseFind: vi.fn(), entries: vi.fn(), submit: vi.fn(), staffAccess: vi.fn() }));
+// Durable admission is exercised against PostgreSQL in case-operation-fencing.test.ts.
+vi.mock("../../src/lib/caseOperation", () => ({
+  CaseUnavailableError: class extends Error {},
+  withCaseOperation: (_caseId: string, _kind: string, fn: () => Promise<unknown>) => fn(),
+  caseOperationExternalIO: (_caseId: string, fn: () => Promise<unknown>) => fn(),
+}));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), caseFind: vi.fn(), entries: vi.fn(), submit: vi.fn(), staffAccess: vi.fn(), evidence: vi.fn(), positions: vi.fn() }));
 vi.mock("../../src/domain/staffAccess", () => ({ recordStaffAccess: mocks.staffAccess }));
 vi.mock("../../src/lib/session", () => ({ requireSession: mocks.session }));
-vi.mock("../../src/lib/prisma", () => ({ prisma: { case: { findUnique: mocks.caseFind }, chronologyEntry: { findMany: mocks.entries } } }));
+vi.mock("../../src/lib/prisma", () => ({ prisma: { case: { findUnique: mocks.caseFind }, chronologyEntry: { findMany: mocks.entries }, evidenceItem: { findMany: mocks.evidence }, positionStatement: { findMany: mocks.positions } } }));
 vi.mock("../../src/domain/mutate", () => ({ submitChronology: mocks.submit, mutationFailureResponse: (result: { step: string }) => Response.json({}, { status: result.step === "not-found" ? 404 : result.step === "authorize-role" ? 403 : 409 }) }));
 import { GET, POST } from "../../src/app/api/cases/[caseId]/chronology/route";
 const params = { params: Promise.resolve({ caseId: "case1" }) };
@@ -11,8 +17,10 @@ const input = { occurredOn: "2026-01-01", title: "Message", description: "I rece
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.session.mockResolvedValue({ session: { userId: "party1", globalRole: "COMPLAINANT" } });
-  mocks.caseFind.mockResolvedValue({ id: "case1", state: "EVIDENCE_INTAKE", caseManagerId: "manager", complainantId: "party1", respondentId: "party2" });
+  mocks.caseFind.mockResolvedValue({ id: "case1", deletionStartedAt: null, state: "EVIDENCE_INTAKE", caseManagerId: "manager", complainantId: "party1", respondentId: "party2" });
   mocks.entries.mockResolvedValue([]);
+  mocks.evidence.mockResolvedValue([]);
+  mocks.positions.mockResolvedValue([]);
   mocks.submit.mockResolvedValue({ ok: true, data: { caseId: "case1", toState: "EVIDENCE_INTAKE" } });
 });
 describe("chronology HTTP contract", () => {
@@ -27,13 +35,15 @@ describe("chronology HTTP contract", () => {
     expect((await GET(new Request("http://localhost/"), params)).status).toBe(404);
     expect(mocks.entries).not.toHaveBeenCalled();
   });
-  it("allows a case party to read with private, no-store", async () => {
+  it("allows a case party to read only their own entries, with private, no-store", async () => {
     const response = await GET(new Request("http://localhost/"), params);
     expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.entries).toHaveBeenCalledWith(expect.objectContaining({ where: { caseId: "case1", submittedById: "party1" } }));
   });
   it("retains the existing administrator case-read policy", async () => {
     mocks.session.mockResolvedValue({ session: { userId: "admin", globalRole: "ADMIN" } });
     expect((await GET(new Request("http://localhost/"), params)).status).toBe(200);
+    expect(mocks.entries).toHaveBeenCalledWith(expect.objectContaining({ where: { caseId: "case1" } }));
     expect(mocks.staffAccess).toHaveBeenCalledWith("case1", { userId: "admin", globalRole: "ADMIN" }, "chronology");
   });
   it("rejects invalid dates and forged client author fields", async () => {

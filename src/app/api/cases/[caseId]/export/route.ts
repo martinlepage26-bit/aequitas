@@ -1,7 +1,8 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../../../../../lib/caseOperation";
 import { recordStaffAccess } from "../../../../../domain/staffAccess";
 import { requireSession } from "../../../../../lib/session";
 import { prisma } from "../../../../../lib/prisma";
-import { generateExportBundle } from "../../../../../domain/exportBundle";
+import { buildPartyExportArchive, generateExportBundle } from "../../../../../domain/exportBundle";
 import { downloadBuffer } from "../../../../../lib/storage";
 
 // Section 16: "GET /api/cases/[id]/export — generate/fetch bundle". Section
@@ -14,9 +15,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const { caseId } = await params;
+  try { return await withCaseOperation(caseId, "GET", async () => {
 
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
-  if (!caseRow) return Response.json({ message: "Case not found." }, { status: 404 });
+  if (!caseRow || caseRow.deletionStartedAt !== null) return Response.json({ message: "Case not found." }, { status: 404 });
 
   const isParty = session.userId === caseRow.complainantId || session.userId === caseRow.respondentId;
   const isAssignedManager = session.globalRole === "CASE_MANAGER" && session.userId === caseRow.caseManagerId;
@@ -33,12 +35,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     bundle = await prisma.exportBundle.findUniqueOrThrow({ where: { storageKey: generated.storageKey } });
   }
 
-  const buffer = await downloadBuffer(bundle.storageKey);
+  if (isParty) {
+    const archive = await buildPartyExportArchive(caseId, session.userId);
+    return new Response(new Uint8Array(archive), {
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${caseRow.referenceNumber}-party-view.zip"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+
+  const buffer = await caseOperationExternalIO(caseId, () => downloadBuffer(bundle.storageKey));
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${caseRow.referenceNumber}-export.zip"`,
       "X-Export-Sha256": bundle.sha256,
+      "Cache-Control": "private, no-store",
     },
   });
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return Response.json({ message: "Case not found." }, { status: 404 }); } throw error; }
 }

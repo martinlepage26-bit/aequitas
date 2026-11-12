@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { APPROVAL_FAILURE_CODES, RESOLUTION_BLOCKERS, checkApproval, resolutionBlockers } from "../../src/domain/resolution";
+import { APPROVAL_FAILURE_CODES, BLOCKER_REASONS, RESOLUTION_BLOCKERS, checkApproval, consentAloneResolves, partyFacingBlockers, resolutionBlockers } from "../../src/domain/resolution";
 import { resolutionNotBlocked } from "../../src/domain/guards";
 import { transitionsFor } from "../../src/domain/stateMachine";
 
@@ -17,6 +17,14 @@ const baseInput = {
 };
 
 describe("resolution blockers", () => {
+  it("does not treat agent enrollment as an approval waiver unless the case records that explicit policy", () => {
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true, agentConsentOnlyResolution: true })).toBe(true);
+    expect(consentAloneResolves({ consentOnlyResolution: false, agentManaged: true, agentConsentOnlyResolution: true, agentEscalatedAt: new Date() })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: true, agentManaged: true, agentConsentOnlyResolution: false })).toBe(false);
+    expect(consentAloneResolves({ consentOnlyResolution: true, agentManaged: false })).toBe(true);
+  });
+
   it("consent-only cases need no sign-off; new cases do", () => {
     expect(resolutionBlockers({ consentOnlyResolution: true, openContestations: 0, approvedForCurrentRecommendation: false })).toEqual([]);
     expect(resolutionBlockers({ consentOnlyResolution: false, openContestations: 0, approvedForCurrentRecommendation: false })).toEqual(["APPROVAL_REQUIRED"]);
@@ -26,6 +34,14 @@ describe("resolution blockers", () => {
   it("an open contestation blocks every case", () => {
     expect(resolutionBlockers({ consentOnlyResolution: true, openContestations: 1, approvedForCurrentRecommendation: false })).toEqual(["OPEN_CONTESTATION"]);
     expect(resolutionBlockers({ consentOnlyResolution: false, openContestations: 2, approvedForCurrentRecommendation: true })).toEqual(["OPEN_CONTESTATION"]);
+  });
+
+  it("uses one pause notice when another party's contestation is open", () => {
+    expect(partyFacingBlockers(["OPEN_CONTESTATION", "APPROVAL_REQUIRED"], 1)).toEqual(["RESOLUTION_PAUSED", "APPROVAL_REQUIRED"]);
+    expect(partyFacingBlockers(["APPROVAL_REQUIRED"], 1)).toEqual(["RESOLUTION_PAUSED", "APPROVAL_REQUIRED"]);
+    expect(partyFacingBlockers(["OPEN_CONTESTATION"], 1)).toEqual(["RESOLUTION_PAUSED"]);
+    expect(partyFacingBlockers(["OPEN_CONTESTATION"], 0)).toEqual(["OPEN_CONTESTATION"]);
+    expect(BLOCKER_REASONS.RESOLUTION_PAUSED).toBe("Resolution paused pending review");
   });
 
   it("give_consent carries the resolution guard and it returns the code", () => {
@@ -62,7 +78,7 @@ describe("fr-CA and en-CA carry every phase 3 string", () => {
     it(locale, () => {
       const messages = JSON.parse(readFileSync(path.join(process.cwd(), "messages", `${locale}.json`), "utf8"));
       const resolution = messages.workspace.resolution;
-      for (const code of [...RESOLUTION_BLOCKERS, ...APPROVAL_FAILURE_CODES, "CONTESTATION_NOT_OPEN", "TARGET_NOT_ON_CASE", "CASE_NOT_CONTESTABLE"]) {
+      for (const code of [...RESOLUTION_BLOCKERS, "RESOLUTION_PAUSED", ...APPROVAL_FAILURE_CODES, "CONTESTATION_NOT_OPEN", "TARGET_NOT_ON_CASE", "CASE_NOT_CONTESTABLE"]) {
         expect(resolution.code[code], `${locale} code.${code}`).toBeTruthy();
       }
       for (const status of ["OPEN", "RESPONDED", "OVERRULED", "WITHDRAWN"]) expect(resolution.status[status]).toBeTruthy();
@@ -76,6 +92,9 @@ describe("fr-CA and en-CA carry every phase 3 string", () => {
     const fr = JSON.parse(readFileSync(path.join(process.cwd(), "messages", "fr-CA.json"), "utf8")).workspace.resolution;
     const en = JSON.parse(readFileSync(path.join(process.cwd(), "messages", "en-CA.json"), "utf8")).workspace.resolution;
     expect(fr.code.OPEN_CONTESTATION).not.toBe(en.code.OPEN_CONTESTATION);
+    expect(en.code.RESOLUTION_PAUSED).toBe("Resolution paused pending review");
+    expect(fr.code.RESOLUTION_PAUSED).toBe("Règlement suspendu en attendant l'examen.");
+    expect(en.code.RESOLUTION_PAUSED).toBe(BLOCKER_REASONS.RESOLUTION_PAUSED);
     expect(fr.title).not.toBe(en.title);
   });
 });

@@ -1,11 +1,15 @@
 # Aequitas on CT920: production runbook (aeq-prod)
 
 Stood up 2026-10-12, 9:40 PM ET, by Air on Martin's voice order (relayed by Jade).
-**Status as of 2026-10-16 UTC: CT920 serves production at
+**Historical status as of 2026-10-16 UTC: CT920 serves production at
 `https://aequitas.app.pharos-ai.ca`.** Railway's app deployment is stopped and
 its GitHub source disconnected. Railway Postgres and ClamAV remain available
 for the agreed rollback window; do not shut them down without Martin's
 separate approval.
+
+**Latest public endpoint check, 2026-11-11 around 05:38 UTC, observed from the Mac client:** `/api/health` returned `status: ok` for release `d74ed342693a96a6dc75d8907d288131c0148385`; `/`, `/fr-CA`, and `/en-CA` returned 200; `/fr-CA/demo` and `/en-CA/demo` returned 404. PR #14 is not deployed. These public checks do not establish background-job, email, passkey, retention, or full operational readiness. No production changes were made. Historical October 16 Railway statements below are not current operational evidence. Do not use Railway as a migration source or failback until its live service and data lineage are independently verified. This runbook does not authorize a deployment or cutover.
+
+**Earlier runtime check, 2026-11-10 around 07:03 UTC, from the Mac client over `mtl-00`:** the production checkout and app health were on the same release and image. That check additionally found no matching user timer or case-agent crontab entry and observed the separate active `aequitas-demo` user service at `/home/martin/Applications/aequitas`, branch `fix/demo-readiness` at `2a5b20b`, with two commits ahead and uncommitted changes. That demo worktree was not modified and is separate from the production source checkout. The earlier check did not inspect production case data, email delivery, passkeys, backups or external scheduler accounts.
 
 ## What runs
 
@@ -25,8 +29,11 @@ No object storage is needed: Railway stores evidence on its `/data` volume (`STO
 Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-audit-run1-*`, and every `ctm-*`, `leadgen-*`, `episteme-*`, `firecrawl` and `fba` container, plus all tunnels and cloudflared configs.
 
 ## Config and secrets
+
+**Current candidate:** use the three-file layout in [CT920 credential separation](../deploy/ct920/ENVIRONMENT.md). The shared-file account below describes the original October cutover only. Preserve all current session, passkey, outbox, chain and IP-hash settings during this rollout; do not repeat the historical key rotation.
+
 `src/deploy/ct920/.env` (chmod 600, owner martin, gitignored by `.env*`):
-- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
+- **Fresh:** `POSTGRES_PASSWORD`, `DATABASE_URL` (pointing at `aeq-prod-postgres`), `SESSION_SECRET`, and a distinct stable `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` of at least 32 bytes. At cutover everyone has to sign in again (consistent with D8/R5 on the CompassAI side).
 - **Copied from Railway as-is:** `GEMINI_*`, `ANTHROPIC_*`, `AEQUITAS_PIPELINE_ENABLED=true`, `AEQUITAS_PIPELINE_PROVIDER=gemini` (the same flag state as Railway), `AEQUITAS_OCR_LANGUAGES`, locales, `EMAIL_FROM`/`REPLY_TO`, `HASH_CHAIN_GENESIS`, `IP_HASH_SALT`. The last two have to match Railway, otherwise the hash chain and IP hashes won't verify.
 - **`RESEND_API_KEY`** was copied privately at cutover and is present in the running CT920 app. Do not print or commit it.
 - **WebAuthn and APP_URL** use `https://aequitas.app.pharos-ai.ca`. **Decision AQ-D4:** passkeys registered on `aequitas-production-5a0c.up.railway.app` cannot authenticate at the new RP ID. Verify each existing user's identity before using `scripts/reissue-passkey-for-move.ts` to issue a new invitation.
@@ -34,15 +41,19 @@ Untouched: `aequitas-postgres`, `aequitas-minio`, `aequitas-clamav`, `aequitas-a
 ## Start, stop, deploy, rollback
 ```bash
 cd ~/aequitas-prod/src/deploy/ct920
-./deploy.sh                          # build from checked-out HEAD, RELEASE_SHA=$(git rev-parse HEAD), up -d, wait for /api/health to report that SHA
-docker compose -p aeq-prod ps
+./deploy.sh                          # build checked-out HEAD, migrate, verify app health, then start scheduled operations
+docker compose -p aeq-prod --profile scheduled ps
 docker compose -p aeq-prod logs -f app
-docker compose -p aeq-prod stop      # stop (clean SIGTERM exit via scripts/start.mjs)
-docker compose -p aeq-prod down      # ROLLBACK: removes only aeq-prod containers; Railway is unaffected (it is parallel)
-docker compose -p aeq-prod down -v   # also deletes aeq-prod volumes (data!) — only with intent
+docker compose -p aeq-prod --profile scheduled stop  # stop app and scheduled work (clean SIGTERM for app)
+docker compose -p aeq-prod --profile scheduled down  # stops/removes only aeq-prod containers; does not touch Railway or establish that Railway is a usable failback
+docker compose -p aeq-prod --profile scheduled down -v  # also deletes aeq-prod volumes (data!) — only with intent
+RELEASE_SHA="$(git -C ../.. rev-parse HEAD)" docker compose -p aeq-prod --profile scheduled up -d scheduler  # resume scheduled work after an incident
+docker compose -p aeq-prod --profile scheduled logs scheduler
 curl -s 127.0.0.1:18310/api/health   # {"status":"ok","release":"<sha>"}
 ```
 From the Mac: `ssh -L 18310:127.0.0.1:18310 mtl-00`, then open http://127.0.0.1:18310/fr-CA/auth/sign-in. Passkeys won't work on that origin, so this is for smoke tests only.
+
+The scheduled container receives only its database, event-chain, storage, mail and model settings. It receives the dedicated `AEQUITAS_EMAIL_OUTBOX_ENCRYPTION_KEY` needed to decrypt queued token-email payloads; it does not receive `SESSION_SECRET` or WebAuthn secrets. Keep the outbox key identical in the web app and worker, and do not rotate it while messages are queued. `deploy.sh` stops the app and scheduler before migrations, uses a separate owner-only migration runner and verifies the restricted runtime role, and starts the scheduled profile only after `/api/health` reports the new release SHA. It then requires both scheduled operations to complete a successful run on that release before reporting deployment success. This runs notification retries, while case-agent work remains disabled unless the explicit program settings, provider review and evaluation identity are present. Direct `docker compose up` without `--profile scheduled` does not start the worker. Mail accepts `EMAIL_REPLY_TO`; `REPLY_TO` remains a compatibility alias for the older deployment configuration.
 
 ## Health release
 `/api/health` reports `RAILWAY_GIT_COMMIT_SHA ?? RELEASE_SHA ?? RELEASE_COMMIT`. Railway behaviour is unchanged.
@@ -55,18 +66,58 @@ Nightly `pg_dump -Fc` plus a tar of the evidence volume and `SHA256SUMS`, writte
 `mtl-00-pve` SSH route to the separate `penguin-backups` NFS store, then verifies
 `SHA256SUMS` there. A final-data run passed on 2026-10-15 at 23:56 UTC.
 Off-box retention needs periodic review.
-Restore test: `verify-restore.sh <dump> [evidence.tar]`.
+The production replacement verifier is not a restore test or dry-run. It can
+overwrite the live database and, when an evidence archive is supplied, the
+live evidence directory. A separate isolated restore environment is still
+needed for routine recovery drills.
 
-## Data migration dry-run (`deploy/ct920/verify-restore.sh`)
-This restores a `pg_dump -Fc` into `aeq-prod-postgres` and then checks `prisma migrate status`, per-table row counts (`row-counts.sql`), `verify:events` (hash chain plus projections for every case) and `scripts/verify-evidence-files.ts` (re-hashes every evidence file against `EvidenceItem.sha256`/`byteSize`).
-Dumps live in `~/aequitas-prod/dumps/` (chmod 600).
+## Production replacement restore and verification (`deploy/ct920/verify-restore.sh`)
+
+This is a destructive cutover operation, not a dry-run. It requires the explicit
+`--confirm-production-replacement` flag, an explicit `--purger-role <existing-role>`, and an interactive typed confirmation
+whose phrase changes when an evidence archive is supplied. It refuses unless
+PostgreSQL is healthy and both the app and any scheduler container are stopped.
+Before any production write, it validates the dump format and checks that the
+optional evidence archive can be listed in an isolated, network-disabled
+PostgreSQL utility container. It connects using the stopped app's database URL
+to obtain the actual runtime login, then checks both existing runtime and
+operator-selected purger roles in a read-only transaction; missing, elevated,
+object-owning or member roles are refused.
+The database replacement runs only after those checks and the typed confirmation.
+Verification then uses one-off containers from the stopped app's image; the live
+app and scheduler remain stopped when the script exits. No automatic rollback is
+provided. Use a separate isolated environment for restore drills; this script
+must not be used to test a backup against the live database. The one-off verifier
+receives only the restricted `DATABASE_URL`, preserved `HASH_CHAIN_GENESIS`,
+evidence path and independent-ledger settings through a mode-0600 temporary
+environment file, removed when the script exits. No owner/purger connection,
+provider, mail or session secret is injected. It uses the stopped app's immutable
+image ID, not a mutable tag.
+
+The script restores a `pg_dump -Fc` into `aeq-prod-postgres`, reprovisions the
+restricted NOLOGIN purge owner and purger execution ACL, and regrants runtime
+schema/table/sequence access and migration-owner default privileges. It then
+checks `prisma migrate status` and `verify-runtime-role.mjs`, per-table row counts (`row-counts.sql`), `verify:events`
+(hash chain plus projections for every case), and
+`scripts/verify-evidence-files.ts` (re-hashes each evidence file against
+`EvidenceItem.sha256`/`byteSize`). If the optional evidence archive is given, the
+production evidence directory is replaced before verification. Dumps live in
+`~/aequitas-prod/dumps/` (chmod 600). The backup must match the stopped app's
+current migrations; this command never migrates an older backup automatically.
+An incompatible schema or failed role/ledger check leaves writers stopped and
+requires a separately reviewed recovery plan.
 
 ## Gated cutover runbook. REQUIRES MARTIN'S EXPLICIT OK, routed through Metal with Argus checking
+**Current-state warning:** The steps below were written for the October 2026
+cutover plan. Before any write freeze, data copy, hostname switch, or rollback,
+verify which service currently receives user writes and prove the source and
+destination data match. The October 16 Railway status is not current evidence.
+
 1. Pre-checks: Earth/Metal PASS on the draft PR, `deploy.sh` healthy on the final SHA, AQ-D4 decided, off-box backup target working, and a test restore passing.
 2. Use Cloudflare Tunnel `aeq-prod` and the private Workers VPC Service to reach `127.0.0.1:18310`. The Worker custom domain is `aequitas.app.pharos-ai.ca`; it provisions the nested hostname certificate. Existing tunnels and the telecom site remain untouched.
-3. Announce the window. **Write freeze on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK).
-4. Final `pg_dump -Fc` from Railway, plus a copy of `/data/evidence`, onto CT920.
-5. Run `verify-restore.sh final.dump evidence.tar`. Pass means no pending migrations, row counts equal to Railway, verify:events OK and 0 evidence problems.
+3. Announce the window. **Freeze writes on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK) and confirm the source is no longer accepting writes.
+4. Take the final `pg_dump -Fc` from Railway, copy `/data/evidence` onto CT920, and verify the backup checksums.
+5. With Martin's separate explicit OK for the maintenance window, stop `aeq-prod-scheduler` and `aeq-prod-app`; verify no other writer is active. From an interactive terminal, run `verify-restore.sh --confirm-production-replacement --purger-role <existing-role> final.dump evidence.tar` and type the exact phrase it displays. Pass means no pending migrations, row counts equal Railway, `verify:events` succeeds, and evidence verification reports 0 problems. The app and scheduler stay stopped until deployment.
 6. Set `RESEND_API_KEY` and confirm `APP_URL`/`WEBAUTHN_*` match the chosen hostname, then `./deploy.sh`.
 7. Deploy the Worker custom domain and switch the link users get to the new hostname. Smoke test: sign-in, evidence upload (ClamAV), a pipeline run, `/api/health`.
 8. Install the `backup-offbox.sh` cron. Railway stays available as the rollback for 14 days.

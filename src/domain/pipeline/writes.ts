@@ -1,3 +1,4 @@
+import { withCaseOperation, CaseUnavailableError, caseOperationExternalIO } from "../../lib/caseOperation";
 import type { AssumptionOrigin, ClaimType, GlobalRole, PipelineStageName, Prisma } from "../../generated/prisma";
 import { prisma } from "../../lib/prisma";
 import { caseReadAccess, type CaseReadAccess } from "../caseAccess";
@@ -7,7 +8,8 @@ import type { MutationOutcome } from "../mutate";
 import { absoluteClaimHit } from "./absoluteClaims";
 import { parseAssumptionResponse, parseClaimResponse, parseContextResponse, type ProposedClaim, type ProposedContextFactor } from "./contracts";
 import { PIPELINE_OFF_REASON, pipelineEnabled } from "./flag";
-import { resolveFreeTextModel, type TextCompletion } from "./provider";
+import { resolveCaseDataModel, type TextCompletion } from "./provider";
+import { filterSynthesisForParty } from "../submissionVisibility";
 import { assembleSynthesis, validateSynthesis, type SynthesisDraft } from "./synthesis";
 import { excerptIsVerbatim } from "./verbatim";
 
@@ -243,10 +245,11 @@ export async function reviseAssumption(input: ActorInput & { assumptionId: strin
 async function completionFor(injected?: TextCompletion): Promise<{ ok: true; model: TextCompletion } | { ok: false; reason: string }> {
   if (!pipelineEnabled()) return { ok: false, reason: PIPELINE_OFF_REASON };
   if (injected) return { ok: true, model: injected };
-  return resolveFreeTextModel();
+  return resolveCaseDataModel();
 }
 
 export async function runAssumptionExtraction(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runAssumptionExtraction", async () => {
   const model = await completionFor(injected);
   if (!model.ok) return model.ok === false && model.reason === PIPELINE_OFF_REASON ? off() : guard(model.reason);
   const auth = await authorize(input);
@@ -255,7 +258,7 @@ export async function runAssumptionExtraction(input: ActorInput, injected?: Text
   if (!description) return guard("The case has no framing text to read.");
   let raw: string;
   try {
-    raw = await model.model.complete(assumptionPrompt(description));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(assumptionPrompt(description)));
   } catch (error) {
     console.error("Assumption extraction failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -300,9 +303,12 @@ export async function runAssumptionExtraction(input: ActorInput, injected?: Text
     return created;
   });
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 export async function runClaimDecomposition(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runClaimDecomposition", async () => {
   if (!pipelineEnabled()) return off();
   const auth = await authorize(input);
   if (!auth.ok) return auth;
@@ -319,7 +325,7 @@ export async function runClaimDecomposition(input: ActorInput, injected?: TextCo
   if (!model.ok) return guard(model.reason);
   let raw: string;
   try {
-    raw = await model.model.complete(claimPrompt(withBody));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(claimPrompt(withBody)));
   } catch (error) {
     console.error("Claim decomposition failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -338,6 +344,8 @@ export async function runClaimDecomposition(input: ActorInput, injected?: TextCo
   }
   const ids = await storeClaimProposals(input, parsed.claims, model.model.model);
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function storeClaimProposals(input: ActorInput, claims: ProposedClaim[], modelId: string): Promise<string[]> {
@@ -472,6 +480,7 @@ export async function rejectProposal(input: ActorInput & { proposalId: string })
 }
 
 export async function runContextMapping(input: ActorInput, injected?: TextCompletion): Promise<MutationOutcome<{ ids: string[] }>> {
+  try { return await withCaseOperation(input.caseId, "runContextMapping", async () => {
   if (!pipelineEnabled()) return off();
   const auth = await authorize(input);
   if (!auth.ok) return auth;
@@ -489,7 +498,7 @@ export async function runContextMapping(input: ActorInput, injected?: TextComple
   if (!model.ok) return guard(model.reason);
   let raw: string;
   try {
-    raw = await model.model.complete(contextPrompt(claims, evidenceIds));
+    raw = await caseOperationExternalIO(input.caseId, () => model.model.complete(contextPrompt(claims, evidenceIds)));
   } catch (error) {
     console.error("Context mapping failed:", error instanceof Error ? error.name : "error");
     return guard("The free model did not return a usable response.");
@@ -506,6 +515,8 @@ export async function runContextMapping(input: ActorInput, injected?: TextComple
   }
   const ids = await storeContextProposals(input, parsed.factors, model.model.model);
   return { ok: true, data: { ids } };
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return { ok: false, step: "not-found", reason: "Case not found." }; } throw error; }
 }
 
 async function storeContextProposals(input: ActorInput, factors: ProposedContextFactor[], modelId: string): Promise<string[]> {
@@ -716,23 +727,46 @@ function proposalText(kind: string, payload: unknown): { text: string; excerpt: 
 }
 
 export async function readPipeline(caseId: string, session: { userId: string; globalRole: GlobalRole; isApprover?: boolean }): Promise<PipelineView | null> {
+  try { return await withCaseOperation(caseId, "readPipeline", async () => {
+
   const caseRow = await prisma.case.findUnique({ where: { id: caseId } });
   if (!caseRow) return null;
   const access: CaseReadAccess | null = caseReadAccess(caseRow, session);
   if (!access) return null;
-  const [pipeline, assumptions, proposals, synthesis] = await Promise.all([
+  const [pipeline, assumptions, proposals, synthesis, ownEvidence, caseSources] = await Promise.all([
     prisma.casePipeline.findUnique({ where: { caseId } }),
     prisma.assumption.findMany({ where: { caseId, deletedAt: null }, orderBy: { createdAt: "asc" } }),
     prisma.pipelineProposal.findMany({ where: { caseId }, orderBy: { createdAt: "asc" } }),
     prisma.synthesisVersion.findFirst({ where: { caseId }, orderBy: { version: "desc" } }),
+    access === "party"
+      ? prisma.evidenceItem.findMany({ where: { caseId, submittedById: session.userId }, select: { id: true } })
+      : Promise.resolve([]),
+    access === "party"
+      ? prisma.source.findMany({ where: { caseId, deletedAt: null }, select: { id: true, evidenceItemId: true } })
+      : Promise.resolve([]),
   ]);
+  const ownEvidenceIds = new Set(ownEvidence.map((item) => item.id));
+  const ownSourceIds = new Set(caseSources.filter((source) => source.evidenceItemId && ownEvidenceIds.has(source.evidenceItemId)).map((source) => source.id));
   const permission = claimWritePermission({ access, globalRole: session.globalRole });
-  return {
+  const party = access === "party";
+  const view: PipelineView = {
     stage: pipeline?.stage ?? "EPOCHE",
-    assumptions: assumptions.map((row) => ({ id: row.id, text: row.text, origin: row.origin, status: row.status })),
+    assumptions: assumptions.map((row) => ({
+      id: row.id,
+      text: party ? "" : row.text,
+      origin: row.origin,
+      status: row.status,
+    })),
     proposals: proposals.map((row) => {
       const text = proposalText(row.kind, row.payload);
-      return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: text.excerpt };
+      if (!party) return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: text.excerpt };
+      const payload = row.payload && typeof row.payload === "object" ? row.payload as Record<string, unknown> : {};
+      const sourceId = typeof payload.sourceId === "string" ? payload.sourceId : "";
+      const evidenceId = typeof payload.evidenceId === "string" ? payload.evidenceId : "";
+      const ownClaim = row.kind === "CLAIM" && ownSourceIds.has(sourceId);
+      const ownContext = row.kind === "CONTEXT_FACTOR" && ownEvidenceIds.has(evidenceId);
+      if (!ownClaim && !ownContext) return { id: row.id, kind: row.kind, status: row.status, text: "", excerpt: null };
+      return { id: row.id, kind: row.kind, status: row.status, text: text.text, excerpt: ownClaim ? text.excerpt : null };
     }),
     synthesis: synthesis
       ? {
@@ -740,9 +774,18 @@ export async function readPipeline(caseId: string, session: { userId: string; gl
           diagE: synthesis.diagE,
           diagP: synthesis.diagP,
           diagC: synthesis.diagC,
-          sections: synthesis.sections as unknown as SynthesisDraft["sections"],
+          sections: party
+            ? filterSynthesisForParty(
+                synthesis.sections as unknown as SynthesisDraft["sections"],
+                synthesis.sentenceMap as unknown as { sentenceId: string; sourceIds: string[] }[],
+                ownSourceIds,
+              ) as SynthesisDraft["sections"]
+            : synthesis.sections as unknown as SynthesisDraft["sections"],
         }
       : null,
     canAuthor: permission.ok,
   };
+  return view;
+
+  }); } catch (error) { if (error instanceof CaseUnavailableError) { return null; } throw error; }
 }
