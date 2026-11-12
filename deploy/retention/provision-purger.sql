@@ -10,16 +10,16 @@ DECLARE runtime text := current_setting('aequitas.provision_runtime');
         purger text := current_setting('aequitas.provision_purger');
 BEGIN
  IF runtime=purger OR runtime='aequitas_erasure_owner' OR purger='aequitas_erasure_owner' THEN RAISE EXCEPTION 'Distinct roles required'; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=runtime AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls)
- OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=purger AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls)
+ IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=runtime AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls AND NOT rolreplication)
+ OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=purger AND rolcanlogin AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolbypassrls AND NOT rolreplication)
  THEN RAISE EXCEPTION 'Pre-provision restricted runtime and purger logins'; END IF;
  IF EXISTS (SELECT 1 FROM pg_class WHERE relnamespace='public'::regnamespace AND relowner IN (SELECT oid FROM pg_roles WHERE rolname IN (runtime,purger)))
  OR EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='public'::regnamespace AND proowner IN (SELECT oid FROM pg_roles WHERE rolname IN (runtime,purger)))
  OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='public' AND nspowner IN (SELECT oid FROM pg_roles WHERE rolname IN (runtime,purger)))
  OR EXISTS (SELECT 1 FROM pg_database WHERE datname=current_database() AND datdba IN (SELECT oid FROM pg_roles WHERE rolname IN (runtime,purger)))
  THEN RAISE EXCEPTION 'Runtime and purger must not own database objects'; END IF;
- IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='aequitas_erasure_owner') THEN CREATE ROLE aequitas_erasure_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; END IF;
- IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='aequitas_erasure_owner' AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls))
+ IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='aequitas_erasure_owner') THEN CREATE ROLE aequitas_erasure_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS NOREPLICATION; END IF;
+ IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='aequitas_erasure_owner' AND (rolcanlogin OR rolsuper OR rolcreatedb OR rolcreaterole OR rolbypassrls OR rolreplication))
  OR EXISTS (SELECT 1 FROM pg_auth_members WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='aequitas_erasure_owner'))
  THEN RAISE EXCEPTION 'Erasure owner must be restricted NOLOGIN with no members'; END IF;
  -- Even inherited membership in a migration owner or the purger would break

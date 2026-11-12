@@ -14,6 +14,8 @@ Record `RELEASE_SHA`, the UTC start time, the scheduler start time from the depl
 
 ## 0. Preconditions
 
+The approved deployment must first satisfy [CT920 credential separation](../deploy/ct920/ENVIRONMENT.md). `.env` is Compose control only, `.env.runtime` supplies the web role, and `.env.migrations` supplies the one-off migration owner. All three require mode 0600. The first role split requires migration/bootstrap/provisioning before normal deployment; a successful migration alone does not establish role isolation.
+
 Use Bash from the repository root on CT920. Define the helpers in this shell; the explicit Compose file and environment file are required when running from that directory. These commands do not print secrets or start services. Never use `docker compose config` or dump container environment values into the acceptance record.
 
 ```bash
@@ -32,11 +34,11 @@ sql() {
 | Check | Command | Expected |
 | --- | --- | --- |
 | Release identity | `git rev-parse HEAD` | Equals the approved release SHA recorded in the hosted task. |
-| Secrets file | `stat -c %a deploy/ct920/.env` | `600`. Do not print the file. |
+| Secrets file | `stat -c %a deploy/ct920/.env deploy/ct920/.env.runtime deploy/ct920/.env.migrations` | Three `600` results. Do not print the file. |
 | Compose project | `compose ps` | `app`, `evidence-parser`, `postgres`, `clamav` are `running (healthy)`. |
 | Scheduler | `compose --profile scheduled ps scheduler` | `running (healthy)` after its 180 s start period. |
 
-Evidence: the four command outputs, with secrets absent.
+Evidence: the command outputs, with secrets absent.
 
 ## 1. Release and health
 

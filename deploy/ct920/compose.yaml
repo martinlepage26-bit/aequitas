@@ -51,7 +51,8 @@ services:
         RELEASE_SHA: ${RELEASE_SHA:-}
     init: true
     restart: unless-stopped
-    env_file: .env
+    # Database-owner and purger credentials belong only to operator runners.
+    env_file: .env.runtime
     environment:
       RELEASE_SHA: ${RELEASE_SHA:-}
       RETENTION_ENFORCEMENT_ENABLED: ${RETENTION_ENFORCEMENT_ENABLED:-false}

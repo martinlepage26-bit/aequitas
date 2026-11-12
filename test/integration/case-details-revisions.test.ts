@@ -116,8 +116,13 @@ describe("event-bound case detail source revisions", () => {
     const transact = prisma.$transaction.bind(prisma);
     // Pause only after the real first database read has established the
     // export snapshot. The correction uses another real connection.
-    const transactionSpy = vi.spyOn(prisma, "$transaction").mockImplementationOnce((read, options) =>
-      transact(tx => read(new Proxy(tx, {
+    let intercepted = false;
+    const transactionSpy = vi.spyOn(prisma, "$transaction").mockImplementation((read, options) => {
+      // Operation admission has its own transaction before the export. Bind
+      // this concurrency probe to the actual repeatable-read snapshot.
+      if (intercepted || options?.isolationLevel !== "RepeatableRead") return transact(read, options);
+      intercepted = true;
+      return transact(tx => read(new Proxy(tx, {
         get(target, property) {
           if (property !== "case") return Reflect.get(target, property);
           return new Proxy(target.case, {
@@ -132,8 +137,8 @@ describe("event-bound case detail source revisions", () => {
             },
           });
         },
-      })), options),
-    );
+      })), options);
+    });
     const exporting = buildExportRecord(row.id);
     try {
       await Promise.race([snapshotRead, exporting.then(() => { throw new Error("Export did not read inside the transaction"); })]);

@@ -31,8 +31,9 @@ jobs:
         run: |
           bash -n deploy/ct920/deploy.sh deploy/ct920/backup.sh deploy/ct920/backup-offbox.sh deploy/ct920/verify-restore.sh deploy/ct920/verify-restore-isolated.sh
           umask 077
-          trap 'rm -f deploy/ct920/.env' EXIT
+          trap 'rm -f deploy/ct920/.env deploy/ct920/.env.runtime' EXIT
           printf '%s\n' 'POSTGRES_PASSWORD=ci-syntax-only' > deploy/ct920/.env
+          printf '%s\n' 'DATABASE_URL=postgresql://runtime:ci-syntax-only@postgres/aequitas' > deploy/ct920/.env.runtime
           docker compose -f deploy/ct920/compose.yaml --profile scheduled config --quiet
       - uses: actions/setup-node@v4
         with:
@@ -102,11 +103,23 @@ jobs:
       - name: Restore a pre-erasure backup behind the independent deletion ledger
         env:
           RETENTION_DRILL_ALLOWED: "true"
-          RETENTION_TEST_OWNER_DATABASE_URL: postgresql://aequitas:aequitas_dev@localhost:5433/postgres
-          DATABASE_URL: postgresql://aequitas_web:ci-only-runtime@localhost:5433/aequitas_test
-          RETENTION_PURGER_DATABASE_URL: postgresql://aequitas_purger:ci-only-purger@localhost:5433/aequitas_test
-          RETENTION_DRILL_PG_CONTAINER: aequitas-postgres
-        run: npx tsx scripts/retention-restore-drill.ts
+          RETENTION_TEST_OWNER_DATABASE_URL: postgresql://aequitas:ci-only-owner@localhost:5434/postgres
+          DATABASE_URL: postgresql://aequitas_web:ci-only-runtime@localhost:5434/aequitas_test
+          RETENTION_PURGER_DATABASE_URL: postgresql://aequitas_purger:ci-only-purger@localhost:5434/aequitas_test
+          RETENTION_DRILL_PG_CONTAINER: aequitas-retention-postgres
+        run: |
+          # The main dev test service is PG16. Exercise recovery separately on
+          # the production major, using only this job-owned disposable server.
+          trap 'docker rm -fv aequitas-retention-postgres >/dev/null' EXIT
+          docker run -d --name aequitas-retention-postgres -p 127.0.0.1:5434:5432 \
+            -e POSTGRES_USER=aequitas -e POSTGRES_PASSWORD=ci-only-owner -e POSTGRES_DB=postgres \
+            public.ecr.aws/docker/library/postgres:18
+          timeout 60 bash -c 'until docker exec aequitas-retention-postgres pg_isready -U aequitas -d postgres; do sleep 1; done'
+          docker exec -i aequitas-retention-postgres psql -v ON_ERROR_STOP=1 -U aequitas -d postgres <<'SQL'
+          CREATE ROLE aequitas_web LOGIN PASSWORD 'ci-only-runtime';
+          CREATE ROLE aequitas_purger LOGIN PASSWORD 'ci-only-purger';
+          SQL
+          npx tsx scripts/retention-restore-drill.ts
       - run: npm run test
       - run: npm run build
 
