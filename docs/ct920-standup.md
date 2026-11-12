@@ -74,28 +74,38 @@ needed for routine recovery drills.
 ## Production replacement restore and verification (`deploy/ct920/verify-restore.sh`)
 
 This is a destructive cutover operation, not a dry-run. It requires the explicit
-`--confirm-production-replacement` flag and an interactive typed confirmation
+`--confirm-production-replacement` flag, an explicit `--purger-role <existing-role>`, and an interactive typed confirmation
 whose phrase changes when an evidence archive is supplied. It refuses unless
 PostgreSQL is healthy and both the app and any scheduler container are stopped.
 Before any production write, it validates the dump format and checks that the
 optional evidence archive can be listed in an isolated, network-disabled
-PostgreSQL utility container.
+PostgreSQL utility container. It connects using the stopped app's database URL
+to obtain the actual runtime login, then checks both existing runtime and
+operator-selected purger roles in a read-only transaction; missing, elevated,
+object-owning or member roles are refused.
 The database replacement runs only after those checks and the typed confirmation.
 Verification then uses one-off containers from the stopped app's image; the live
 app and scheduler remain stopped when the script exits. No automatic rollback is
 provided. Use a separate isolated environment for restore drills; this script
 must not be used to test a backup against the live database. The one-off verifier
-receives only `DATABASE_URL` and its evidence path through a mode-0600 temporary
-environment file, removed when the script exits; it does not receive the app's
-other provider, mail, or session secrets.
+receives only the restricted `DATABASE_URL`, preserved `HASH_CHAIN_GENESIS`,
+evidence path and independent-ledger settings through a mode-0600 temporary
+environment file, removed when the script exits. No owner/purger connection,
+provider, mail or session secret is injected. It uses the stopped app's immutable
+image ID, not a mutable tag.
 
-The script restores a `pg_dump -Fc` into `aeq-prod-postgres`, then checks
-`prisma migrate status`, per-table row counts (`row-counts.sql`), `verify:events`
+The script restores a `pg_dump -Fc` into `aeq-prod-postgres`, reprovisions the
+restricted NOLOGIN purge owner and purger execution ACL, and regrants runtime
+schema/table/sequence access and migration-owner default privileges. It then
+checks `prisma migrate status` and `verify-runtime-role.mjs`, per-table row counts (`row-counts.sql`), `verify:events`
 (hash chain plus projections for every case), and
 `scripts/verify-evidence-files.ts` (re-hashes each evidence file against
 `EvidenceItem.sha256`/`byteSize`). If the optional evidence archive is given, the
 production evidence directory is replaced before verification. Dumps live in
-`~/aequitas-prod/dumps/` (chmod 600).
+`~/aequitas-prod/dumps/` (chmod 600). The backup must match the stopped app's
+current migrations; this command never migrates an older backup automatically.
+An incompatible schema or failed role/ledger check leaves writers stopped and
+requires a separately reviewed recovery plan.
 
 ## Gated cutover runbook. REQUIRES MARTIN'S EXPLICIT OK, routed through Metal with Argus checking
 **Current-state warning:** The steps below were written for the October 2026
@@ -107,7 +117,7 @@ destination data match. The October 16 Railway status is not current evidence.
 2. Use Cloudflare Tunnel `aeq-prod` and the private Workers VPC Service to reach `127.0.0.1:18310`. The Worker custom domain is `aequitas.app.pharos-ai.ca`; it provisions the nested hostname certificate. Existing tunnels and the telecom site remain untouched.
 3. Announce the window. **Freeze writes on Railway** (maintenance flag, or scale the app to 0: that's a Railway change, part of the OK) and confirm the source is no longer accepting writes.
 4. Take the final `pg_dump -Fc` from Railway, copy `/data/evidence` onto CT920, and verify the backup checksums.
-5. With Martin's separate explicit OK for the maintenance window, stop `aeq-prod-scheduler` and `aeq-prod-app`; verify no other writer is active. From an interactive terminal, run `verify-restore.sh --confirm-production-replacement final.dump evidence.tar` and type the exact phrase it displays. Pass means no pending migrations, row counts equal Railway, `verify:events` succeeds, and evidence verification reports 0 problems. The app and scheduler stay stopped until deployment.
+5. With Martin's separate explicit OK for the maintenance window, stop `aeq-prod-scheduler` and `aeq-prod-app`; verify no other writer is active. From an interactive terminal, run `verify-restore.sh --confirm-production-replacement --purger-role <existing-role> final.dump evidence.tar` and type the exact phrase it displays. Pass means no pending migrations, row counts equal Railway, `verify:events` succeeds, and evidence verification reports 0 problems. The app and scheduler stay stopped until deployment.
 6. Set `RESEND_API_KEY` and confirm `APP_URL`/`WEBAUTHN_*` match the chosen hostname, then `./deploy.sh`.
 7. Deploy the Worker custom domain and switch the link users get to the new hostname. Smoke test: sign-in, evidence upload (ClamAV), a pipeline run, `/api/health`.
 8. Install the `backup-offbox.sh` cron. Railway stays available as the rollback for 14 days.

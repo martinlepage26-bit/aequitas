@@ -183,7 +183,7 @@ Expected: exit 0, migration status passed, event chains and projections passed, 
 
 Record the generated `aeq-restore-drill-…` group and image IDs. If cleanup fails, the command exits nonzero and prints its ownership label: inspect only resources with that exact label and resolve their removal before closing the drill. Forced process termination or host loss can prevent traps from running, so verify no labelled resources remain after an interrupted run. Do not publish raw archive contents or database credentials.
 
-**Never invoke `verify-restore.sh` for this drill.** That separate disaster-recovery command is hardcoded to production resource names, requires `--confirm-production-replacement` plus typed confirmation, and replaces live data. Changing directories or supplying a different Compose project does not redirect it.
+**Never invoke `verify-restore.sh` for this drill.** That separate disaster-recovery command is hardcoded to production resource names, requires `--confirm-production-replacement`, an explicit existing `--purger-role`, and typed confirmation, and replaces live data. Changing directories or supplying a different Compose project does not redirect it.
 
 Evidence: backup and off-box receipts, checksum output, isolated drill exit status and output, comparison baseline if available, and cleanup result. No operational restore pass is claimed until this executes on the authorized host with the actual backup pair.
 
