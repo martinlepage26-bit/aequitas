@@ -70,6 +70,17 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
         <p>{t("sampleNoticeBody")}</p>
       </aside>
 
+      <section className={styles.caseSection} aria-labelledby="about-title">
+        <p className={styles.kicker}>{t("overview.kicker")}</p>
+        <h2 id="about-title">{t("overview.title")}</h2>
+        <p className={styles.trustIntro}>{t("overview.body")}</p>
+        <div className={styles.trustGrid}>
+          {(["kind", "helps"] as const).map(item => <article className={styles.trustCard} key={item}>
+            <h3>{t(`overview.${item}.title`)}</h3><p>{t(`overview.${item}.body`)}</p>
+          </article>)}
+        </div>
+      </section>
+
       <section className={styles.caseSection} aria-labelledby="sample-case-title">
         <div className={styles.caseHeading}>
           <div>
@@ -143,6 +154,21 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
             <h3 id="limits-title">{t("trust.readinessTitle")}</h3>
           </div>
           <p>{t("trust.readinessBody")}</p>
+        </aside>
+      </section>
+
+      <section className={styles.nextSection} aria-labelledby="inside-title">
+        <p className={styles.kicker}>{t("inside.kicker")}</p>
+        <h2 id="inside-title">{t("inside.title")}</h2>
+        <p className={styles.trustIntro}>{t("inside.intro")}</p>
+        <div className={styles.trustGrid}>
+          {(["rules", "extract", "draft", "record"] as const).map(item => <article className={styles.trustCard} key={item}>
+            <h3>{t(`inside.${item}.title`)}</h3><p>{t(`inside.${item}.body`)}</p>
+          </article>)}
+        </div>
+        <aside className={styles.limits} aria-labelledby="limits-title">
+          <div><p className={styles.kicker}>{t("limits.kicker")}</p><h3 id="limits-title">{t("limits.title")}</h3></div>
+          <p>{t("limits.body")}</p>
         </aside>
       </section>
 
