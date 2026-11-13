@@ -1056,6 +1056,18 @@
     },
     "handoffTitle": "Quand une personne doit examiner le dossier",
     "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
+    "trust": {
+      "kicker": "Conçu pour des processus responsables",
+      "title": "Une proposition vérifiable. Un choix qui appartient aux personnes.",
+      "intro": "Aequitas organise le différend autour des preuves, des positions et des décisions des parties. Pour les dossiers admissibles où le programme l’active, un service facultatif peut préparer une proposition non contraignante avec des renvois aux passages utilisés.",
+      "trace": { "title": "Retrouver les sources", "body": "Les citations renvoient aux passages des fichiers déposés; les empreintes et les détails d’extraction sont consignés. Elles facilitent l’examen, mais ne prouvent ni l’authenticité d’un fichier ni qu’un extrait appuie une conclusion." },
+      "separation": { "title": "Préserver la vue de chaque partie", "body": "Les règles d’accès déterminent qui peut consulter un dossier et y apporter des changements. Chaque partie reçoit son propre résultat et ses propres preuves citées." },
+      "choice": { "title": "Consigner un choix explicite", "body": "Chaque partie décide de consentir ou non au résultat courant. Les règles standard du programme maintiennent l’examen d’un approbateur indépendant avant la fermeture." },
+      "handoff": { "title": "Transmettre le dossier lorsqu’une personne doit intervenir", "body": "Une demande d’examen, une preuve illisible, des renseignements manquants ou un dossier hors portée peuvent ramener le travail au personnel plutôt que de forcer une réponse automatisée." },
+      "readinessLabel": "État actuel",
+      "readinessTitle": "Un produit à évaluer dans un projet pilote supervisé",
+      "readinessBody": "L’agent de traitement automatisé est désactivé par défaut. Le parcours automatisé démontré a été exercé avec des dossiers synthétiques et un modèle simulé. La qualité d’un modèle en direct, le fonctionnement en production, les politiques du programme et les approbations juridiques et de protection des renseignements doivent encore être validés avant l’usage de dossiers réels. Aequitas ne donne pas d’avis juridique."
+    },
     "pilotStatus": "L'agent est désactivé par défaut. Cette version candidate a été exercée avec des dossiers synthétiques et un modèle simulé seulement. Elle n'est pas approuvée pour des dossiers réels.",
     "pilotAction": "Demander un projet pilote supervisé"
   },

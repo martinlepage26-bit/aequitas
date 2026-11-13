@@ -124,6 +124,28 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
         </aside>
       </section>
 
+      <section className={styles.trustSection} aria-labelledby="trust-title">
+        <p className={styles.kicker}>{t("trust.kicker")}</p>
+        <h2 id="trust-title">{t("trust.title")}</h2>
+        <p className={styles.trustIntro}>{t("trust.intro")}</p>
+        <div className={styles.trustGrid}>
+          {(["trace", "separation", "choice", "handoff"] as const).map(item => (
+            <article className={styles.trustCard} key={item}>
+              <span aria-hidden="true" className={styles.trustMark}>—</span>
+              <h3>{t(`trust.${item}.title`)}</h3>
+              <p>{t(`trust.${item}.body`)}</p>
+            </article>
+          ))}
+        </div>
+        <aside className={styles.limits} aria-labelledby="limits-title">
+          <div>
+            <p className={styles.kicker}>{t("trust.readinessLabel")}</p>
+            <h3 id="limits-title">{t("trust.readinessTitle")}</h3>
+          </div>
+          <p>{t("trust.readinessBody")}</p>
+        </aside>
+      </section>
+
       <footer className={styles.footer}>
         <p>{t("pilotStatus")}</p>
         {pilotContact && <a className={styles.primaryAction} href={pilotContact} rel="noopener">{t("pilotAction")}</a>}

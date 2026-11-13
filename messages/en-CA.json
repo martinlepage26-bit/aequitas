@@ -1056,6 +1056,18 @@
     },
     "handoffTitle": "When a person needs to review",
     "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",
+    "trust": {
+      "kicker": "Built for accountable workflows",
+      "title": "A proposal people can inspect. A choice people keep.",
+      "intro": "Aequitas organizes a dispute around the parties' evidence, positions and decisions. For configured, eligible cases, an optional service can prepare a non-binding proposal with links to the passages it used.",
+      "trace": { "title": "Follow the source", "body": "Citations point back to passages in submitted files, with hashes and extraction details recorded. They aid review; they do not prove a file is authentic or that a quote supports a conclusion." },
+      "separation": { "title": "Keep each side's view separate", "body": "Case access rules control who can see submissions and make changes. Each party receives their own outcome and evidence view." },
+      "choice": { "title": "Record a real choice", "body": "Each party decides whether to consent to the current outcome. Standard program rules keep an independent approver in the closure path." },
+      "handoff": { "title": "Stop when the case needs a person", "body": "A request for review, unreadable evidence, missing information or an out-of-scope case can return work to program staff instead of forcing an automated answer." },
+      "readinessLabel": "Current readiness",
+      "readinessTitle": "A product to evaluate with a supervised pilot",
+      "readinessBody": "The automated case agent is off by default. The demonstrated automated workflow has been exercised with synthetic cases and a stub model. Live-model quality, production operations, program policy and legal/privacy approval still require validation before real cases. Aequitas does not give legal advice."
+    },
     "pilotStatus": "The case agent is off by default. This release candidate has been exercised with synthetic cases and a stub model only. It is not approved for real case data.",
     "pilotAction": "Ask about a supervised pilot"
   },
