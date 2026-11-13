@@ -1031,6 +1031,10 @@
       "askPerson": "Ask a person to review",
       "reset": "Start the simulation again",
       "statusLabel": "Simulation status",
+      "progressTitle": "Party responses",
+      "waiting": "Choice pending",
+      "consented": "Consented",
+      "handedOff": "Staff review",
       "status": {
         "initial": "Choose a response for this fictional view. The other party's choice is not shown here.",
         "accepted": "This view's response is recorded in the simulation. The case stays open until both parties consent and the required approver reviews it.",

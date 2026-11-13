@@ -1031,6 +1031,10 @@
       "askPerson": "Demander l'examen par une personne",
       "reset": "Recommencer la simulation",
       "statusLabel": "État de la simulation",
+      "progressTitle": "Réponses des parties",
+      "waiting": "Choix attendu",
+      "consented": "Consentement donné",
+      "handedOff": "Examen par le personnel",
       "status": {
         "initial": "Choisissez une réponse pour cette vue fictive. Le choix de l'autre partie n'est pas affiché ici.",
         "accepted": "La réponse de cette vue est enregistrée dans la simulation. Le dossier reste ouvert jusqu'au consentement des deux parties et à l'examen par l'approbateur requis.",

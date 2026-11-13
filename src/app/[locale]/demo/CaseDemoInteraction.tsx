@@ -30,6 +30,10 @@ type Copy = {
   askPerson: string;
   reset: string;
   statusLabel: string;
+  progressTitle: string;
+  waiting: string;
+  consented: string;
+  handedOff: string;
   status: {
     initial: string;
     accepted: string;
@@ -100,9 +104,24 @@ export default function CaseDemoInteraction({
         ))}
       </div>
 
+      <div className={styles.progress} aria-label={copy.progressTitle}>
+        <div className={styles.progressHeading}><span>{copy.progressTitle}</span><span>{bothConsented ? "2 / 2" : `${Object.values(choices).filter(Boolean).length} / 2`}</span></div>
+        <div className={styles.progressTrack} aria-hidden="true"><span className={bothConsented ? styles.progressComplete : stopped ? styles.progressHandoff : ""} style={{ width: `${stopped ? 100 : Object.values(choices).filter(Boolean).length * 50}%` }} /></div>
+        <div className={styles.partyProgress}>
+          {(["complainant", "respondent"] as const).map(role => {
+            const choice = choices[role];
+            const label = choice === "consent" ? copy.consented : choice ? copy.handedOff : copy.waiting;
+            return <div key={role} className={styles.partyProgressItem} data-state={choice === "consent" ? "consented" : choice ? "handoff" : activeParty === role ? "active" : "waiting"}>
+              <span aria-hidden="true">{choice === "consent" ? "✓" : choice ? "↗" : activeParty === role ? "●" : "○"}</span>
+              <span>{parties[role].label}</span><small>{label}</small>
+            </div>;
+          })}
+        </div>
+      </div>
+
       <p className={styles.roleNotice}>{copy.roleNotice}</p>
 
-      <article className={styles.partyRecord} aria-labelledby="case-demo-party-title">
+      <article key={activeParty} className={styles.partyRecord} aria-labelledby="case-demo-party-title">
         <header className={styles.recordHeader}>
           <h3 id="case-demo-party-title">{party.label}</h3>
         </header>

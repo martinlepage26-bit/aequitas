@@ -9,8 +9,25 @@
 .roleOption { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; border-color: var(--border); background: var(--panel-raised); color: var(--text); text-align: left; }
 .roleOption[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
 .roleHint { color: var(--accent-text); font-size: 1.1rem; }
+.progress { margin: 16px 0 18px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
+.progressHeading { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .85rem; font-weight: 650; }
+.progressHeading span:last-child { color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.progressTrack { height: 4px; overflow: hidden; margin: 10px 0 14px; background: var(--border); }
+.progressTrack > span { display: block; height: 100%; background: var(--accent); transition: width 320ms ease; }
+.progressTrack > .progressComplete { background: var(--role-manager); }
+.progressTrack > .progressHandoff { background: var(--danger); }
+.partyProgress { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.partyProgressItem { display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; align-items: center; color: var(--muted); font-size: .9rem; }
+.partyProgressItem > span:first-child { grid-row: span 2; color: var(--muted); }
+.partyProgressItem[data-state="active"] > span:first-child { color: var(--accent-text); animation: signal 1.6s ease-in-out infinite; }
+.partyProgressItem[data-state="consented"] > span:first-child { color: var(--role-manager); }
+.partyProgressItem[data-state="handoff"] > span:first-child { color: var(--danger); }
+.partyProgressItem small { color: var(--muted); font-size: .78rem; }
 .roleNotice { margin: 0 0 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--panel-raised); color: var(--muted); }
 .partyRecord { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); }
+@keyframes arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes signal { 50% { opacity: .48; } }
+.partyRecord { animation: arrive 240ms ease-out both; }
 .recordHeader { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
 .recordHeader h3 { margin: 0; font-size: 1.2rem; }
 .recordEyebrow { margin: 0 0 4px; color: var(--muted); font-size: 0.82rem; }
@@ -40,10 +57,15 @@
   .interactionHeader { flex-direction: column; gap: 14px; }
   .reset { align-self: flex-start; }
   .roleSwitch { gap: 8px; }
+  .progress { padding: 14px; }
   .roleOption { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; min-height: 72px; }
   .recordBody { grid-template-columns: 1fr; gap: 20px; padding: 18px; }
   .proposalField { grid-column: auto; }
   .choiceArea { padding: 16px 18px 18px; }
   .choiceActions { display: grid; }
   .statusPanel { grid-template-columns: 1fr; gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressTrack > span, .partyProgressItem[data-state="active"] > span:first-child, .partyRecord { animation: none; transition: none; }
 }

@@ -110,6 +110,10 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
           askPerson: t("interaction.askPerson"),
           reset: t("interaction.reset"),
           statusLabel: t("interaction.statusLabel"),
+          progressTitle: t("interaction.progressTitle"),
+          waiting: t("interaction.waiting"),
+          consented: t("interaction.consented"),
+          handedOff: t("interaction.handedOff"),
           status: {
             initial: t("interaction.status.initial"),
             accepted: t("interaction.status.accepted"),
