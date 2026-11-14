@@ -41,7 +41,7 @@ function render(d) {
   const trustCards = trustKeys.map(k => item(d.trust[k].title,d.trust[k].body)).join('');
   appRoot.innerHTML = `<main class="shell">
     <nav class="topbar" aria-label="${isFr?'Navigation principale':'Main navigation'}"><a class="brand" href="/${locale}/"><span class="brand-mark" aria-hidden="true">A</span><span>${words.brand}</span></a><div class="top-actions"><div class="lang" aria-label="${isFr?'Langue':'Language'}"><a class="${isFr?'':'active'}" href="/en-CA/" lang="en-CA">EN</a><a class="${isFr?'active':''}" href="/fr-CA/" lang="fr-CA">FR</a></div><a class="login" href="${login}">${words.login} ↗</a></div></nav>
-    <header class="hero"><figure class="visual"><div class="hero-image-crop"><img src="/images/aequitas-ethics-hero.jpg" alt="Aequitas for conflict resolution" width="1000" height="666"></div></figure><p class="hero-line">${text(d.heroLine)}</p></header>
+    <header class="hero"><figure class="visual"><div class="hero-image-crop"><img src="/images/aequitas-ethics-hero.png" alt="Aequitas for conflict resolution" width="1000" height="666"></div></figure><p class="hero-line">${text(d.heroLine)}</p></header>
     ${section(d.overview.title,d.overview.body,item(d.overview.kind.title,d.overview.kind.body)+item(d.overview.helps.title,d.overview.helps.body),'','overview')}
     <aside class="notice"><h2>${text(d.sampleNoticeTitle)}</h2><p>${text(d.sampleNoticeBody)}</p></aside>
     <section class="section"><div class="case-head"><div><h3>${text(d.caseTitle)}</h3><p>${text(d.caseDescription)}</p></div><div class="amount">${text(d.amountLabel)}<strong>${words.amount}</strong></div></div>
