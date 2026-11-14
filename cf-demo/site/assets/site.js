@@ -7,7 +7,7 @@ const proposal = (role) => locale === 'fr-CA'
   ? `${role === 'complainant' ? 'Proposition pour régler votre demande' : 'Proposition pour régler la demande présentée contre votre entreprise'} : le commerçant remplace l’article. Cette proposition n’est pas contraignante et ne constitue pas un avis juridique. Elle ne prend effet que si les deux parties y consentent. Vous pouvez consentir, refuser ou demander qu’une personne examine le dossier.`
   : `${role === 'complainant' ? 'Proposal to settle your claim' : 'Proposal to settle the claim made against your business'}: the business replaces the item. This proposal is not binding and is not legal advice. It takes effect only if both parties consent. You may consent, decline, or ask for a person to review the case.`;
 
-fetch(`/content/${base}.json?v=7`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
+fetch(`/content/${base}.json?v=9`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
   document.title = 'Aequitas';
   appRoot.innerHTML = '<main class="shell"><h1>Aequitas</h1><p>Demo content could not be loaded. Please refresh the page.</p></main>';
 });

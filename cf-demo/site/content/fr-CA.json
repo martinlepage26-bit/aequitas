@@ -11,10 +11,10 @@
   "sampleNoticeBody": "Les personnes, le commerce et les preuves ci-dessous sont fictifs. Cette simulation dans votre navigateur n'envoie ni ne conserve vos choix, n'appelle aucun modèle et ne crée aucun dossier. La qualité d'un modèle en direct et le fonctionnement en production n'ont pas été validés. Dans l’application, les citations permettent de retrouver les extraits dans les pièces déposées. Elles ne vérifient pas l’exactitude des pièces et ne prouvent pas qu’un extrait appuie la proposition.",
   "overview": {
     "kicker": "Qu’est-ce qu’Aequitas?",
-    "title": "Un outil de gestion des différends",
+    "title": "Règlement structuré des différends",
     "body": "Les programmes utilisent Aequitas pour gérer les différends entre deux parties, de l’ouverture du dossier aux preuves, décisions et résultats consignés.",
     "kind": {
-      "title": "Un parcours avec IA facultative",
+      "title": "Aide facultative par IA",
       "body": "Pour les dossiers de consommation admissibles, une IA facultative peut rédiger une proposition non contraignante avec citations. Les règles définissent l’admissibilité et la suite. L’agent est désactivé par défaut."
     },
     "helps": {
@@ -24,34 +24,34 @@
   },
   "inside": {
     "kicker": "Dans le dossier",
-    "title": "Règles du programme et contrôles logiciels",
+    "title": "Règles et contrôles logiciels",
     "intro": "Le programme définit les types de dossiers, les solutions, les délais et les conditions de transfert. Le logiciel vérifie les transitions et consigne les actions.",
     "rules": {
-      "title": "1 · Vérifier la portée et le consentement",
+      "title": "1 · Portée et consentement",
       "body": "Le code vérifie l’admissibilité configurée, les documents requis et les délais. Chaque partie choisit séparément si ses renseignements peuvent être transmis au fournisseur d’IA configuré. Sans les deux choix, le service attend ou transmet le dossier au personnel."
     },
     "extract": {
-      "title": "2 · Lire et retracer les preuves",
+      "title": "2 · Preuves et citations",
       "body": "Les fichiers pris en charge sont analysés et leur texte est extrait. Les empreintes, les détails d’extraction et les passages cités sont consignés. Les fichiers illisibles, incomplets ou non pris en charge sont transmis à une personne; une citation aide à retrouver un passage, elle ne le prouve pas."
     },
     "draft": {
-      "title": "3 · Valider une proposition",
+      "title": "3 · Vérifier la proposition",
       "body": "Le modèle peut résumer le dossier et suggérer une solution parmi la liste définie par le programme. Le logiciel vérifie la structure, les liens de citation, les limites de montant et l’accès aux preuves propres à chaque partie. Un échec ou une incertitude bloque l’émission et demande un examen humain."
     },
     "record": {
-      "title": "4 · Laisser la décision aux personnes",
+      "title": "4 · Décisions des parties",
       "body": "Chaque partie voit son propre résultat et choisit d’y consentir ou non. Un refus ou une demande d’examen est transmis au personnel. Selon les règles standard, un approbateur indépendant doit aussi autoriser la fermeture. Le dossier peut être exporté."
     }
   },
   "limits": {
     "kicker": "Limites à connaître",
-    "title": "Ce qu’Aequitas ne fait pas",
+    "title": "Limites d’Aequitas",
     "body": "Aequitas ne décide pas qui dit la vérité, ne donne pas d’avis juridique, ne vérifie pas l’authenticité des documents et ne garantit pas l’exactitude ou la neutralité du raisonnement d’un modèle. Le parcours avec IA a été exercé avec des dossiers synthétiques et un modèle simulé; la qualité d’un modèle en direct, le fonctionnement réel, les règles du programme, la protection des renseignements et la préparation juridique doivent être validés avant d’utiliser de vrais dossiers. L’examen humain et le consentement des parties restent essentiels."
   },
-  "caseTitle": "Une bouilloire cesse de fonctionner après l'achat",
+  "caseTitle": "Panne de la bouilloire",
   "caseDescription": "Une personne signale un problème avec un appareil. Le magasin confirme qu'un remplacement est possible. Cet exemple présente deux courts extraits de preuve fictifs.",
   "amountLabel": "Montant en jeu",
-  "evidenceTitle": "Preuve visible dans cette vue",
+  "evidenceTitle": "Preuves visibles ici",
   "party": {
     "complainant": "Vue de la partie plaignante",
     "respondent": "Vue du commerce"
@@ -63,15 +63,15 @@
     "complainantEvidence": "Bouilloire électrique, 124,50 $, achetée le 12 octobre.",
     "respondentEvidence": "Remplacement possible dans les 30 jours après inspection."
   },
-  "proposalTitle": "Une proposition non contraignante",
+  "proposalTitle": "Proposition",
   "proposalDescription": "Le texte fixe de l'application présente la même proposition structurée dans la langue de chaque personne.",
   "interaction": {
-    "title": "Essayez les deux vues des parties",
+    "title": "Comparer les vues des parties",
     "description": "Changez de côté pour voir comment le même dossier fictif est présenté séparément. Choisissez une réponse pour chaque partie afin de voir quand le service automatisé poursuit ou s'arrête.",
     "roleLabel": "Choisir une vue fictive",
     "roleNotice": "Cette simulation dans votre navigateur vous permet de passer d'une partie fictive à l'autre. Dans un vrai dossier, chaque partie utilise un compte distinct et ne voit que son propre résultat et les preuves qui le soutiennent. Le résumé et le raisonnement du personnel restent confidentiels. Les réponses ici ne sont ni envoyées ni conservées.",
-    "positionLabel": "Version des faits de cette partie",
-    "choiceTitle": "Que choisit cette partie?",
+    "positionLabel": "Position de la partie",
+    "choiceTitle": "Choix de la partie",
     "choiceHint": "Les deux parties doivent consentir. Selon les règles standard du programme, un approbateur distinct doit aussi autoriser la fermeture.",
     "consent": "Je consens à cette proposition",
     "decline": "Refuser cette proposition",
@@ -89,10 +89,10 @@
       "handoff": "L'automatisation s'arrête et transmet le dossier au personnel du programme. Aucun accord n'est enregistré."
     }
   },
-  "workflowTitle": "Étapes du processus de règlement",
+  "workflowTitle": "Processus de règlement",
   "steps": {
     "intake": {
-      "title": "Ouverture et invitation",
+      "title": "Dépôt et invitation",
       "description": "Les règles du programme vérifient le dossier, puis la partie intimée reçoit une invitation."
     },
     "evidence": {
@@ -100,38 +100,38 @@
       "description": "Chaque personne dépose ses propres preuves et son point de vue. Les éléments manquants ou illisibles sont transmis au personnel."
     },
     "proposal": {
-      "title": "Une proposition avec citations",
+      "title": "Proposition citée",
       "description": "Le service configuré vérifie les preuves extraites et prépare une proposition non contraignante à partir d'une liste limitée de solutions."
     },
     "choice": {
-      "title": "Chaque personne choisit",
+      "title": "Choix des parties",
       "description": "Les deux parties peuvent consentir. Selon les règles standard, le dossier se ferme seulement après leur consentement et l'approbation distincte. Le programme ne peut omettre l'approbation qu'en activant explicitement le règlement par consentement seulement. Un refus, une demande d'examen par une personne ou une incertitude ramène le dossier au personnel."
     }
   },
-  "handoffTitle": "Quand le personnel doit examiner un dossier",
+  "handoffTitle": "Revue du personnel",
   "handoffBody": "Des éléments manquants, illisibles ou contestés, un dossier hors des règles du programme ou la demande de l'une des parties arrêtent l'automatisation et avisent le personnel.",
   "trust": {
     "kicker": "Conçu pour des processus responsables",
-    "title": "Propositions citées, choix des parties",
+    "title": "Propositions citées et choix",
     "intro": "Aequitas organise chaque différend autour des preuves, des versions des parties et de leurs choix. Pour les dossiers admissibles, l’IA peut préparer une proposition non contraignante avec citations.",
     "trace": {
       "title": "Retrouver les sources",
       "body": "Les citations renvoient aux passages des fichiers déposés; les empreintes et les détails d’extraction sont consignés. Elles facilitent l’examen, mais ne prouvent ni l’authenticité d’un fichier ni qu’un extrait appuie une conclusion."
     },
     "separation": {
-      "title": "Préserver la vue de chaque partie",
+      "title": "Vues des parties",
       "body": "Les règles d’accès déterminent qui peut consulter un dossier et y apporter des changements. Chaque partie reçoit son propre résultat et ses propres preuves citées."
     },
     "choice": {
-      "title": "Consigner un choix explicite",
+      "title": "Choix des parties",
       "body": "Chaque partie décide de consentir ou non au résultat courant. Les règles standard du programme maintiennent l’examen d’un approbateur indépendant avant la fermeture."
     },
     "handoff": {
-      "title": "Transmettre le dossier lorsqu’une personne doit intervenir",
+      "title": "Examen humain",
       "body": "Une demande d’examen, une preuve illisible, des renseignements manquants ou un dossier hors portée peuvent ramener le travail au personnel plutôt que de forcer une réponse automatisée."
     },
     "readinessLabel": "État actuel",
-    "readinessTitle": "L’évaluation exige un projet pilote supervisé",
+    "readinessTitle": "Projet pilote",
     "readinessBody": "L’agent de traitement automatisé est désactivé par défaut. Le parcours automatisé démontré a été exercé avec des dossiers synthétiques et un modèle simulé. La qualité d’un modèle en direct, le fonctionnement en production, les politiques du programme et les approbations juridiques et de protection des renseignements doivent encore être validés avant l’usage de dossiers réels. Aequitas ne donne pas d’avis juridique."
   },
   "pilotStatus": "L'agent est désactivé par défaut. Cette version candidate a été exercée avec des dossiers synthétiques et un modèle simulé seulement. Elle n'est pas approuvée pour des dossiers réels.",

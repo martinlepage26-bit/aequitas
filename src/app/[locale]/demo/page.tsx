@@ -41,7 +41,7 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
   const internalSteps = ["rules", "extract", "draft", "record"] as const;
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} aequitas-demo-page`}>
       <div className={styles.hero}>
         <figure className={styles.heroVisual}>
           <div className={styles.heroImageCrop}>

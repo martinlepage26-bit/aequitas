@@ -28,15 +28,15 @@
 @keyframes arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 .partyRecord { animation: arrive 240ms ease-out both; }
 .recordHeader { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
-.recordHeader h3 { margin: 0; font-size: 1.2rem; }
+.recordHeader h3 { margin: 0; font-size: clamp(0.9rem, 1.5vw, 1.08rem); white-space: nowrap; }
 .recordEyebrow { margin: 0 0 4px; color: var(--muted); font-size: 0.82rem; }
 .recordBody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; padding: 22px; }
 .recordField { min-width: 0; padding-left: 14px; border-left: 2px solid var(--control-border); }
 .recordField h4 { margin-bottom: 8px; }
 .positionQuote, .evidenceQuote { margin: 0; color: var(--text); }
-.positionQuote { max-width: 58ch; font-family: var(--font-fraunces), "Iowan Old Style", Palatino, serif; font-size: 1.15rem; line-height: 1.4; }
+.positionQuote { max-width: 58ch; font-family: Georgia, "Times New Roman", serif; font-size: 1.08rem; line-height: 1.45; }
 .sourceLabel { margin: 0 0 6px; color: var(--muted); font-size: 0.84rem; }
-.evidenceQuote { padding: 11px 13px; background: var(--panel-raised); font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 0.9rem; }
+.evidenceQuote { padding: 11px 13px; background: var(--panel-raised); font-family: inherit; font-size: 0.95rem; }
 .proposalField { grid-column: 1 / -1; }
 .proposalDescription { margin: 0 0 8px; color: var(--muted); }
 .proposalText { max-width: 70ch; margin: 0; }

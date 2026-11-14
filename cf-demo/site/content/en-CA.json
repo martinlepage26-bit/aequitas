@@ -11,10 +11,10 @@
   "sampleNoticeBody": "The people, business and evidence below are invented. This browser simulation does not send or save your choices, call a model, or create a case. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
   "overview": {
     "kicker": "What Aequitas is",
-    "title": "A tool for structured dispute resolution",
+    "title": "Structured dispute resolution",
     "body": "Programs use Aequitas to manage two-party disputes through intake, evidence, separate party accounts, proposals, decisions and a recorded outcome.",
     "kind": {
-      "title": "An optional AI-assisted workflow",
+      "title": "Optional AI assistance",
       "body": "For eligible routine retail cases, optional AI can draft an evidence-cited, non-binding proposal. Program rules set eligibility and next steps. AI is off by default."
     },
     "helps": {
@@ -24,34 +24,34 @@
   },
   "inside": {
     "kicker": "Behind the case",
-    "title": "Program rules and software checks",
+    "title": "Rules and software checks",
     "intro": "The program defines case types, remedies, deadlines and handoff conditions. Software checks transitions and records actions.",
     "rules": {
-      "title": "1 · Check scope and consent",
+      "title": "1 · Eligibility and consent",
       "body": "Code checks configured eligibility, required submissions and deadlines. Each party separately chooses whether their case information may be sent to the configured AI provider. Without both choices, the service waits or returns the case to staff."
     },
     "extract": {
-      "title": "2 · Read and trace evidence",
+      "title": "2 · Evidence and citations",
       "body": "Supported files are scanned and text is extracted. The system records hashes, extraction details and exact quoted passages for citations. Unreadable, incomplete or unsupported files go to a person; a citation is a navigation aid, not proof."
     },
     "draft": {
-      "title": "3 · Validate a proposal",
+      "title": "3 · Proposal checks",
       "body": "The model can summarize the record and suggest only from the program’s configured remedy list. Software checks structure, citation links, amount limits and party-specific evidence access. Failed checks or uncertainty stop issuance and trigger staff review."
     },
     "record": {
-      "title": "4 · Put the decision with people",
+      "title": "4 · Party decisions",
       "body": "Parties see their own outcome and choose whether to consent. A decline or request for review goes to staff. Under standard settings, an independent approver must also sign off before closure. The case record can be exported."
     }
   },
   "limits": {
     "kicker": "Limits to understand",
-    "title": "What Aequitas does not do",
+    "title": "Aequitas limits",
     "body": "Aequitas does not decide who is telling the truth, provide legal advice, verify that documents are authentic, or guarantee that a model’s reasoning is correct or neutral. The current AI workflow has been exercised with synthetic cases and a stub model; live-model quality, real-world operations, program rules, privacy and legal readiness still need validation before real case data. Human review and party consent remain central."
   },
-  "caseTitle": "A kettle stops working after purchase",
+  "caseTitle": "Kettle stops working",
   "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
   "amountLabel": "Amount at stake",
-  "evidenceTitle": "Evidence in this party's view",
+  "evidenceTitle": "Evidence in this view",
   "party": {
     "complainant": "Buyer view",
     "respondent": "Shop view"
@@ -63,15 +63,15 @@
     "complainantEvidence": "Electric kettle, $124.50, purchased October 12.",
     "respondentEvidence": "Replacement available within 30 days after inspection."
   },
-  "proposalTitle": "A non-binding proposal",
+  "proposalTitle": "Non-binding proposal",
   "proposalDescription": "The app's fixed wording presents the same structured proposal in each person's language.",
   "interaction": {
-    "title": "Try the two party views",
+    "title": "Compare party views",
     "description": "Switch sides to see how the same fictional case is presented separately. Choose a response for each side to see when the automated service proceeds or stops.",
     "roleLabel": "Choose a fictional view",
     "roleNotice": "This browser simulation lets you switch between both fictional roles. In a real case, each party uses a separate account and sees only its own outcome and cited evidence. Staff summaries and reasoning stay private. Responses here are not sent or saved.",
     "positionLabel": "This party's account",
-    "choiceTitle": "What does this party choose?",
+    "choiceTitle": "Party choice",
     "choiceHint": "Both parties must consent. Under the standard program rules, a separate approver also signs off before closure.",
     "consent": "I consent to this proposal",
     "decline": "Decline this proposal",
@@ -89,7 +89,7 @@
       "handoff": "Automation stops and the case returns to program staff. No agreement is recorded."
     }
   },
-  "workflowTitle": "The dispute-resolution process",
+  "workflowTitle": "Dispute resolution process",
   "steps": {
     "intake": {
       "title": "Intake and invitation",
@@ -100,38 +100,38 @@
       "description": "Each person submits their own evidence and account. Incomplete or unreadable material goes to staff."
     },
     "proposal": {
-      "title": "A cited proposal",
+      "title": "Cited proposal",
       "description": "The configured service checks extracted evidence and prepares a non-binding proposal from a closed remedy list."
     },
     "choice": {
-      "title": "Each person chooses",
+      "title": "Party choice",
       "description": "Both parties may consent. Under the standard rules, the case closes only after their consent and separate approver sign-off. A program can skip sign-off only by explicitly enabling consent-only resolution. Declines, requests for a person and uncertainty return the case to program staff."
     }
   },
-  "handoffTitle": "When program staff must review",
+  "handoffTitle": "Staff review",
   "handoffBody": "Missing, unreadable or disputed material, a case outside program rules, or either person's request stops automation and notifies program staff.",
   "trust": {
     "kicker": "Built for accountable workflows",
-    "title": "Cited proposals, party choices",
+    "title": "Cited proposals and party choice",
     "intro": "Aequitas organizes each dispute around party evidence, accounts and choices. Optional AI can prepare a non-binding proposal with citations for eligible cases.",
     "trace": {
       "title": "Follow the source",
       "body": "Citations point back to passages in submitted files, with hashes and extraction details recorded. They aid review; they do not prove a file is authentic or that a quote supports a conclusion."
     },
     "separation": {
-      "title": "Keep each side's view separate",
+      "title": "Separate party views",
       "body": "Case access rules control who can see submissions and make changes. Each party receives their own outcome and evidence view."
     },
     "choice": {
-      "title": "Record a real choice",
+      "title": "Party choice",
       "body": "Each party decides whether to consent to the current outcome. Standard program rules keep an independent approver in the closure path."
     },
     "handoff": {
-      "title": "Stop when the case needs a person",
+      "title": "Human review",
       "body": "A request for review, unreadable evidence, missing information or an out-of-scope case can return work to program staff instead of forcing an automated answer."
     },
     "readinessLabel": "Current readiness",
-    "readinessTitle": "Evaluation requires a supervised pilot",
+    "readinessTitle": "Supervised pilot",
     "readinessBody": "The automated case agent is off by default. The demonstrated automated workflow has been exercised with synthetic cases and a stub model. Live-model quality, production operations, program policy and legal/privacy approval still require validation before real cases. Aequitas does not give legal advice."
   },
   "pilotStatus": "The case agent is off by default. This release candidate has been exercised with synthetic cases and a stub model only. It is not approved for real case data.",
