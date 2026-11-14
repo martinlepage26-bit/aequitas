@@ -8,13 +8,11 @@
 .primaryAction { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 10px 16px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); font-weight: 650; text-decoration: none; }
 .primaryAction:hover { background: color-mix(in srgb, var(--accent) 86%, var(--text)); text-decoration: none; }
 .textAction { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 0; font-weight: 650; }
-.workflowVisual { display: grid; align-content: center; gap: 14px; min-width: 0; min-height: 320px; margin: 0; padding: 26px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
-.workflowVisual figcaption { color: var(--text); font-weight: 700; }
-.workflowVisual ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
-.workflowVisual li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 12px; align-items: center; padding: 13px 0; border-top: 1px solid var(--border); }
-.workflowVisual li span { color: var(--accent-text); font-family: var(--font-fraunces), Palatino, serif; font-style: italic; }
-.workflowVisual li strong { font-size: 0.96rem; }
-.workflowVisual > p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
+.heroVisual { display: grid; gap: 8px; min-width: 0; margin: 0; }
+.heroImageFrame { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
+.heroImageFrame img { object-fit: cover; }
+.heroVisual figcaption { color: var(--muted); font-size: 0.875rem; }
+.hero h1 { max-width: 14ch; font-size: clamp(2.25rem, 4.8vw, 3.5rem); line-height: 1.08; }
 .sampleNotice { display: grid; grid-template-columns: minmax(11rem, 0.65fr) 1.35fr; gap: 18px; align-items: start; margin: 0 28px; padding: 18px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .sampleNotice h2 { margin: 0; font-size: 1.08rem; }
 .sampleNotice p { max-width: 72ch; margin: 0; color: var(--muted); }
@@ -38,11 +36,18 @@
 .trustSection { padding: 30px 28px 34px; border-top: 1px solid var(--border); background: var(--panel-raised); }
 .trustSection > h2 { max-width: 24ch; margin: 6px 0 8px; font-size: clamp(1.55rem, 3vw, 2.25rem); }
 .trustIntro { max-width: 68ch; margin: 0; color: var(--muted); }
+.overviewPoints { display: grid; margin-top: 20px; }
+.overviewPoints > article { display: grid; grid-template-columns: minmax(13rem, 0.65fr) minmax(0, 1.35fr); gap: 20px; padding: 18px 0; border-top: 1px solid var(--border); }
+.overviewPoints h3, .overviewPoints p { margin: 0; }
 .trustGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin-top: 20px; }
 .trustCard { padding: 18px 0; border-top: 1px solid var(--border); }
-.trustMark { display: block; margin-bottom: 8px; color: var(--accent-text); font: 1.3rem/1 var(--font-geist-sans), sans-serif; }
 .trustCard h3 { margin: 0 0 6px; }
 .trustCard p { max-width: 54ch; margin: 0; color: var(--muted); }
+.processList { margin-top: 20px; border-top: 1px solid var(--border); }
+.processList details { border-bottom: 1px solid var(--border); }
+.processList summary { padding: 15px 34px 15px 0; color: var(--text); font-weight: 650; cursor: pointer; }
+.processList details[open] summary { color: var(--accent-text); }
+.processList details p { max-width: 76ch; margin: 0; padding: 0 0 18px; color: var(--muted); }
 .limits { display: grid; grid-template-columns: minmax(12rem, 0.7fr) 1.3fr; gap: 18px; margin-top: 12px; padding: 20px; border: 1px solid var(--note-border); border-radius: var(--radius-sm); background: var(--note-bg); color: var(--note-text); }
 .limits .kicker { color: inherit; }
 .limits h3 { margin: 6px 0 0; }
@@ -52,7 +57,7 @@
 
 @media (min-width: 900px) {
   .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); padding: 36px; }
-  .workflowVisual { margin-left: 24px; }
+  .heroVisual { margin-left: 24px; }
   .sampleNotice { margin-inline: 36px; }
   .caseSection, .nextSection { padding: 32px 36px; }
   .footer { padding: 20px 36px; }
@@ -67,7 +72,7 @@
   .amount { padding: 0; border-left: 0; }
   .steps { grid-template-columns: 1fr; gap: 16px; }
   .handoff { grid-template-columns: 1fr; gap: 6px; }
-  .trustGrid, .limits { grid-template-columns: 1fr; }
+  .trustGrid, .limits, .overviewPoints > article { grid-template-columns: 1fr; }
   .limits { gap: 10px; padding: 16px; }
   .footer { padding: 18px 20px; }
 }

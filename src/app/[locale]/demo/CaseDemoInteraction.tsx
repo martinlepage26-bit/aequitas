@@ -79,7 +79,7 @@ export default function CaseDemoInteraction({
   }
 
   return (
-    <section className={styles.interaction} aria-labelledby="case-demo-interaction-title" data-testid="case-demo-interaction">
+    <section id="case-demo-interaction" className={styles.interaction} aria-labelledby="case-demo-interaction-title" data-testid="case-demo-interaction">
       <header className={styles.interactionHeader}>
         <div>
           <p className={styles.kicker}>{copy.roleLabel}</p>

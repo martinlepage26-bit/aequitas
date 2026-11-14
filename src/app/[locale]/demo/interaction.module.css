@@ -19,14 +19,13 @@
 .partyProgress { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .partyProgressItem { display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; align-items: center; color: var(--muted); font-size: .9rem; }
 .partyProgressItem > span:first-child { grid-row: span 2; color: var(--muted); }
-.partyProgressItem[data-state="active"] > span:first-child { color: var(--accent-text); animation: signal 1.6s ease-in-out infinite; }
+.partyProgressItem[data-state="active"] > span:first-child { color: var(--accent-text); }
 .partyProgressItem[data-state="consented"] > span:first-child { color: var(--role-manager); }
 .partyProgressItem[data-state="handoff"] > span:first-child { color: var(--danger); }
 .partyProgressItem small { color: var(--muted); font-size: .78rem; }
 .roleNotice { margin: 0 0 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--panel-raised); color: var(--muted); }
 .partyRecord { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); }
 @keyframes arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes signal { 50% { opacity: .48; } }
 .partyRecord { animation: arrive 240ms ease-out both; }
 .recordHeader { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
 .recordHeader h3 { margin: 0; font-size: 1.2rem; }

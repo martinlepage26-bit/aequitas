@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { renderProposal } from "../../../domain/caseAgent/proposal";
@@ -37,6 +38,7 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
     },
   };
   const steps = ["intake", "evidence", "proposal", "choice"] as const;
+  const internalSteps = ["rules", "extract", "draft", "record"] as const;
 
   return (
     <main className={styles.page}>
@@ -46,21 +48,21 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
           <h1 id="demo-title">{t("title")}</h1>
           <p className={styles.intro}>{t("intro")}</p>
           <div className={styles.actions}>
-            <Link className={styles.primaryAction} href={`/${locale}/auth/sign-in`}>{t("signIn")}</Link>
+            <Link className={styles.primaryAction} href="#case-demo-interaction">{t("interaction.title")}</Link>
             <Link className={styles.textAction} href={`/${locale}`}>{t("home")}</Link>
           </div>
         </div>
-        <figure className={styles.workflowVisual} aria-labelledby="demo-workflow-title">
-          <figcaption id="demo-workflow-title">{t("heroFlow.title")}</figcaption>
-          <ol>
-            {steps.map((step, index) => (
-              <li key={step}>
-                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                <strong>{index === 2 ? t("heroFlow.proposal") : t(`steps.${step}.title`)}</strong>
-              </li>
-            ))}
-          </ol>
-          <p>{t("heroFlow.note")}</p>
+        <figure className={styles.heroVisual}>
+          <div className={styles.heroImageFrame}>
+            <Image
+              src="/images/shared-record.webp"
+              alt={t("imageAlt")}
+              fill
+              preload
+              sizes="(max-width: 760px) calc(100vw - 40px), 500px"
+            />
+          </div>
+          <figcaption>{t("imageCaption")}</figcaption>
         </figure>
       </section>
 
@@ -70,10 +72,9 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
       </aside>
 
       <section className={styles.caseSection} aria-labelledby="about-title">
-        <p className={styles.kicker}>{t("overview.kicker")}</p>
         <h2 id="about-title">{t("overview.title")}</h2>
         <p className={styles.trustIntro}>{t("overview.body")}</p>
-        <div className={styles.trustGrid}>
+        <div className={styles.overviewPoints}>
           {(["kind", "helps"] as const).map(item => <article className={styles.trustCard} key={item}>
             <h3>{t(`overview.${item}.title`)}</h3><p>{t(`overview.${item}.body`)}</p>
           </article>)}
@@ -139,38 +140,37 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
       </section>
 
       <section className={styles.trustSection} aria-labelledby="trust-title">
-        <p className={styles.kicker}>{t("trust.kicker")}</p>
         <h2 id="trust-title">{t("trust.title")}</h2>
         <p className={styles.trustIntro}>{t("trust.intro")}</p>
         <div className={styles.trustGrid}>
           {(["trace", "separation", "choice", "handoff"] as const).map(item => (
             <article className={styles.trustCard} key={item}>
-              <span aria-hidden="true" className={styles.trustMark}>—</span>
               <h3>{t(`trust.${item}.title`)}</h3>
               <p>{t(`trust.${item}.body`)}</p>
             </article>
           ))}
         </div>
-        <aside className={styles.limits} aria-labelledby="limits-title">
+        <aside className={styles.limits} aria-labelledby="readiness-title">
           <div>
-            <p className={styles.kicker}>{t("trust.readinessLabel")}</p>
-            <h3 id="limits-title">{t("trust.readinessTitle")}</h3>
+            <h3 id="readiness-title">{t("trust.readinessTitle")}</h3>
           </div>
           <p>{t("trust.readinessBody")}</p>
         </aside>
       </section>
 
       <section className={styles.nextSection} aria-labelledby="inside-title">
-        <p className={styles.kicker}>{t("inside.kicker")}</p>
         <h2 id="inside-title">{t("inside.title")}</h2>
         <p className={styles.trustIntro}>{t("inside.intro")}</p>
-        <div className={styles.trustGrid}>
-          {(["rules", "extract", "draft", "record"] as const).map(item => <article className={styles.trustCard} key={item}>
-            <h3>{t(`inside.${item}.title`)}</h3><p>{t(`inside.${item}.body`)}</p>
-          </article>)}
+        <div className={styles.processList}>
+          {internalSteps.map(item => (
+            <details key={item}>
+              <summary>{t(`inside.${item}.title`)}</summary>
+              <p>{t(`inside.${item}.body`)}</p>
+            </details>
+          ))}
         </div>
         <aside className={styles.limits} aria-labelledby="limits-title">
-          <div><p className={styles.kicker}>{t("limits.kicker")}</p><h3 id="limits-title">{t("limits.title")}</h3></div>
+          <div><h3 id="limits-title">{t("limits.title")}</h3></div>
           <p>{t("limits.body")}</p>
         </aside>
       </section>
