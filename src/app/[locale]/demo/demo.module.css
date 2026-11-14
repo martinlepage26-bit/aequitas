@@ -1,18 +1,8 @@
 .page { display: grid; gap: 0; min-width: 0; max-width: 1120px; margin: 0 auto; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: 0 18px 55px rgb(0 0 0 / 0.055); }
-.hero { display: grid; align-items: center; gap: 24px; padding: 28px; }
-.heroCopy { display: flex; flex-direction: column; align-items: flex-start; }
+.hero { display: grid; padding: 0; }
 .kicker { margin: 0 0 12px; color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; }
-.hero h1 { max-width: 16ch; margin-bottom: 12px; }
-.intro { max-width: 48ch; margin: 0; color: var(--muted); }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 22px; }
-.primaryAction { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 10px 16px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); font-weight: 650; text-decoration: none; }
-.primaryAction:hover { background: color-mix(in srgb, var(--accent) 86%, var(--text)); text-decoration: none; }
-.textAction { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 0; font-weight: 650; }
-.heroVisual { display: grid; gap: 8px; min-width: 0; margin: 0; }
-.heroImageFrame { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
-.heroImageFrame img { object-fit: cover; }
-.heroVisual figcaption { color: var(--muted); font-size: 0.875rem; }
-.hero h1 { max-width: 14ch; font-size: clamp(2.25rem, 4.8vw, 3.5rem); line-height: 1.08; }
+.heroVisual { min-width: 0; margin: 0; }
+.heroVisual img { display: block; width: 100%; height: auto; }
 .sampleNotice { display: grid; grid-template-columns: minmax(11rem, 0.65fr) 1.35fr; gap: 18px; align-items: start; margin: 0 28px; padding: 18px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .sampleNotice h2 { margin: 0; font-size: 1.08rem; }
 .sampleNotice p { max-width: 72ch; margin: 0; color: var(--muted); }
@@ -56,8 +46,6 @@
 .footer p { max-width: 68ch; margin: 0; color: var(--muted); }
 
 @media (min-width: 900px) {
-  .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); padding: 36px; }
-  .heroVisual { margin-left: 24px; }
   .sampleNotice { margin-inline: 36px; }
   .caseSection, .nextSection { padding: 32px 36px; }
   .footer { padding: 20px 36px; }
@@ -65,7 +53,6 @@
 }
 
 @media (max-width: 759px) {
-  .hero { padding: 22px 20px; }
   .sampleNotice { grid-template-columns: 1fr; gap: 6px; margin-inline: 20px; }
   .caseSection, .nextSection { padding: 22px 20px; }
   .caseHeading { flex-direction: column; gap: 16px; }

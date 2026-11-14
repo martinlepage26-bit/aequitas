@@ -49,7 +49,7 @@ button { font: inherit; }
 .lang a.active { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .login { font-size: .9rem; font-weight: 650; text-decoration: none; }
 .login:hover, .text-link:hover { text-decoration: underline; }
-.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(28px, 5vw, 64px); align-items: center; padding: 46px 0 38px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
 .eyebrow { margin: 0 0 11px; color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .hero h1, .section h2, .case-head h3, .view-panel h3, .card h3, .handoff h3, .limits h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; letter-spacing: -.025em; }
 .hero h1 { max-width: 12ch; margin: 0; font-size: clamp(2.35rem, 5vw, 4rem); line-height: 1.06; }
@@ -60,7 +60,7 @@ button { font: inherit; }
 .button:active { transform: translateY(1px); }
 .text-link { min-height: 44px; display: inline-flex; align-items: center; color: var(--accent); font-weight: 650; }
 .visual { min-width: 0; margin: 0; }
-.visual img { display: block; width: 100%; aspect-ratio: 4 / 3; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-raised); object-fit: cover; }
+.visual img { display: block; width: 100%; height: auto; }
 .visual figcaption { margin-top: 7px; color: var(--muted); font-size: .83rem; }
 .notice { display: grid; grid-template-columns: minmax(180px, .55fr) minmax(0, 1.45fr); gap: 24px; align-items: start; padding: 19px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .notice h2 { margin: 0; font-size: 1rem; }
@@ -142,9 +142,7 @@ button { font: inherit; }
   .shell { width: min(100% - 36px, 640px); padding-top: 10px; }
   .topbar { min-height: 58px; }
   .top-actions { gap: 10px; }
-  .hero { grid-template-columns: 1fr; gap: 22px; padding: 30px 0 26px; }
-  .hero h1 { max-width: 12ch; font-size: clamp(2.35rem, 11vw, 3.4rem); }
-  .visual img { aspect-ratio: 4 / 3; }
+  .hero { grid-template-columns: 1fr; gap: 0; padding: 0; }
   .notice, .overview .card, .handoff, .limits { grid-template-columns: 1fr; gap: 8px; }
   .section { padding: 38px 0; }
   .grid, .steps { grid-template-columns: 1fr; }

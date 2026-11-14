@@ -42,29 +42,18 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
 
   return (
     <main className={styles.page}>
-      <section className={styles.hero} aria-labelledby="demo-title">
-        <div className={styles.heroCopy}>
-          <p className={styles.kicker}>{t("kicker")}</p>
-          <h1 id="demo-title">{t("title")}</h1>
-          <p className={styles.intro}>{t("intro")}</p>
-          <div className={styles.actions}>
-            <Link className={styles.primaryAction} href="#case-demo-interaction">{t("interaction.title")}</Link>
-            <Link className={styles.textAction} href={`/${locale}`}>{t("home")}</Link>
-          </div>
-        </div>
+      <div className={styles.hero}>
         <figure className={styles.heroVisual}>
-          <div className={styles.heroImageFrame}>
-            <Image
-              src="/images/shared-record.webp"
-              alt={t("imageAlt")}
-              fill
-              preload
-              sizes="(max-width: 760px) calc(100vw - 40px), 500px"
-            />
-          </div>
-          <figcaption>{t("imageCaption")}</figcaption>
+          <Image
+            src="/images/aequitas-ethics-hero.png"
+            alt="Aequitas for conflict resolution"
+            width={1678}
+            height={937}
+            preload
+            sizes="100vw"
+          />
         </figure>
-      </section>
+      </div>
 
       <aside className={styles.sampleNotice} role="note" aria-labelledby="sample-notice-title">
         <h2 id="sample-notice-title">{t("sampleNoticeTitle")}</h2>

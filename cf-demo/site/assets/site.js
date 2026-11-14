@@ -7,7 +7,7 @@ const proposal = (role) => locale === 'fr-CA'
   ? `${role === 'complainant' ? 'Proposition pour régler votre demande' : 'Proposition pour régler la demande présentée contre votre entreprise'} : le commerçant remplace l’article. Cette proposition n’est pas contraignante et ne constitue pas un avis juridique. Elle ne prend effet que si les deux parties y consentent. Vous pouvez consentir, refuser ou demander qu’une personne examine le dossier.`
   : `${role === 'complainant' ? 'Proposal to settle your claim' : 'Proposal to settle the claim made against your business'}: the business replaces the item. This proposal is not binding and is not legal advice. It takes effect only if both parties consent. You may consent, decline, or ask for a person to review the case.`;
 
-fetch(`/content/${base}.json?v=4`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
+fetch(`/content/${base}.json?v=5`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
   document.title = 'Aequitas';
   appRoot.innerHTML = '<main class="shell"><h1>Aequitas</h1><p>Demo content could not be loaded. Please refresh the page.</p></main>';
 });
@@ -41,7 +41,7 @@ function render(d) {
   const trustCards = trustKeys.map(k => item(d.trust[k].title,d.trust[k].body)).join('');
   appRoot.innerHTML = `<main class="shell">
     <nav class="topbar" aria-label="${isFr?'Navigation principale':'Main navigation'}"><a class="brand" href="/${locale}/"><span class="brand-mark" aria-hidden="true">A</span><span>${words.brand}</span></a><div class="top-actions"><div class="lang" aria-label="${isFr?'Langue':'Language'}"><a class="${isFr?'':'active'}" href="/en-CA/" lang="en-CA">EN</a><a class="${isFr?'active':''}" href="/fr-CA/" lang="fr-CA">FR</a></div><a class="login" href="${login}">${words.login} ↗</a></div></nav>
-    <header class="hero"><div><p class="eyebrow">${text(d.kicker)}</p><h1>${text(d.title)}</h1><p class="lead">${text(d.intro)}</p><div class="hero-actions"><a class="button" href="#try">${text(d.interaction.title)}</a></div></div><figure class="visual"><img src="/images/shared-record.webp" alt="${text(d.imageAlt)}"><figcaption>${text(d.imageCaption)}</figcaption></figure></header>
+    <header class="hero"><figure class="visual"><img src="/images/aequitas-ethics-hero.png" alt="Aequitas for conflict resolution" width="1678" height="937"></figure></header>
     <aside class="notice"><h2>${text(d.sampleNoticeTitle)}</h2><p>${text(d.sampleNoticeBody)}</p></aside>
     ${section(d.overview.title,d.overview.body,item(d.overview.kind.title,d.overview.kind.body)+item(d.overview.helps.title,d.overview.helps.body),'','overview')}
     <section class="section"><div class="case-head"><div><h3>${text(d.caseTitle)}</h3><p>${text(d.caseDescription)}</p></div><div class="amount">${text(d.amountLabel)}<strong>${words.amount}</strong></div></div>
