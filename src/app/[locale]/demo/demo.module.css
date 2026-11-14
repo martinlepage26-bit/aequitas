@@ -1,4 +1,59 @@
-.page { display: grid; gap: 0; min-width: 0; max-width: 1120px; margin: 0 auto; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: 0 18px 55px rgb(0 0 0 / 0.055); }
+.page {
+  --bg: #f4f1e9;
+  --panel: #fbfaf6;
+  --panel-raised: #f0ece2;
+  --text: #2e302d;
+  --muted: #68675f;
+  --border: #d7d0c2;
+  --control-border: #8a816f;
+  --focus: #756449;
+  --note-text: #4e493f;
+  --note-bg: #eee9df;
+  --note-border: #c9bda6;
+  --brand-seed: #99896e;
+  --accent: #756449;
+  --accent-text: #5a5040;
+  --on-accent: #fffdf8;
+  --role-complainant: #755f68;
+  --role-respondent: #5c6873;
+  --role-manager: #5d6a5c;
+  --role-admin: #756449;
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  max-width: 1120px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font-family: "Palatino Linotype", Palatino, Georgia, serif;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.045);
+}
+.page :is(h1, h2, h3, h4) { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -0.01em; }
+.page button, .page input, .page select, .page textarea { font-family: inherit; }
+[data-theme="dark"] .page {
+  --bg: #1c1d1a;
+  --panel: #252622;
+  --panel-raised: #2d2e28;
+  --text: #e6e1d7;
+  --muted: #bdb6a8;
+  --border: #49463d;
+  --control-border: #a79b83;
+  --focus: #c1ad85;
+  --note-text: #dfd5c3;
+  --note-bg: #353229;
+  --note-border: #7c6d50;
+  --brand-seed: #b9a57d;
+  --accent: #b9a57d;
+  --accent-text: #d0bd97;
+  --on-accent: #28261f;
+  --role-complainant: #d1afbc;
+  --role-respondent: #b3c0cb;
+  --role-manager: #b6c4b1;
+  --role-admin: #d0bd97;
+}
 .hero { display: grid; gap: 0; padding: 0; }
 .kicker { margin: 0 0 12px; color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; }
 .heroVisual { width: min(100%, 800px); min-width: 0; margin: 0 auto; }
