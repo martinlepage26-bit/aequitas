@@ -44,15 +44,17 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
     <main className={styles.page}>
       <div className={styles.hero}>
         <figure className={styles.heroVisual}>
-          <Image
-            src="/images/aequitas-ethics-hero.png"
-            alt="Aequitas for conflict resolution"
-            width={1678}
-            height={937}
-            preload
-            sizes="100vw"
-          />
+          <div className={styles.heroImageCrop}>
+            <Image
+              src="/images/aequitas-ethics-hero.jpg"
+              alt="Aequitas for conflict resolution"
+              fill
+              preload
+              sizes="(max-width: 840px) 100vw, 800px"
+            />
+          </div>
         </figure>
+        <p className={styles.heroLine}>{t("heroLine")}</p>
       </div>
 
       <aside className={styles.sampleNotice} role="note" aria-labelledby="sample-notice-title">
