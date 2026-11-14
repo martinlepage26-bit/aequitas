@@ -20,6 +20,8 @@
   --state-consented-soft: #edf4ee;
   --state-review: #8a5547;
   --state-review-soft: #f7efec;
+  --font-body: "Avenir Next", Avenir, "Century Gothic", "Segoe UI", Arial, sans-serif;
+  --font-heading: Futura, "Century Gothic", "Avenir Next", "Segoe UI", Arial, sans-serif;
   --note: #f5f2e9;
   --note-ink: #443d30;
   --shadow: 0 4px 10px rgb(32 52 50 / 4%);
@@ -28,8 +30,8 @@
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.65 "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif; }
-h1, h2, h3, h4 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: 0; white-space: nowrap; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.65 var(--font-body); }
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 500; letter-spacing: 0; white-space: nowrap; }
 a { color: inherit; text-underline-offset: 3px; }
 button { font: inherit; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -37,7 +39,7 @@ button { font: inherit; }
 .shell :is(h1, h2, h3, h4) { letter-spacing: 0; }
 .topbar { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: .045em; text-decoration: none; }
-.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); font-family: Georgia, serif; font-size: 1.15rem; }
+.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--accent); border-radius: 50%; color: var(--accent); font-family: var(--font-heading); font-size: 1.15rem; }
 .top-actions { display: flex; align-items: center; gap: 20px; }
 .lang { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 99px; }
 .lang a { min-width: 38px; padding: 6px 9px; border-radius: 99px; color: var(--muted); font-size: .83rem; text-align: center; text-decoration: none; }
@@ -46,7 +48,7 @@ button { font: inherit; }
 .login:hover, .text-link:hover { text-decoration: underline; }
 .hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0; }
 .eyebrow { margin: 0 0 11px; color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.hero h1, .section h2, .case-head h3, .view-panel h3, .card h3, .handoff h3, .limits h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: 0; white-space: nowrap; }
+.hero h1, .section h2, .case-head h3, .view-panel h3, .card h3, .handoff h3, .limits h3 { font-family: var(--font-heading); font-weight: 500; letter-spacing: 0; white-space: nowrap; }
 .hero h1 { max-width: 12ch; margin: 0; font-size: clamp(2.35rem, 5vw, 4rem); line-height: 1.06; }
 .lead { max-width: 46ch; margin: 19px 0 0; color: var(--muted); font-size: clamp(1rem, 1.4vw, 1.12rem); line-height: 1.65; }
 .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 23px; }
@@ -81,7 +83,7 @@ button { font: inherit; }
 .amount strong { display: block; margin-top: 3px; color: var(--ink); font-size: 1.2rem; }
 .interactive { margin-top: 28px; padding: clamp(18px, 3vw, 30px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
 .interactive-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 22px; }
-.interactive h2 { margin: 0 0 8px; font-family: Georgia, serif; font-size: clamp(1rem, 1.8vw, 1.38rem); }
+.interactive h2 { margin: 0 0 8px; font-family: var(--font-heading); font-size: clamp(1rem, 1.8vw, 1.38rem); }
 .interactive-head p { max-width: 66ch; margin: 0; color: var(--muted); }
 .reset { min-height: 42px; border: 0; background: transparent; color: var(--accent); font-weight: 700; text-decoration: underline; cursor: pointer; white-space: nowrap; }
 .role-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 22px 0 14px; }
