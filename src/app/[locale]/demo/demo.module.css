@@ -8,10 +8,13 @@
 .primaryAction { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 10px 16px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent); color: var(--on-accent); font-weight: 650; text-decoration: none; }
 .primaryAction:hover { background: color-mix(in srgb, var(--accent) 86%, var(--text)); text-decoration: none; }
 .textAction { min-height: 44px; display: inline-flex; align-items: center; padding: 8px 0; font-weight: 650; }
-.visual { min-width: 0; margin: 0; }
-.imageFrame { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
-.imageFrame img { object-fit: cover; }
-.visual figcaption { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
+.workflowVisual { display: grid; align-content: center; gap: 14px; min-width: 0; min-height: 320px; margin: 0; padding: 26px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-raised); }
+.workflowVisual figcaption { color: var(--text); font-weight: 700; }
+.workflowVisual ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.workflowVisual li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 12px; align-items: center; padding: 13px 0; border-top: 1px solid var(--border); }
+.workflowVisual li span { color: var(--accent-text); font-family: var(--font-fraunces), Palatino, serif; font-style: italic; }
+.workflowVisual li strong { font-size: 0.96rem; }
+.workflowVisual > p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
 .sampleNotice { display: grid; grid-template-columns: minmax(11rem, 0.65fr) 1.35fr; gap: 18px; align-items: start; margin: 0 28px; padding: 18px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .sampleNotice h2 { margin: 0; font-size: 1.08rem; }
 .sampleNotice p { max-width: 72ch; margin: 0; color: var(--muted); }
@@ -49,7 +52,7 @@
 
 @media (min-width: 900px) {
   .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); padding: 36px; }
-  .visual { padding-left: 24px; border-left: 1px solid var(--border); }
+  .workflowVisual { margin-left: 24px; }
   .sampleNotice { margin-inline: 36px; }
   .caseSection, .nextSection { padding: 32px 36px; }
   .footer { padding: 20px 36px; }

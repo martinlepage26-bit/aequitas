@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { renderProposal } from "../../../domain/caseAgent/proposal";
@@ -51,17 +50,17 @@ export default async function CaseDemoPage({ params }: { params: Promise<{ local
             <Link className={styles.textAction} href={`/${locale}`}>{t("home")}</Link>
           </div>
         </div>
-        <figure className={styles.visual}>
-          <div className={styles.imageFrame}>
-            <Image
-              src="/images/shared-record.webp"
-              alt=""
-              fill
-              loading="eager"
-              sizes="(max-width: 760px) calc(100vw - 40px), 440px"
-            />
-          </div>
-          <figcaption>{t("imageCaption")}</figcaption>
+        <figure className={styles.workflowVisual} aria-labelledby="demo-workflow-title">
+          <figcaption id="demo-workflow-title">{t("heroFlow.title")}</figcaption>
+          <ol>
+            {steps.map((step, index) => (
+              <li key={step}>
+                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                <strong>{index === 2 ? t("heroFlow.proposal") : t(`steps.${step}.title`)}</strong>
+              </li>
+            ))}
+          </ol>
+          <p>{t("heroFlow.note")}</p>
         </figure>
       </section>
 

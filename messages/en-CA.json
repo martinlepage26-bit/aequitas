@@ -989,18 +989,59 @@
     }
   },
   "caseDemo": {
-    "title": "A routine case, step by step",
-    "metadata": "An interactive bilingual walkthrough of a fictional Aequitas retail dispute. Choices stay on this page; no model is called.",
-    "kicker": "Synthetic walkthrough",
-    "intro": "See how a configured routine case could move from intake to an evidence-cited proposal, while each party keeps control of their own submissions and choice.",
+    "title": "A tool for conflict resolution",
+    "metadata": "A bilingual conflict-resolution tool with an optional AI-assisted workflow for eligible consumer disputes.",
+    "kicker": "Conflict resolution tool",
+    "intro": "Aequitas helps organizations manage disputes through a structured, bilingual workflow. Designed for programs handling recurring, lower-complexity consumer disputes, it organizes intake, evidence, each party’s account, non-binding proposals and outcomes. Program rules set eligibility and next steps; AI can help prepare evidence-cited proposals for eligible cases. The case agent is off by default, and each party controls their response.",
+    "heroFlow": {
+      "title": "Typical workflow set by the program",
+      "proposal": "Optional AI-assisted proposal",
+      "note": "Program rules govern the process. AI is optional; people retain the choice."
+    },
     "signIn": "Sign in with a passkey",
     "home": "Back to Aequitas",
     "imageCaption": "A shared record keeps each step traceable.",
     "sampleNoticeTitle": "This is an illustration",
     "sampleNoticeBody": "The people, business and evidence below are invented. This browser simulation does not send or save your choices, call a model, or create a case. Live-model quality and production operations have not been validated. In the app, citations help you find quoted passages in submitted evidence. They do not verify the documents or prove that a passage supports a proposal.",
-    "overview": { "kicker": "What Aequitas is", "title": "A case workspace for structured dispute resolution", "body": "Aequitas is a bilingual case-management tool for programs that resolve disputes between two parties. It brings intake, evidence, each party’s account, recommendations, decisions and the final record into one controlled workflow.", "kind": { "title": "An optional AI-assisted workflow", "body": "For configured, eligible routine retail cases, an AI service can help staff prepare an evidence-cited, non-binding proposal. Deterministic program rules control eligibility and next steps; AI drafts within those limits. The case agent is off by default." }, "helps": { "title": "Where it may help", "body": "Programs may use Aequitas to organize recurring, lower-complexity consumer disputes, reduce manual coordination, show each party what information supports a proposal, and keep exceptions visible for staff. It does not promise faster resolution or a particular outcome." } },
-    "inside": { "kicker": "Behind the case", "title": "Rules set the path; AI has a bounded drafting role", "intro": "The program defines the case types, remedy options, time limits and handoff conditions. The software checks each transition and records who did what.", "rules": { "title": "1 · Check scope and consent", "body": "Code checks configured eligibility, required submissions and deadlines. Each party separately chooses whether their case information may be sent to the configured AI provider. Without both choices, the service waits or returns the case to staff." }, "extract": { "title": "2 · Read and trace evidence", "body": "Supported files are scanned and text is extracted. The system records hashes, extraction details and exact quoted passages for citations. Unreadable, incomplete or unsupported files go to a person; a citation is a navigation aid, not proof." }, "draft": { "title": "3 · Validate a proposal", "body": "The model can summarize the record and suggest only from the program’s configured remedy list. Software checks structure, citation links, amount limits and party-specific evidence access. Failed checks or uncertainty stop issuance and trigger staff review." }, "record": { "title": "4 · Put the decision with people", "body": "Parties see their own outcome and choose whether to consent. A decline or request for review goes to staff. Under standard settings, an independent approver must also sign off before closure. The case record can be exported." } },
-    "limits": { "kicker": "Limits to understand", "title": "Support for a process, not a verdict", "body": "Aequitas does not decide who is telling the truth, provide legal advice, verify that documents are authentic, or guarantee that a model’s reasoning is correct or neutral. The current AI workflow has been exercised with synthetic cases and a stub model; live-model quality, real-world operations, program rules, privacy and legal readiness still need validation before real case data. Human review and party consent remain central." },
+    "overview": {
+      "kicker": "What Aequitas is",
+      "title": "A case workspace for structured dispute resolution",
+      "body": "Aequitas is a bilingual case-management tool for programs that resolve disputes between two parties. It brings intake, evidence, each party’s account, recommendations, decisions and the final record into one controlled workflow.",
+      "kind": {
+        "title": "An optional AI-assisted workflow",
+        "body": "For configured, eligible routine retail cases, an AI service can help staff prepare an evidence-cited, non-binding proposal. Deterministic program rules control eligibility and next steps; AI drafts within those limits. The case agent is off by default."
+      },
+      "helps": {
+        "title": "Where it may help",
+        "body": "Programs may use Aequitas to organize recurring, lower-complexity consumer disputes, reduce manual coordination, show each party what information supports a proposal, and keep exceptions visible for staff. It does not promise faster resolution or a particular outcome."
+      }
+    },
+    "inside": {
+      "kicker": "Behind the case",
+      "title": "Rules set the path; AI has a bounded drafting role",
+      "intro": "The program defines the case types, remedy options, time limits and handoff conditions. The software checks each transition and records who did what.",
+      "rules": {
+        "title": "1 · Check scope and consent",
+        "body": "Code checks configured eligibility, required submissions and deadlines. Each party separately chooses whether their case information may be sent to the configured AI provider. Without both choices, the service waits or returns the case to staff."
+      },
+      "extract": {
+        "title": "2 · Read and trace evidence",
+        "body": "Supported files are scanned and text is extracted. The system records hashes, extraction details and exact quoted passages for citations. Unreadable, incomplete or unsupported files go to a person; a citation is a navigation aid, not proof."
+      },
+      "draft": {
+        "title": "3 · Validate a proposal",
+        "body": "The model can summarize the record and suggest only from the program’s configured remedy list. Software checks structure, citation links, amount limits and party-specific evidence access. Failed checks or uncertainty stop issuance and trigger staff review."
+      },
+      "record": {
+        "title": "4 · Put the decision with people",
+        "body": "Parties see their own outcome and choose whether to consent. A decline or request for review goes to staff. Under standard settings, an independent approver must also sign off before closure. The case record can be exported."
+      }
+    },
+    "limits": {
+      "kicker": "Limits to understand",
+      "title": "Support for a process, not a verdict",
+      "body": "Aequitas does not decide who is telling the truth, provide legal advice, verify that documents are authentic, or guarantee that a model’s reasoning is correct or neutral. The current AI workflow has been exercised with synthetic cases and a stub model; live-model quality, real-world operations, program rules, privacy and legal readiness still need validation before real case data. Human review and party consent remain central."
+    },
     "caseTitle": "A kettle stops working after purchase",
     "caseDescription": "A fictional buyer reports an appliance fault. The shop confirms that a replacement is available. This example uses two short, invented evidence excerpts.",
     "amountLabel": "Amount at stake",
@@ -1067,10 +1108,22 @@
       "kicker": "Built for accountable workflows",
       "title": "A proposal people can inspect. A choice people keep.",
       "intro": "Aequitas organizes a dispute around the parties' evidence, positions and decisions. For configured, eligible cases, an optional service can prepare a non-binding proposal with links to the passages it used.",
-      "trace": { "title": "Follow the source", "body": "Citations point back to passages in submitted files, with hashes and extraction details recorded. They aid review; they do not prove a file is authentic or that a quote supports a conclusion." },
-      "separation": { "title": "Keep each side's view separate", "body": "Case access rules control who can see submissions and make changes. Each party receives their own outcome and evidence view." },
-      "choice": { "title": "Record a real choice", "body": "Each party decides whether to consent to the current outcome. Standard program rules keep an independent approver in the closure path." },
-      "handoff": { "title": "Stop when the case needs a person", "body": "A request for review, unreadable evidence, missing information or an out-of-scope case can return work to program staff instead of forcing an automated answer." },
+      "trace": {
+        "title": "Follow the source",
+        "body": "Citations point back to passages in submitted files, with hashes and extraction details recorded. They aid review; they do not prove a file is authentic or that a quote supports a conclusion."
+      },
+      "separation": {
+        "title": "Keep each side's view separate",
+        "body": "Case access rules control who can see submissions and make changes. Each party receives their own outcome and evidence view."
+      },
+      "choice": {
+        "title": "Record a real choice",
+        "body": "Each party decides whether to consent to the current outcome. Standard program rules keep an independent approver in the closure path."
+      },
+      "handoff": {
+        "title": "Stop when the case needs a person",
+        "body": "A request for review, unreadable evidence, missing information or an out-of-scope case can return work to program staff instead of forcing an automated answer."
+      },
       "readinessLabel": "Current readiness",
       "readinessTitle": "A product to evaluate with a supervised pilot",
       "readinessBody": "The automated case agent is off by default. The demonstrated automated workflow has been exercised with synthetic cases and a stub model. Live-model quality, production operations, program policy and legal/privacy approval still require validation before real cases. Aequitas does not give legal advice."

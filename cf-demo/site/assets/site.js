@@ -7,7 +7,7 @@ const proposal = (role) => locale === 'fr-CA'
   ? `${role === 'complainant' ? 'Proposition pour régler votre demande' : 'Proposition pour régler la demande présentée contre votre entreprise'} : le commerçant remplace l’article. Cette proposition n’est pas contraignante et ne constitue pas un avis juridique. Elle ne prend effet que si les deux parties y consentent. Vous pouvez consentir, refuser ou demander qu’une personne examine le dossier.`
   : `${role === 'complainant' ? 'Proposal to settle your claim' : 'Proposal to settle the claim made against your business'}: the business replaces the item. This proposal is not binding and is not legal advice. It takes effect only if both parties consent. You may consent, decline, or ask for a person to review the case.`;
 
-fetch(`/content/${base}.json`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
+fetch(`/content/${base}.json?v=2`).then(r => { if (!r.ok) throw new Error('content unavailable'); return r.json(); }).then(d => render(d)).catch(() => {
   document.title = 'Aequitas';
   appRoot.innerHTML = '<main class="shell"><h1>Aequitas</h1><p>Demo content could not be loaded. Please refresh the page.</p></main>';
 });
@@ -19,6 +19,7 @@ function render(d) {
   const login = `https://aequitas.app.pharos-ai.ca/${locale}/auth/sign-in`;
   const words = isFr ? {
     brand:'AEQUITAS', login:'Connexion', view:'Une vue fictive', caption:d.imageCaption,
+    flowTitle:d.heroFlow.title, flowStages:[d.steps.intake.title,d.steps.evidence.title,d.heroFlow.proposal,d.steps.choice.title], flowNote:d.heroFlow.note,
     interactionLead:'Simulation interactive', amount:'124,50 $ CA', evidence:'Extrait de preuve fictif',
     proposal:'Proposition non contraignante', progress:'Réponses des parties', pending:'Choix attendu', consented:'Consentement donné', staff:'Examen par le personnel',
     thisAccount:'Version des faits de cette partie', actions:'Que choisit cette partie?', reset:'Recommencer', consent:'Je consens à cette proposition', decline:'Refuser cette proposition', human:'Demander l’examen par une personne',
@@ -26,6 +27,7 @@ function render(d) {
     footerLink:'Voir les détails du parcours', signIn:'Se connecter à Aequitas'
   } : {
     brand:'AEQUITAS', login:'Sign in', view:'Fictional view', caption:d.imageCaption,
+    flowTitle:d.heroFlow.title, flowStages:[d.steps.intake.title,d.steps.evidence.title,d.heroFlow.proposal,d.steps.choice.title], flowNote:d.heroFlow.note,
     interactionLead:'Interactive simulation', amount:'CA$124.50', evidence:'Fictional evidence excerpt',
     proposal:'Non-binding proposal', progress:'Party responses', pending:'Choice pending', consented:'Consented', staff:'Staff review',
     thisAccount:"This party’s account", actions:'What does this party choose?', reset:'Start again', consent:'I consent to this proposal', decline:'Decline this proposal', human:'Ask a person to review',
@@ -43,7 +45,7 @@ function render(d) {
   const insideCards = insideKeys.map(k => item(d.inside[k].title,d.inside[k].body)).join('');
   appRoot.innerHTML = `<main class="shell">
     <nav class="topbar" aria-label="${isFr?'Navigation principale':'Main navigation'}"><a class="brand" href="/${locale}/"><span class="brand-mark" aria-hidden="true">A</span><span>${words.brand}</span></a><div class="top-actions"><div class="lang" aria-label="${isFr?'Langue':'Language'}"><a class="${isFr?'':'active'}" href="/en-CA/" lang="en-CA">EN</a><a class="${isFr?'active':''}" href="/fr-CA/" lang="fr-CA">FR</a></div><a class="login" href="${login}">${words.login} ↗</a></div></nav>
-    <header class="hero"><div><p class="eyebrow">${text(d.kicker)}</p><h1>${text(d.title)}</h1><p class="lead">${text(d.intro)}</p><div class="hero-actions"><a class="button" href="#try">${text(d.interaction.title)} ↓</a><a class="text-link" href="${login}">${words.signIn} ↗</a></div></div><figure class="visual" role="img" aria-label="${text(d.imageCaption)}"><div class="orbit"></div><div class="record" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="seal" aria-hidden="true">A</div><figcaption class="visual-caption">${text(words.caption)}</figcaption></figure></header>
+    <header class="hero"><div><p class="eyebrow">${text(d.kicker)}</p><h1>${text(d.title)}</h1><p class="lead">${text(d.intro)}</p><div class="hero-actions"><a class="button" href="#try">${text(d.interaction.title)} ↓</a><a class="text-link" href="${login}">${words.signIn} ↗</a></div></div><figure class="visual"><figcaption class="flow-title">${text(words.flowTitle)}</figcaption><ol class="hero-flow">${words.flowStages.map((stage,i)=>`<li><span>${String(i+1).padStart(2,'0')}</span><strong>${text(stage)}</strong></li>`).join('')}</ol><p class="flow-note">${text(words.flowNote)}</p></figure></header>
     <aside class="notice"><h2>${text(d.sampleNoticeTitle)}</h2><p>${text(d.sampleNoticeBody)}</p></aside>
     ${section(d.overview.kicker,d.overview.title,d.overview.body,item(d.overview.kind.title,d.overview.kind.body)+item(d.overview.helps.title,d.overview.helps.body))}
     <section class="section"><p class="eyebrow">${text(words.view)}</p><div class="case-head"><div><h3>${text(d.caseTitle)}</h3><p>${text(d.caseDescription)}</p></div><div class="amount">${text(d.amountLabel)}<strong>${words.amount}</strong></div></div>
